@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/pip install:*)",
+      "Bash(.venv/bin/python:*)",
+      "Bash(.venv/bin/pip show:*)",
+      "Bash(do echo:*)",
+      "Bash(git:*)",
+      "Bash(chmod +x:*)",
+      "Bash(bash:*)",
+      "Bash(launchctl stop:*)",
+      "Bash(launchctl start:*)",
+      "Bash(launchctl list:*)",
+      "Bash(find ~/.claude -name *.md)",
+      "Read(//Users/geoffhoekstra/**)",
+      "Bash(/dev/null -type d -name *travelocer* -o -name *travel*)",
+      "WebSearch",
+      "WebFetch(domain:serpapi.com)",
+      "Bash(python3 -m venv .venv)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(pip install:*)",
+      "Bash(SERPAPI_MOCK=1 python -c \"from main import app; print\\(''App imports OK''\\)\")",
+      "WebFetch(domain:dev.to)",
+      "WebFetch(domain:www.searchapi.io)",
+      "Bash(python -m playwright install chromium)",
+      "Bash(SERPAPI_MOCK=1 python -c \"from main import app; from lib.schemas import SearchConstraints; c = SearchConstraints\\(month=7\\); print\\(''arrival_id empty:'', repr\\(c.arrival_id\\)\\); c2 = SearchConstraints\\(month=7, destination_input=''Europe''\\); print\\(''Europe arrival_id:'', repr\\(c2.arrival_id\\)\\); c3 = SearchConstraints\\(month=7, destination_input=''BCN''\\); print\\(''BCN arrival_id:'', repr\\(c3.arrival_id\\)\\)\")",
+      "Bash(SERPAPI_MOCK=1 python -c \"from main import app; print\\(''OK''\\)\")",
+      "Bash(source ~/.zshrc)",
+      "Bash(alias claudo:*)"
+    ]
+  }
+}

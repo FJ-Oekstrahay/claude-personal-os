@@ -1,0 +1,23 @@
+# Ephemeral / large / private
+cache/
+debug/
+file-history/
+history.jsonl
+paste-cache/
+session-env/
+sessions/
+shell-snapshots/
+stats-cache.json
+tasks/
+telemetry/
+todos/
+
+# Contains secrets (Discord bot token etc)
+channels/
+
+# Backups are redundant if we're doing git
+backups/
+
+# Conversation session files in project dirs (keep memory/ subdirs)
+projects/**/*.jsonl
+projects/**/subagents/
