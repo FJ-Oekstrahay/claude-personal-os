@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "plugins": {
+    "discord@claude-plugins-official": [
+      {
+        "scope": "user",
+        "installPath": "/Users/moltyjoe/.claude/plugins/cache/claude-plugins-official/discord/0.0.1",
+        "version": "0.0.1",
+        "installedAt": "2026-03-21T01:37:45.087Z",
+        "lastUpdated": "2026-03-21T01:37:45.087Z",
+        "gitCommitSha": "61c0597779bd2d670dcd4fbbf37c66aa19eb2ce6"
+      }
+    ]
+  }
+}
