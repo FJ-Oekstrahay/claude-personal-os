@@ -1,9 +1,9 @@
-Ask Geoff for a short name for this handoff (e.g. "sales-automation", "infra-cleanup"). Then write the session handoff note to `~/.openclaw/workspace/HANDOFF-{name}-{YYYY-MM-DD-HHMM}.md` where `{YYYY-MM-DD-HHMM}` is the current date and time (e.g. `HANDOFF-sales-automation-2026-03-19-1432.md`). This file is the canonical handoff between Claude Code sessions.
+Ask the user for a short name for this handoff (e.g. "sales-automation", "infra-cleanup"). Then write the session handoff note to `~/.openclaw/workspace/HANDOFF-{name}-{YYYY-MM-DD-HHMM}.md` where `{YYYY-MM-DD-HHMM}` is the current date and time (e.g. `HANDOFF-sales-automation-2026-03-19-1432.md`). This file is the canonical handoff between Claude Code sessions.
 
 Structure it as follows:
 
 ## Accomplished
-What was done this session, with enough specificity that the next session can verify it (file paths, command output, diffs). Group by topic. Note if Geoff did something manually.
+What was done this session, with enough specificity that the next session can verify it (file paths, command output, diffs). Group by topic. Note if the user did something manually.
 
 ## Pending / Not Done
 Items that were discussed, started, or intended but not completed. Note why (blocked, skipped, deprioritized).
@@ -45,7 +45,7 @@ Rules:
 - Write a new handoff file — do NOT update old handoff files. Old handoffs are archives; once written they are not needed again. New sessions load the most recent handoff.
 - If this session changed any system config (new/removed agents, plugins toggled, integrations added, hardware changed), update `~/.openclaw/workspace/memory/system_info.md` to reflect it and note it under Lessons Captured.
 - Evidence-based only. Don't claim something is done without a file path, command, or diff to back it up.
-- Be specific about what Geoff did manually vs what you did.
+- Be specific about what the user did manually vs what you did.
 - Update `~/.openclaw/workspace/BOARD.md` first if any board items changed status this session, then reference the board in the handoff rather than duplicating the full backlog.
 - Keep it under ~60 lines. If it's longer, you're putting too much in the handoff instead of the board.
 - Use Obsidian wiki-links (`[[filename]]`) when referencing workspace .md files — playbooks, BOARD, AGENTS, GOVERNANCE, etc. Use the filename without extension and without path (e.g. `[[launchd_git_backup_cron]]` not the full path). This makes the handoff navigable in Obsidian.
