@@ -37,7 +37,6 @@ PROTECTED_PATTERNS=(
   "auth-profiles"
   "\.env"
   "LaunchAgents/com\.bluebubbles"
-  "agents/.*/agent/IDENTITY\.md"
 )
 
 for pattern in "${PROTECTED_PATTERNS[@]}"; do

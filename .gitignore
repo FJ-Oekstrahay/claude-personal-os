@@ -19,5 +19,8 @@ channels/
 backups/
 
 # Conversation session files in project dirs (keep memory/ subdirs)
-projects/**/*.jsonl
-projects/**/subagents/
+*.jsonl
+**/subagents/
+**/tool-results/
+# Session UUID directories (hex names) under projects
+projects/*/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-*/

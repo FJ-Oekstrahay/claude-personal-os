@@ -22,7 +22,17 @@
       "Bash(launchctl load ~/Library/LaunchAgents/ai.openclaw.gateway.plist)",
       "Bash(launchctl unload ~/Library/LaunchAgents/ai.openclaw.gateway.plist)",
       "Bash(openclaw gateway restart)",
-      "Bash(launchctl list ai.openclaw.gateway)"
+      "Bash(launchctl list ai.openclaw.gateway)",
+      "WebFetch",
+      "Bash(openclaw memory search*)",
+      "Bash(openclaw memory status*)",
+      "Bash(openclaw cron list*)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(tail *)",
+      "Bash(grep *)",
+      "Bash(jq *)",
+      "Bash(pa-restart)"
     ],
     "deny": [
       "Bash(rm -rf*)",
@@ -89,5 +99,8 @@
         "repo": "anthropics/claude-plugins-official"
       }
     }
-  }
+  },
+  "effortLevel": "medium",
+  "voiceEnabled": false,
+  "skipDangerousModePermissionPrompt": true
 }

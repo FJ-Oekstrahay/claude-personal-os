@@ -1,9 +1,20 @@
-Check and report the live state of the OpenClaw system:
-1. `launchctl list ai.openclaw.gateway` — gateway launchd status (PID + exit code)
-2. `launchctl list com.bluebubbles.server` — BlueBubbles status
-3. `lsof -i :18789` — who's listening on the gateway port?
-4. `ls -lt ~/.openclaw/agents/*/sessions/ 2>/dev/null | head -20` — recent agent activity
-5. For channel status, extract only the non-sensitive fields from openclaw.json using:
-   `jq '{channels: .channels | to_entries | map({key, enabled: .value.enabled})}' ~/.openclaw/openclaw.json`
-   Do NOT read the full file — it contains live tokens.
-6. Report: gateway status, BlueBubbles status, which channels are enabled, any anomalies
+Check and report the live state of the OpenClaw system.
+
+Spawn a Seymour agent (subagent_type: "seymour", model: "haiku") with this task:
+
+> Run these commands and return all output verbatim:
+> 1. `launchctl list ai.openclaw.gateway`
+> 2. `launchctl list com.bluebubbles.server`
+> 3. `lsof -i :'<gateway-port>'`
+> 4. `ls -lt ~/.openclaw/agents/*/sessions/ 2>/dev/null | head -20`
+> 5. `jq '{channels: .channels | to_entries | map({key, enabled: .value.enabled})}' ~/.openclaw/openclaw.json`
+>    (Do NOT read the full openclaw.json — it contains live tokens. This jq command extracts only safe fields.)
+>
+> Return all output verbatim, one section per command, labeled by command number.
+
+Wait for Seymour to finish, then report to Geoff:
+- Gateway status (PID, exit code, whether port <gateway-port> is listening)
+- BlueBubbles status
+- Which channels are enabled/disabled
+- Recent agent session activity (who was active, when)
+- Any anomalies
