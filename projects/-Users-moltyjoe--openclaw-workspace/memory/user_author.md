@@ -11,3 +11,5 @@ Home office has a Wahoo KICKR smart trainer with his old mountain bike clipped i
 Communication: casual, direct. No emoji, no fluff.
 
 macOS version: 26.3.1 (25D2128). Tailscale active between Mac and iPhone. ElevenLabs voice ID: `p4obTiHKLtDPScKL6P2f`. No kid-mode voice toggle needed for now (may add later).
+
+Drone/RC equipment is purchased through his company **OverVYOU LLC**.
