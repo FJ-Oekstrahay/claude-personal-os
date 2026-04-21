@@ -1,12 +1,44 @@
 # Memory Index
 
 - [feedback_architect_opus.md](feedback_architect_opus.md) — Always invoke The Architect with model:opus when Geoff asks for an architect review
+- [feedback_discord_launch.md](feedback_discord_launch.md) — When launched via Discord, send a Discord reply confirming work started and when done — terminal output doesn't reach Geoff
 
 - [reference_doc.md](reference_doc.md) — Claude Code reference doc location and purpose
 - [feedback_file_search.md](feedback_file_search.md) — When file location unknown, ask before searching
 - [feedback_compact_checkpoint.md](feedback_compact_checkpoint.md) — Always advise /compact-checkpoint, not /compact alone
-- [project_board.md](project_board.md) — Project board location (`workspace/project-board/BOARD.md`) — tracks all active/blocked/someday work; update on session-handoff
+- [feedback_snapshot_skill.md](feedback_snapshot_skill.md) — /snapshot = lightweight save (no prompts); /load-handoff shows 5 most recent; cross-app conversation access is impossible
+- [project_board.md](project_board.md) — Project board location + current snapshot of all active/blocked/someday work; update on session-handoff
+- [feedback_session_start_board.md](feedback_session_start_board.md) — READ THE BOARD AT SESSION START — always, no exceptions, regardless of first question
 - [acp_sessions.md](acp_sessions.md) — ACP session setup: acpx plugin config, model control, MoltyJoe approval flow, gateway restart command
 - [user_geoff.md](user_geoff.md) — Geoff's background, home office setup (Wahoo KICKR + mountain bike), communication prefs
 - [openclaw_discord_channels.md](openclaw_discord_channels.md) — Guild channels config gotcha: non-listed channels are silently denied; always list all agent channels explicitly
 - [user_career_goals.md](user_career_goals.md) — Geoff's career background (30yr technical sales, $8M NW), goals for what comes next, and how to frame project/advice priorities
+- [feedback_gateway_restart.md](feedback_gateway_restart.md) — After approved config changes, restart gateway immediately — don't present it as a manual step
+- [project_memory_troubleshooting.md](project_memory_troubleshooting.md) — H4 cross-agent memory test: root causes (missing group:memory, weak IDENTITY.md chain), fixes applied, full tool group reference map
+- [reference_playbooks.md](reference_playbooks.md) — ALWAYS check workspace playbook index (memory/00_index.md) before asking clarifying questions about tasks
+- [feedback_model_tiering.md](feedback_model_tiering.md) — Break work into Haiku (recon) / Sonnet (execute) / Opus (plan) tiers; classify before acting
+- [project_photo_sync.md](project_photo_sync.md) — Photo sync pipeline: gog Drive API, joe.moltson auth gotcha, scripts, cron, manual run command
+- [feedback_pro_token_cost.md](feedback_pro_token_cost.md) — Pro tokens are rate-limited; treat as real budget. TalonForge API calls cost API dollars, not Pro tokens.
+- [feedback_gdoc_markdown_conversion.md](feedback_gdoc_markdown_conversion.md) — Use pandoc (not python markdown module) for markdown→HTML→Google Doc; python markdown module not installed
+- [feedback_web_obstacles.md](feedback_web_obstacles.md) — When blocked by login/auth/Chrome conflicts in web automation, ask Geoff first — one sentence, not a workaround spiral
+- [project_nightly_git_cron.md](project_nightly_git_cron.md) — Nightly workspace git commit cron: planned, on board, not yet implemented — no technical blocker
+- [feedback_install_checks.md](feedback_install_checks.md) — Check if tool is already installed before suggesting install; briefly consider upgrade conflicts. ngrok 3.37.2 already installed.
+- [feedback_no_uninstructed_calls.md](feedback_no_uninstructed_calls.md) — Never initiate outbound calls (Twilio/make_call.py) unless Geoff explicitly says to call in that turn
+- [reference_fpv_betaflight.md](reference_fpv_betaflight.md) — Betaflight CLI, DJI O4 Pro OSD/low-power-mode diagnostics, Seeker3 config, ELRS binding, firmware versions
+- [project_droneteleo.md](project_droneteleo.md) — DroneWhisper renamed to Droneteleo (2026-04-07); first working version: Python serial CLI to Seeker3, factory diff migration 4.4.3→2025.12
+- [playbook_xactly_download.md](playbook_xactly_download.md) — Scripts to download Xactly dashboard (xlsx) and order detail (csv); requires Chrome on port 9222 with 2FA done first
+- [playbook_trademark_filing.md](playbook_trademark_filing.md) — Full USPTO trademark filing via Playwright: auth, ID Manual search, CSS intercept pattern, fees, ITU deadlines, receipt in .playwright-mcp/
+- [feedback_low_touch_mode.md](feedback_low_touch_mode.md) — "low-touch mode" = autonomous sprint; work through anything hands-free; ask about iPad before skipping auth tasks
+- [feedback_triage_before_execute.md](feedback_triage_before_execute.md) — Before writing code or executing, ask if Geoff wants to triage and delegate to Seymour / The Architect
+- [project_prior_auth_bot.md](project_prior_auth_bot.md) — Prior auth bot test call: run `pa-test-call [number]`; 5053063104 = Geoff's test line
+- [user_agent_names.md](user_agent_names.md) — Agent names: Claudo = me (Sonnet), Seymour = Haiku, Cob = Sonnet programmer (context isolation/Bob replacement), The Architect = Opus
+- [feedback_agent_autonomy.md](feedback_agent_autonomy.md) — Always offer agents freedom to use Seymour/Haiku/copies of themselves; Claudo has same freedom — standing rule
+- [feedback_context_hygiene.md](feedback_context_hygiene.md) — Push mechanical work to subagents; main thread stays decision-only; what to pass, what subagents return, when to break the rule
+- [feedback_gog_auth.md](feedback_gog_auth.md) — If gog auth fails, ask Geoff to re-auth — don't spiral into workarounds
+- [feedback_public_identity.md](feedback_public_identity.md) — Public moniker is FJ (not Geoff); gog is not Geoff's tool, don't credit it to him
+- [feedback_versioning.md](feedback_versioning.md) — Never delete old Drive files; add version number to new versions instead
+- [feedback_timezone.md](feedback_timezone.md) — Always express times in Eastern (ET), never UTC
+- [reference_tailscale.md](reference_tailscale.md) — Tailscale already installed and active on Mac Mini + all iOS devices
+- [reference_google_drive_paths.md](reference_google_drive_paths.md) — Google Drive local path: `/Users/moltyjoe/Library/CloudStorage/GoogleDrive-geoff.k.hoekstra@gmail.com/My Drive/`
+- [feedback_save_significant_code.md](feedback_save_significant_code.md) — Any non-trivial script that works MUST be committed before session ends — never leave as temp artifact
+- [feedback_motor_safety.md](feedback_motor_safety.md) — ALWAYS ask permission before spinning motors — props may be on, blade hazard

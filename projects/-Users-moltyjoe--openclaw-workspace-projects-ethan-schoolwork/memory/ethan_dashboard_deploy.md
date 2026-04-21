@@ -2,28 +2,24 @@
 name: Ethan Dashboard Deploy Process
 description: How to update and push Ethan's homework dashboard to GitHub Pages
 type: project
+originSessionId: 6a8a26c2-2910-4e23-9387-ff04963e5849
 ---
-
 Live URL: https://fj-oekstrahay.github.io/ethan-dashboard/
 
 GitHub repo: https://github.com/FJ-Oekstrahay/ethan-dashboard
 
-Source file: `/Users/moltyjoe/.openclaw/workspace/projects/ethan_schoolwork/ethan-dashboard.html`
+Source dir (IS the git repo): `/Users/moltyjoe/.openclaw/workspace/projects/ethan_schoolwork/`
 
-Deploy dir: `/tmp/ethan-dashboard/` (index.html is the renamed copy)
+Key files: `board.json` (assignment data), `index.html` (UI + logic), `images/` (static assets like planner photo)
 
 **To push an update:**
 ```bash
-cd /tmp/ethan-dashboard && cp ~/.openclaw/workspace/projects/ethan_schoolwork/ethan-dashboard.html index.html && git add index.html && git commit -m "update" && git push
+cd /Users/moltyjoe/.openclaw/workspace/projects/ethan_schoolwork
+git add <files> && git commit -m "description" && git push
 ```
 
-Note: git remote URL has PAT embedded. If PAT expires, re-auth with new token:
-```bash
-cd /tmp/ethan-dashboard && git remote set-url origin https://FJ-Oekstrahay:<PAT>@github.com/FJ-Oekstrahay/ethan-dashboard.git
-```
+GitHub Pages auto-deploys from main branch root within ~90 seconds.
 
-PAT is saved at `~/.openclaw/secrets/github_pat` (fine-grained, scoped to this repo, Contents + Pages R/W).
-
-GitHub account: FJ-Oekstrahay (Geoff's GitHub)
+**Note:** The old `/tmp/ethan-dashboard/` deploy flow is dead — the `ethan_schoolwork` dir is the live repo directly. Do not use the copy-to-tmp workflow.
 
 **Why:** Pages auto-deploys from main branch root within ~90 seconds of a push.

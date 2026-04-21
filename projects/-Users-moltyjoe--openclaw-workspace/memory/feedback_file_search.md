@@ -8,4 +8,4 @@ When I need to find a file and don't know its location, ask: "Want me to search 
 
 **Why:** Searching can be slow and noisy. Geoff often knows exactly where something is and prefers to just say.
 
-**How to apply:** Any time a file reference is ambiguous or not found in the obvious places — don't silently search, ask first.
+**How to apply:** Any time a codebase file reference is ambiguous or not found in the obvious places — don't silently search, ask first. This does NOT apply to checking workspace playbooks — always read the playbook index before asking procedural questions.
