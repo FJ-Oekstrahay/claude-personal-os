@@ -16,7 +16,7 @@ This is a dotfiles repo, not a framework. It covers the Claude-side components o
 
 **`commands/batchc.md`** — a smartbatch execution protocol for parallel subagent work. The cap rule (flag any batch hitting 6+ parallel agents, because at that count you've almost always missed a merge candidate) came from running this at scale.
 
-The remaining skills and commands are the connective tissue between Claude Code and OpenClaw — routing, delegation, session management, agent ops.
+The remaining skills and commands are the connective tissue between Claude Code and OpenClaw — routing, delegation, session management, agent ops. Several of them reference OpenClaw paths that don't exist in this public repo. They're not broken — they're incomplete without the companion system. That dependency is deliberate, not an oversight, but it's worth naming directly rather than leaving it implicit.
 
 ---
 
@@ -48,13 +48,21 @@ Two things about Claude Code's PreToolUse hook model that aren't obvious from th
 
 Both of these came from things that broke in production.
 
+One other thing worth noting: the fail-closed design of the hook is intentional even though it means a misconfigured hook blocks all tool use. The alternative — failing open — would silently allow writes to protected files if the hook misbehaves. A broken hook that blocks everything is a visible problem. A broken hook that protects nothing is an invisible one. Visible problems get fixed.
+
 ---
 
 ## Background
 
 MSEE from UVa Engineering, 20+ years in technical sales and marketing. I use Claude Code as a daily tool, not as a platform I'm building products on. The config here is what happens when someone who can read and write code — but isn't primarily a software developer — spends serious time figuring out how to make this tool work well.
 
+The config reflects genuine use over time, not a designed showcase. Some parts are cleaner than others. The lessons-learned section is the most honest indicator of what actually got built — those entries exist because the things they describe broke in production.
+
+Some of what's here has since been productized — Anthropic and OpenAI have shipped features in the past month that cover patterns I was building manually. That's not a surprise. Building it first is how you know the problem was real.
+
 The lessons section is the clearest signal of actual use. Those aren't things I read in a guide.
+
+<!-- TODO: add 680 context — Geoff to clarify what this refers to before publishing -->
 
 ---
 
