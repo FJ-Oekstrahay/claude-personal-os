@@ -2,7 +2,7 @@
 
 My Claude Code configuration — skills, commands, hooks, and settings. The OS layer under every session: what the model is allowed to do, what it does automatically, how context moves between sessions.
 
-This is a dotfiles repo, not a framework. It covers the Claude-side components of the system — the configuration layer, automation, and connective tissue. There's a companion multi-agent system (OpenClaw) that isn't public yet; references to it in the skills and commands will make more sense once it is.
+This is a dotfiles repo, not a framework. It covers the Claude-side components of the system — the configuration layer, automation, and connective tissue. There's are references to a companion multi-agent system (OpenClaw) that isn't public yet, but that's coming soon.
 
 ---
 
@@ -54,7 +54,7 @@ One other thing worth noting: the fail-closed design of the hook is intentional 
 
 ## Background
 
-MSEE from UVa Engineering, 20+ years in technical sales and marketing. I use Claude Code as a daily tool, not as a platform I'm building products on. The config here is what happens when someone who can read and write code — but isn't primarily a software developer — spends serious time figuring out how to make this tool work well.
+MSEE from UVa Engineering, 30+ years in technical sales and marketing. I use Claude Code as a daily tool, not as a platform I'm building products on. The config here is what happens when someone who can read and write code — but isn't primarily a software developer — spends serious time figuring out how to make this tool work well.
 
 The config reflects genuine use over time, not a designed showcase. Some parts are cleaner than others. The lessons-learned section is the most honest indicator of what actually got built — those entries exist because the things they describe broke in production.
 
