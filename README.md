@@ -2,37 +2,51 @@
 
 My Claude Code configuration — skills, commands, hooks, and settings. The OS layer under every session: what the model is allowed to do, what it does automatically, how context moves between sessions.
 
-This is a dotfiles repo, not a framework. Most of the interesting parts of my AI setup live in a companion system (OpenClaw) that isn't public yet. What's here is the surface layer — and the pipeline that produces it.
+This is a dotfiles repo, not a framework. It covers the Claude-side components of the system — the configuration layer, automation, and connective tissue. There's a companion multi-agent system (OpenClaw) that isn't public yet; references to it in the skills and commands will make more sense once it is.
 
 ---
 
-## The sync pipeline
+## What's here
 
-This repo is auto-synced from my private `~/.claude` directory on a nightly cron. The sync script:
+**`CLAUDE.md`** — the session-level instructions. The lessons-learned section at the bottom is the most honest part: `exit 2` vs `exit 1` in hooks, why `Write|Edit` as a hook matcher misses `Bash`-based writes (`cp`, `tee`, `>>`), a private key found inside a file that looked like a device ID. Things that broke, written down.
 
-1. Pulls the latest from this remote
-2. Wipes the working directory (preserving `.git`)
-3. rsyncs the source, excluding sessions, memory, credentials, caches, and agent data
-4. Does a redaction pass — personal identifiers and secret tokens replaced mechanically
-5. Commits and pushes if there are changes
-
-The pattern: the repo stays current automatically, the sanitization is mechanical rather than manual, and I don't have to remember to export anything. What's here reflects the actual config as it ran last night.
-
-The sync script itself isn't in this repo (it lives in the private side), but the exclude list is, and the CLAUDE.md has notes from the incident that prompted the fail-closed design.
-
----
-
-## What's worth reading
-
-Most skills and commands here reference a multi-agent system (OpenClaw) that isn't public yet — they're connected tissue, not standalone tools. Two exceptions:
+**`hooks/protect-sensitive-files.sh`** — `PreToolUse` hook that fires on every `Write`, `Edit`, or `Bash` call. Checks the target path or command against protected patterns and exits 2 to block. Fails closed: if python3 isn't available or the JSON is malformed, it blocks rather than allows. The exit-code choice (`2` not `1`) is load-bearing — Claude Code's hook model treats them differently.
 
 **`commands/review-sequence.md`** — a decision tree for adversarial review ordering. Critic for implementation, gadfly for product direction, architect for structure, CTO for roadmap. The sequencing rules matter: gadfly before CTO, not after, or the CTO's plan anchors the gadfly instead of the other way around. That's not an obvious thing to write down.
 
 **`commands/batchc.md`** — a smartbatch execution protocol for parallel subagent work. The cap rule (flag any batch hitting 6+ parallel agents, because at that count you've almost always missed a merge candidate) came from running this at scale.
 
-**`hooks/protect-sensitive-files.sh`** — `PreToolUse` hook that fires on every `Write`, `Edit`, or `Bash` call. Checks the target path or command against protected patterns and exits 2 to block. Fails closed: if python3 isn't available or the JSON is malformed, it blocks rather than allows. The exit-code choice (`2` not `1`) is load-bearing — Claude Code's hook model treats them differently.
+The remaining skills and commands are the connective tissue between Claude Code and OpenClaw — routing, delegation, session management, agent ops.
 
-**`CLAUDE.md`** — the session-level instructions. The lessons-learned section at the bottom is the most honest part: `exit 2` vs `exit 1` in hooks, why `Write|Edit` as a hook matcher misses `Bash`-based writes (`cp`, `tee`, `>>`), a private key found inside a file that looked like a device ID. Things that broke, written down.
+---
+
+## The sync pipeline
+
+This repo is auto-synced from my private `~/.claude` directory on a nightly cron. The sync script lives at `sync-to-public.sh` in this repo — the same script that produced what you're reading.
+
+What it does:
+
+1. Pulls the latest from this remote
+2. Wipes the working directory (preserving `.git`)
+3. rsyncs the source, excluding sessions, memory, credentials, caches, and agent data
+4. Does a redaction pass — personal identifiers and secret tokens replaced mechanically
+5. Commits and force-pushes if there are changes
+
+The design goal: the repo stays current automatically, sanitization is mechanical rather than manual, and there's nothing to remember to export. What's here reflects the actual config as it ran last night.
+
+The script demonstrates the fail-closed trap pattern: any unexpected non-zero exit hits the `fail()` function, which logs the error and appends to an alert file before exiting. The trap is explicitly disarmed on clean exit so it doesn't fire twice. The exclude list (`claude-public-exclude.txt`) is also in the repo.
+
+---
+
+## Hook errata
+
+Two things about Claude Code's PreToolUse hook model that aren't obvious from the docs:
+
+**Exit codes are not symmetric.** `exit 2` blocks the tool call and surfaces your stderr message to the model. `exit 1` does not block — it's treated as a non-blocking failure. If your hook is meant to enforce a constraint, it must exit 2, not 1.
+
+**Hook matchers cover tool names, not file operations.** A matcher of `Write|Edit` won't catch `Bash` calls that write files (`cp`, `tee`, `>>`). If you're protecting a path, the matcher needs to include `Bash` and your hook logic needs to inspect the command string.
+
+Both of these came from things that broke in production.
 
 ---
 
