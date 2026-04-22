@@ -62,7 +62,7 @@ Some of what's here has since been productized — Anthropic and OpenAI have shi
 
 The lessons section is the clearest signal of actual use. Those aren't things I read in a guide.
 
-<!-- TODO: add 680 context — Geoff to clarify what this refers to before publishing -->
+The companion system runs 6 named agents simultaneously on different models. Whether that's thorough or overkill probably depends on your perspective.
 
 ---
 
