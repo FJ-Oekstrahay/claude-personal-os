@@ -1,3 +1,21 @@
+**Step 0 — Assess whether a real handoff is needed.**
+
+Ask yourself: did this session accomplish meaningful work? A real handoff is needed when:
+- Code was written, committed, or deployed
+- Specs, decisions, or policies were created or changed
+- System config changed (agents, plugins, integrations)
+- A significant investigation was completed with findings
+
+If the session was trivial (a quick question, a single file edit, a lookup), skip the full handoff. Instead:
+1. Write any next-session prompts to a `prompts-and-questions/` directory while context is fresh (one file per prompt, named descriptively).
+2. Check whether auto-memory (MEMORY.md) needs any updates from what was learned.
+3. Tell the user: "No handoff needed — [one-line summary of what happened]. OK to clear context."
+4. If there are loose ends that should be addressed before clearing context (uncommitted changes, unresolved blockers, half-done work), say so and — if it wouldn't take too many tokens — use the batchc methodology to handle them first.
+
+**If a real handoff IS needed, continue below.**
+
+---
+
 Ask the user for a short name for this handoff (e.g. "sales-automation", "infra-cleanup"). Then write the session handoff note to `~/.openclaw/workspace/HANDOFF-{name}-{YYYY-MM-DD-HHMM}.md` where `{YYYY-MM-DD-HHMM}` is the current date and time (e.g. `HANDOFF-sales-automation-2026-03-19-1432.md`). This file is the canonical handoff between Claude Code sessions.
 
 Structure it as follows:
