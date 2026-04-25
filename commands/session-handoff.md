@@ -7,7 +7,7 @@ Ask yourself: did this session accomplish meaningful work? A real handoff is nee
 - A significant investigation was completed with findings
 
 If the session was trivial (a quick question, a single file edit, a lookup), skip the full handoff. Instead:
-1. Write any next-session prompts to a `prompts-and-questions/` directory while context is fresh (one file per prompt, named descriptively).
+1. Write any next-session prompts to `prompts-and-questions/` while context is fresh (one file per prompt, named descriptively).
 2. Check whether auto-memory (MEMORY.md) needs any updates from what was learned.
 3. Tell the user: "No handoff needed — [one-line summary of what happened]. OK to clear context."
 4. If there are loose ends that should be addressed before clearing context (uncommitted changes, unresolved blockers, half-done work), say so and — if it wouldn't take too many tokens — use the batchc methodology to handle them first.
