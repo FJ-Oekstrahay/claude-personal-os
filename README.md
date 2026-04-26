@@ -2,7 +2,7 @@
 
 My Claude Code configuration — skills, commands, hooks, and settings. The OS layer under every session: what the model is allowed to do, what it does automatically, how context moves between sessions.
 
-This is a dotfiles repo, not a framework. It covers the Claude-side components of the system — the configuration layer, automation, and connective tissue. There are references to a companion multi-agent system (OpenClaw) that isn't public yet, but that's coming soon.
+This is a personal config repo, not a framework — nothing to install or import. It covers the Claude-side components of the system — the configuration layer, automation, and connective tissue. There are references to a companion multi-agent system (OpenClaw) that isn't public yet, but that's coming soon.
 
 ---
 
@@ -16,6 +16,8 @@ This is a dotfiles repo, not a framework. It covers the Claude-side components o
 
 **`commands/batchc.md`** — a smartbatch execution protocol for parallel subagent work. The cap rule (flag any batch hitting 6+ parallel agents, because at that count you've almost always missed a merge candidate) came from running this at scale.
 
+**`commands/new-discord-session.md`** — wires a Discord channel into the thread router once Discord is already configured. The `discord:configure` and `discord:access` slash commands that handle initial Discord setup come from an external Discord plugin loaded via the `mcp` entry in `settings.json` — they're not files in this repo. `new-discord-session` handles the downstream step: telling the router which channel to bind to which agent, after the plugin has already established the connection.
+
 The remaining skills and commands are the connective tissue between Claude Code and OpenClaw — routing, delegation, session management, agent ops. Several of them reference OpenClaw paths that don't exist in this public repo. They're not broken — they're incomplete without the companion system. That dependency is deliberate, not an oversight, but it's worth naming directly rather than leaving it implicit.
 
 ---
@@ -26,18 +28,9 @@ Playbooks are the long-term memory of the system. Each one records a specific th
 
 The format is consistent: what happened, why it happened, and how to apply the lesson going forward. They accumulate over time across different domains — firmware tooling, agent behavior patterns, API quirks, hardware interfaces, macOS gotchas.
 
-**`selected-playbooks/`** contains a representative subset with no personal information or customer-specific context. Excluded from this folder: playbooks that reference specific systems, personal accounts, internal tooling, or project-specific operational details. What's here: technical gotchas and behavioral patterns that are broadly reusable.
+**`selected-playbooks/`** contains a curated subset focused on Claude Code patterns, agent behavior, and LLM product methodology. Excluded: playbooks that reference specific systems, personal accounts, internal tooling, or project-specific operational details.
 
-The full library is ~150 playbooks across these categories:
-
-- **Agent behavior** — prompt execution model quirks, third-person language artifacts, confirmation/contradiction loops, model selection tradeoffs
-- **Betaflight / FC tooling** — serial reconnect, MSP framing, blackbox parsing, OSD coordinate validation, CLI gotchas
-- **Claude Code / API** — hook exit codes, tool matcher scope, rate limit partial completion, multimodal content field handling
-- **Hardware interfaces** — USB HID gadget mode, composite gadget config, serial port contention, CDC sleep overhead
-- **macOS** — Homebrew venv requirement, sed/bash gotchas, FAT32 permissions, device path vs file path
-- **Build / CI patterns** — eval harness compression, dev volume flag testing, mock daemon virtual testing
-- **Safety and protocol** — motor test safety mitigations, protocol mismatch gate patterns, signal swallowing
-- **LLM products** — system prompt safety language, context injection gap, output filtering patterns
+The full library is ~150 playbooks in my private library. What's selected here is a small slice — 12 files covering Claude Code hook behavior, agent prompt execution quirks, model selection tradeoffs, spec review patterns, and LLM system prompt safety constraints. Broadly reusable, no personal or project-specific context.
 
 This methodology — skills, hooks, and playbooks as a persistent knowledge layer — is being productized into software products we're actively developing. The pattern applied at the personal-config level here is the same pattern applied at the product level for end users: knowledge that accumulates through use, codified so it doesn't have to be rediscovered.
 
@@ -52,7 +45,7 @@ What it does:
 1. Pulls the latest from this remote
 2. Wipes the working directory (preserving `.git`)
 3. rsyncs the source, excluding sessions, memory, credentials, caches, and agent data
-4. Does a redaction pass — personal identifiers and secret tokens replaced mechanically
+4. Does a redaction pass — the public `CLAUDE.md` is sourced from a separately maintained `CLAUDE.public.md` (the primary mechanism). For other `.md` files, sed-based pattern replacement handles personal identifiers and secret tokens as a belt-and-suspenders fallback, and as the path when `CLAUDE.public.md` is missing
 5. Copies selected playbooks from the workspace memory library (explicit allowlist, no grep heuristics)
 6. Commits and force-pushes if there are changes
 
