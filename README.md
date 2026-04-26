@@ -22,6 +22,12 @@ The remaining skills and commands are the connective tissue between Claude Code 
 
 ---
 
+## How it fits together
+
+A **command** is a Markdown file in `commands/`. When you type `/foo`, Claude Code loads the file content into context — no code runs, just structured instructions the model follows. A **skill** is the same idea but invoked by Claude itself via the `Skill` tool; skills appear in the `available-skills` list in system context and Claude decides when to call them. A **hook** is a shell script that fires before or after a tool call — `protect-sensitive-files.sh` runs on every `Write`, `Edit`, or `Bash` call, inspects the target path or command, and exits 2 to block if something protected would be touched. **`settings.json`** is what ties all of this together: it registers which Markdown files are skills, configures which shell scripts fire as hooks and on which tool names, and sets the permission model for what Claude is allowed to do without prompting. **Playbooks** sit outside this repo — they're loaded into context by Claude when a task topic matches, carrying accumulated lessons from past sessions forward into new ones without needing to re-derive them.
+
+---
+
 ## Playbooks
 
 Playbooks are the long-term memory of the system. Each one records a specific thing that broke, or a pattern that worked, or a behavioral constraint that emerged from real use. They're stored in a separate location (outside `~/.claude/`) and loaded into context by the agent when a task matches the topic.
