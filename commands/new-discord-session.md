@@ -1,62 +1,55 @@
-Parse $ARGUMENTS as one or more Discord channel bindings and set up a project directory for each.
+Parse $ARGUMENTS as one or more Discord channel bindings and wire them into the thread router.
 
 Two accepted formats:
 - Single: `name channel_id`
 - Batch: `name: id, name: id, name: id, ...`
 
-For each (name, channel_id) pair, execute the following via Bash:
+For each (name, channel_id) pair:
 
-**Step 1 — Create dirs**
-```
-mkdir -p ~/.openclaw/workspace/projects/<name>/.claude
-mkdir -p ~/.claude/channels/discord-<name>
-```
+**Step 1 — Add to thread router config**
 
-**Step 2 — Merge DISCORD_STATE_DIR into settings.json**
-
-If `~/.openclaw/workspace/projects/<name>/.claude/settings.json` exists, read it and set `env.DISCORD_STATE_DIR` without touching other keys. If it doesn't exist, create it fresh. Use this Python snippet:
+Read `~/.openclaw/workspace/projects/discord-thread-router/thread-router-config.json`. If `channel_id` is not already in `watchChannels`, add it. Also add a `sessionBases` entry mapping `channel_id` to `~/.openclaw/workspace/projects/<name>/threads`. Write the file back.
 
 ```bash
 python3 -c "
-import json, os, sys
-path = os.path.expanduser('~/.openclaw/workspace/projects/<name>/.claude/settings.json')
-d = {}
-if os.path.exists(path):
-    with open(path) as f:
-        d = json.load(f)
-d.setdefault('env', {})['DISCORD_STATE_DIR'] = '/Users/moltyjoe/.claude/channels/discord-<name>'
-with open(path, 'w') as f:
-    json.dump(d, f, indent=2)
-    f.write('\n')
+import json, os
+path = '/Users/moltyjoe/.openclaw/workspace/projects/discord-thread-router/thread-router-config.json'
+with open(path) as f:
+    cfg = json.load(f)
+changed = False
+if '<channel_id>' not in cfg['watchChannels']:
+    cfg['watchChannels'].append('<channel_id>')
+    changed = True
+cfg.setdefault('sessionBases', {})
+if '<channel_id>' not in cfg['sessionBases']:
+    cfg['sessionBases']['<channel_id>'] = os.path.expanduser('~/.openclaw/workspace/projects/<name>/threads')
+    changed = True
+if changed:
+    with open(path, 'w') as f:
+        json.dump(cfg, f, indent=2)
+        f.write('\n')
+    print('added')
+else:
+    print('already present')
 "
 ```
 
-**Step 3 — Copy bot token**
+**Step 2 — Restart the router**
 
-Copy the token file so the plugin can authenticate:
+Restarting is safe — existing thread sessions run their own Discord plugin connection and are unaffected. The router only needs to be running for new thread provisioning.
+
+Kill any running router process (the router runs as `bun thread-router.ts` in the `dist` tmux session, window 0 or named `router`):
+
 ```bash
-cp ~/.claude/channels/discord/.env ~/.claude/channels/discord-<name>/.env
-chmod 600 ~/.claude/channels/discord-<name>/.env
+# Kill the router window if it exists
+tmux kill-window -t dist:router 2>/dev/null || true
 ```
 
-**Step 4 — Write access.json**
-
-Write `~/.claude/channels/discord-<name>/access.json`. If file already exists, overwrite it (channel binding is the authoritative config for this dir):
-
-```json
-{
-  "dmPolicy": "allowlist",
-  "allowFrom": ["1015620939611910254"],
-  "groups": {
-    "<channel_id>": {
-      "requireMention": false,
-      "allowFrom": []
-    }
-  },
-  "pending": {}
-}
+Then restart:
+```bash
+cd ~/.openclaw/workspace/projects/discord-thread-router && ./start.sh
 ```
 
-**After all pairs are processed**, report a table: name | project path | state dir | created or updated.
+**After all pairs are processed**, report a table: name | channel_id | status (added/already present). Then tell the user: go to that Discord channel and create a new thread — the router will auto-provision a Claude Code session within a few seconds.
 
-Note: the Discord plugin reads DISCORD_STATE_DIR at startup. The binding takes effect when the project is opened in a new Claude Code session, not in the current one.
+Note: the thread router provisions a new Claude session per thread automatically. No need to manually create state dirs or access.json — the router handles that.

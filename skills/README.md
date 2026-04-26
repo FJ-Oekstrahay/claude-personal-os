@@ -58,6 +58,6 @@ Snapshot of the live OpenClaw system state.
 
 Writes a handoff file capturing current session state, without compacting.
 
-**When to use:** When you want to preserve session context for the next session but aren't ready to compact. Unlike `/compact-checkpoint`, this does NOT trigger `/compact` — it just writes the file. Use it mid-session to checkpoint or at natural stopping points.
+**When to use:** When you want to preserve session context for the next session but aren't ready to compact. Unlike `/compact-checkpoint`, this does NOT trigger `/compact` — it just writes the file. Unlike `/session-handoff` (a command, not a skill), it skips the full end-of-session ritual: no board updates, no Seymour playbook sweep, no archive pass. Use snapshot for mid-session checkpoints or quick state captures; use `/session-handoff` at the real end of a meaningful session.
 
 **Invoke:** `/snapshot` — Claude picks the name and writes to `~/.openclaw/workspace/HANDOFF-{name}-{datetime}.md`
