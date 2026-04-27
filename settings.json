@@ -111,6 +111,8 @@
     }
   },
   "effortLevel": "medium",
+  "skipDangerousModePermissionPrompt": true,
+  "teammateMode": "tmux",
   "voiceEnabled": false,
-  "teammateMode": "tmux"
+  "model": "opus"
 }
