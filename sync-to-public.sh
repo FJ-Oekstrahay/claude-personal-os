@@ -23,7 +23,7 @@ SOURCE_DIR="$HOME/.claude"
 SYNC_DIR="$HOME/.openclaw/public-sync/claude-personal-os"
 EXCLUDE_FILE="$HOME/.openclaw/bin/claude-public-exclude.txt"
 PLAYBOOKS_SRC="$HOME/.openclaw/workspace/memory/playbooks"
-PUBLIC_REMOTE="https://github.com/YOUR_GITHUB_USERNAME/claude-personal-os.git"
+PUBLIC_REMOTE="https://github.com/FJ-Oekstrahay/claude-personal-os.git"
 LOG="$HOME/.openclaw/logs/sync-claude-public.log"
 ALERT="$HOME/.openclaw/workspace/BACKUP-ALERT.md"
 
