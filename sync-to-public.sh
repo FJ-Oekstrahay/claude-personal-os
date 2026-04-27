@@ -1,5 +1,5 @@
 #!/bin/bash
-# Sanitized for public sharing — replace variables in the Config section before use.
+# Sanitized for public sharing — edit the Config section before use (see PUBLIC_REMOTE).
 #
 # sync-to-public.sh
 #
@@ -23,9 +23,17 @@ SOURCE_DIR="$HOME/.claude"
 SYNC_DIR="$HOME/.openclaw/public-sync/claude-personal-os"
 EXCLUDE_FILE="$HOME/.openclaw/bin/claude-public-exclude.txt"
 PLAYBOOKS_SRC="$HOME/.openclaw/workspace/memory/playbooks"
-PUBLIC_REMOTE="https://github.com/FJ-Oekstrahay/claude-personal-os.git"
+PUBLIC_REMOTE="https://github.com/YOUR_GITHUB_USERNAME/claude-personal-os.git"
 LOG="$HOME/.openclaw/logs/sync-claude-public.log"
 ALERT="$HOME/.openclaw/workspace/BACKUP-ALERT.md"
+
+# ---------------------------------------------------------------------------
+# Validate config
+# ---------------------------------------------------------------------------
+[[ "$PUBLIC_REMOTE" == *"YOUR_GITHUB_USERNAME"* ]] && {
+    echo "ERROR: Edit the Config section and set PUBLIC_REMOTE to your repository URL" >&2
+    exit 1
+}
 
 # ---------------------------------------------------------------------------
 # Playbook allowlist — explicit list of playbooks with no personal or customer info.
@@ -180,6 +188,7 @@ rsync -a \
 
 # ---------------------------------------------------------------------------
 # 4. Use public-facing CLAUDE.md
+# Note: sed -i '' is macOS (BSD sed) syntax. Linux users: replace -i '' with -i
 # ---------------------------------------------------------------------------
 if [ -f "$SOURCE_DIR/CLAUDE.public.md" ]; then
     log "Using CLAUDE.public.md as public CLAUDE.md"
