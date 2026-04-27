@@ -4,19 +4,40 @@ My Claude Code configuration — skills, commands, hooks, and settings. The OS l
 
 This is a dotfiles repo, not a framework. It covers the Claude-side components of the system — the configuration layer, automation, and connective tissue. There are references to a companion multi-agent system (OpenClaw) that isn't public yet, but that's coming soon.
 
+**Start here if you want to steal patterns:** `commands/review-sequence.md` (adversarial review ordering), `commands/batchc.md` (parallel subagent batching), `LESSONS.md` (things that broke in production), and `hooks/protect-sensitive-files.sh` (exit-code-correct PreToolUse hook). Everything else is my personal infrastructure.
+
 ---
 
 ## What's here
-
-**`CLAUDE.md`** — the session-level instructions. The lessons-learned section at the bottom is the most honest part: `exit 2` vs `exit 1` in hooks, why `Write|Edit` as a hook matcher misses `Bash`-based writes (`cp`, `tee`, `>>`), a private key found inside a file that looked like a device ID. Things that broke, written down.
-
-**`hooks/protect-sensitive-files.sh`** — `PreToolUse` hook that fires on every `Write`, `Edit`, or `Bash` call. Checks the target path or command against protected patterns and exits 2 to block. Fails closed: if python3 isn't available or the JSON is malformed, it blocks rather than allows. The exit-code choice (`2` not `1`) is load-bearing — Claude Code's hook model treats them differently.
 
 **`commands/review-sequence.md`** — a decision tree for adversarial review ordering. Critic for implementation, gadfly for product direction, architect for structure, CTO for roadmap. The sequencing rules matter: gadfly before CTO, not after, or the CTO's plan anchors the gadfly instead of the other way around. That's not an obvious thing to write down.
 
 **`commands/batchc.md`** — a smartbatch execution protocol for parallel subagent work. The cap rule (flag any batch hitting 6+ parallel agents, because at that count you've almost always missed a merge candidate) came from running this at scale.
 
+**`LESSONS.md`** — hard-won lessons from hook failures, permission gotchas, and file safety incidents. The most directly reusable part of this repo.
+
+**`hooks/protect-sensitive-files.sh`** — `PreToolUse` hook that fires on every `Write`, `Edit`, or `Bash` call. Checks the target path or command against protected patterns and exits 2 to block. Fails closed: if python3 isn't available or the JSON is malformed, it blocks rather than allows. The exit-code choice (`2` not `1`) is load-bearing — Claude Code's hook model treats them differently.
+
+**`CLAUDE.md`** — the session-level instructions. The lessons-learned section at the bottom covers hook exit codes, why `Write|Edit` as a hook matcher misses `Bash`-based writes (`cp`, `tee`, `>>`), a private key found inside a file that looked like a device ID. Things that broke, written down. (The standalone version of that list is `LESSONS.md`.)
+
 The remaining skills and commands are the connective tissue between Claude Code and OpenClaw — routing, delegation, session management, agent ops. Several of them reference OpenClaw paths that don't exist in this public repo. They're not broken — they're incomplete without the companion system. That dependency is deliberate, not an oversight, but it's worth naming directly rather than leaving it implicit.
+
+**`skills/personal-infrastructure/`** contains the OpenClaw-specific skills (snapshot, compact-checkpoint, openclaw-status). The skills at the `skills/` root (critic, debug-agent, deploy-task) work standalone.
+
+---
+
+## What's portable vs. what needs OpenClaw
+
+| Item | Portable | Notes |
+|---|---|---|
+| `commands/review-sequence.md` | Yes | Works standalone |
+| `commands/batchc.md` | Yes | Works standalone |
+| `LESSONS.md` | Yes | Works standalone |
+| `hooks/protect-sensitive-files.sh` | Yes | Edit the protected paths list |
+| `skills/critic/` | Yes | Works standalone |
+| `commands/session-handoff.md` | Partial | References Seymour agent from OpenClaw |
+| `commands/new-discord-session.md` | No | Requires OpenClaw Discord binding |
+| `skills/personal-infrastructure/` | No | Requires OpenClaw (see that folder's README) |
 
 ---
 
@@ -73,6 +94,8 @@ Two things about Claude Code's PreToolUse hook model that aren't obvious from th
 Both of these came from things that broke in production.
 
 One other thing worth noting: the fail-closed design of the hook is intentional even though it means a misconfigured hook blocks all tool use. The alternative — failing open — would silently allow writes to protected files if the hook misbehaves. A broken hook that blocks everything is a visible problem. A broken hook that protects nothing is an invisible one. Visible problems get fixed.
+
+The full lessons list is in [`LESSONS.md`](LESSONS.md).
 
 ---
 

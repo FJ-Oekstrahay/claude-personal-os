@@ -1,0 +1,11 @@
+# Discord webhook configuration for discord-notify.sh
+#
+# Copy this file to ~/.claude/hooks/discord-webhook.conf (gitignored) and fill
+# in your Discord webhook URLs.
+#
+# How to get webhook URLs:
+#   Server Settings -> Integrations -> Webhooks -> New Webhook
+#   Set the channel, copy the URL, paste below.
+
+LOGS_WEBHOOK_URL="https://discord.com/api/webhooks/YOUR_SERVER/YOUR_TOKEN"
+ALERTS_WEBHOOK_URL="https://discord.com/api/webhooks/YOUR_SERVER/YOUR_TOKEN"
