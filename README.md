@@ -8,15 +8,15 @@ This is a dotfiles repo, not a framework. It covers the Claude-side components o
 
 ## What's here
 
-**`CLAUDE.md`** — the session-level instructions. The lessons-learned section at the bottom is the most honest part: `exit 2` vs `exit 1` in hooks, why `Write|Edit` as a hook matcher misses `Bash`-based writes (`cp`, `tee`, `>>`), a private key found inside a file that looked like a device ID. Things that broke, written down.
+**`CLAUDE.md`** — the session-level instructions Claude Code loads on every startup. Sets the working model, behavioral constraints, tool permissions, and the context Geoff expects at the start of each session. The lessons-learned section at the bottom is the most honest part: `exit 2` vs `exit 1` in hooks, why `Write|Edit` as a hook matcher misses `Bash`-based writes, a private key found inside a file that looked like a device ID.
 
-**`hooks/protect-sensitive-files.sh`** — `PreToolUse` hook that fires on every `Write`, `Edit`, or `Bash` call. Checks the target path or command against protected patterns and exits 2 to block. Fails closed: if python3 isn't available or the JSON is malformed, it blocks rather than allows. The exit-code choice (`2` not `1`) is load-bearing — Claude Code's hook model treats them differently.
+**`LESSONS.md`** — the hard-won knowledge extracted from production use, standalone as a reference. Covers hook exit codes and matcher scope, git permission gotchas, file staging risks, and skill design constraints. This is the content that moved from notes and incident post-mortems into durable documentation.
 
-**`commands/review-sequence.md`** — a decision tree for adversarial review ordering. Critic for implementation, gadfly for product direction, architect for structure, CTO for roadmap. The sequencing rules matter: gadfly before CTO, not after, or the CTO's plan anchors the gadfly instead of the other way around. That's not an obvious thing to write down.
+**`hooks/`** — shell scripts that fire at specific lifecycle points. `protect-sensitive-files.sh` blocks writes to live config and credentials on every `Write`, `Edit`, or `Bash` call. `discord-notify.sh` sends Discord notifications on file mutations and approval requests, so you can monitor a long session from your phone without watching the terminal. See [`hooks/README.md`](hooks/README.md) for design details.
 
-**`commands/batchc.md`** — a smartbatch execution protocol for parallel subagent work. The cap rule (flag any batch hitting 6+ parallel agents, because at that count you've almost always missed a merge candidate) came from running this at scale.
+**`commands/`** — user-invoked slash commands. `review-sequence` runs adversarial reviewers in the correct order (gadfly before CTO, or the CTO's plan anchors everything). `batchc` dispatches parallel subagent work with wave sizing and merge-before-parallelize enforcement. `session-handoff` writes a structured resumption document so the next session can pick up without re-reading the full transcript. See [`commands/README.md`](commands/README.md) for the full list.
 
-The remaining skills and commands are the connective tissue between Claude Code and OpenClaw — routing, delegation, session management, agent ops. Several of them reference OpenClaw paths that don't exist in this public repo. They're not broken — they're incomplete without the companion system. That dependency is deliberate, not an oversight, but it's worth naming directly rather than leaving it implicit.
+**`skills/`** — Claude-invoked tools triggered automatically by context, not explicit user commands. `critic` runs adversarial review before you commit to a plan. `gog` gives Claude access to Gmail, Calendar, Drive, and Sheets through a locally-authenticated CLI. Several skills require the OpenClaw companion system — they're included as examples of the delegation pattern, not portable tools. See [`skills/README.md`](skills/README.md).
 
 ---
 
