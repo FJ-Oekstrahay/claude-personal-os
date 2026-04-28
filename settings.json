@@ -44,7 +44,12 @@
       "Bash(git checkout -- *)",
       "Bash(kill *)",
       "Bash(pkill *)",
-      "Bash(killall *)"
+      "Bash(killall *)",
+      "Bash(curl * | sh*)",
+      "Bash(curl *|sh*)",
+      "Bash(wget * | sh*)",
+      "Bash(wget *|sh*)",
+      "Bash(eval *)"
     ]
   },
   "hooks": {
