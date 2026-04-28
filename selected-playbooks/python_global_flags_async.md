@@ -46,4 +46,4 @@ Don't combine state into one flag if the conditions are independent. In the prio
 They have different lifespans and can overlap, so they need separate tracking.
 
 ## Related
-- Prior auth bot inbound callback: `/Users/moltyjoe/.openclaw/workspace/memory/playbooks/prior_auth_test_call.md`
+- Prior auth bot inbound callback: `~/.openclaw/workspace/memory/playbooks/prior_auth_test_call.md`
