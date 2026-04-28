@@ -15,7 +15,7 @@ Check if `~/.claude/channels/discord-<name>/` exists. If not, create it and writ
 ```json
 {
   "dmPolicy": "allowlist",
-  "allowFrom": ["<YOUR_USER_ID>"],
+  "allowFrom": ["1015620939611910254"],
   "groups": {
     "<channel_id>": {
       "requireMention": false,

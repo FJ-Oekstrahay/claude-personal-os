@@ -44,13 +44,7 @@
       "Bash(git checkout -- *)",
       "Bash(kill *)",
       "Bash(pkill *)",
-      "Bash(killall *)",
-
-      "Bash(curl * | sh*)",
-      "Bash(curl * | bash*)",
-      "Bash(wget * | sh*)",
-      "Bash(wget * | bash*)",
-      "Bash(eval *)"
+      "Bash(killall *)"
     ]
   },
   "hooks": {
@@ -119,6 +113,5 @@
   "effortLevel": "medium",
   "skipDangerousModePermissionPrompt": true,
   "teammateMode": "tmux",
-  "voiceEnabled": false,
-  "model": "opus"
+  "voiceEnabled": false
 }

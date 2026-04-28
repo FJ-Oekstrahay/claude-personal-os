@@ -5,8 +5,6 @@
 #
 # curl is backgrounded so this hook exits immediately (<1ms latency to Claude).
 # Exit 0 always — never block Claude.
-#
-# Config: copy discord-webhook.conf.example to discord-webhook.conf and fill in your webhook URLs.
 
 CONF="$HOME/.claude/hooks/discord-webhook.conf"
 [ -f "$CONF" ] || exit 0
