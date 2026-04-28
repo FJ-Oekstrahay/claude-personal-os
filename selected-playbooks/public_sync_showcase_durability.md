@@ -34,6 +34,16 @@ For any new file in the public repo, ask:
 
 When in doubt, read the sync script. The repo state after the next run is determined by the script, not by what's currently checked in.
 
+## Two sync scripts — keep them in sync
+
+There are two sync scripts: `~/.openclaw/bin/sync-claude-to-public.sh` (runs in cron, private) and `~/.claude/sync-to-public.sh` (rsync'd to the public repo, serves as the public template). They share the SELECTED_PLAYBOOKS allowlist and the post-rsync transformation steps. When you change one, change both — they're not automatically derived from each other.
+
+Concrete failure (2026-04-28): the last session pruned project-specific entries from SELECTED_PLAYBOOKS in the private script but not the public template. The public template had 48 entries (including dt_*, droneteleo_*, jarface_*, betaflight_* project-specific playbooks); the private had 36. On the next nightly sync, the public template would have pushed the unfiltered list back to the repo.
+
+Similarly: step 5d in both scripts was still generating a thin stub `selected-playbooks/README.md` that overwrote the rsync-carried version. Fix was applied to both scripts in the same session as the pruning, but the public template was lagging the private by one session.
+
+**Rule:** After any change to SELECTED_PLAYBOOKS or transformation steps in the private script, immediately mirror the change to the public template. Treat them as a pair.
+
 ## Concrete examples (2026-04-27)
 
 **gog skill** — Added `skills/gog/SKILL.md` to the public repo. Not in `~/.claude/`. Fix: mirrored to `~/.claude/skills/gog/SKILL.md` so rsync carries it.
