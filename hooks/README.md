@@ -4,8 +4,8 @@ Claude Code hooks are shell scripts that run at specific points in the execution
 
 | Hook file | Type | What it does | Portable? |
 |---|---|---|---|
-| `protect-sensitive-files.sh` | PreToolUse | Prevents Claude from overwriting secrets and live config — blocks writes to openclaw.json, credentials/, secrets/, IDENTITY.md, and launchd plists via Write, Edit, or any Bash command | Partial (path list is system-specific; pattern is portable) |
-| `discord-notify.sh` | PostToolUse + Notification | Sends a Discord message when Claude mutates a file or needs approval — useful for monitoring long sessions from your phone without watching the terminal | Yes (requires `discord-webhook.conf`) |
+| `protect-sensitive-files.sh` | PreToolUse | Blocks writes to protected paths (openclaw.json, credentials/, secrets/, IDENTITY.md, launchd plists) | Partial (path list is system-specific; pattern is portable) |
+| `discord-notify.sh` | PostToolUse + Notification | Sends a Discord message when Claude mutates a file or needs approval — keeps you informed during long sessions without watching the terminal. Routes file mutations to a #logs webhook and approval requests to a separate #alerts webhook | Yes (requires `discord-webhook.conf`) |
 | `discord-webhook.conf.example` | Config template | Copy to `discord-webhook.conf` (gitignored) and fill in your webhook URLs | Yes |
 
 ---
@@ -18,7 +18,9 @@ The hook also **fails closed**: if python3 is unavailable or the JSON payload ca
 
 ## discord-notify.sh
 
-Both sends are **backgrounded** — the hook forks `curl` and exits immediately. This keeps hook latency under 1ms and has zero impact on Claude's response time. The hook safely no-ops if `discord-webhook.conf` is missing, so it won't break the session on a machine without Discord configured.
+Keeps you informed during long-running sessions without watching the terminal. Every file mutation (PostToolUse) posts a short summary to a #logs webhook; every approval request (Notification) posts an alert to a separate #alerts webhook. The two-channel split lets you silence log noise on mobile while keeping alerts audible.
+
+Both sends are **backgrounded** — the hook forks `curl` and exits immediately, keeping hook latency under 1ms. The hook safely no-ops if `discord-webhook.conf` is missing, so it won't break a session on a machine without Discord configured.
 
 To set up: copy `discord-webhook.conf.example` to `~/.claude/hooks/discord-webhook.conf`, fill in two Discord webhook URLs (one for logs, one for alerts). Create webhooks via Discord: Server Settings → Integrations → Webhooks → New Webhook.
 
