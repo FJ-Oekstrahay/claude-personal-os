@@ -5,7 +5,7 @@ Claude Code hooks are shell scripts that run at specific points in the execution
 | Hook file | Type | What it does | Portable? |
 |---|---|---|---|
 | `protect-sensitive-files.sh` | PreToolUse | Blocks writes to protected paths (openclaw.json, credentials/, secrets/, IDENTITY.md, launchd plists) | Partial (path list is system-specific; pattern is portable) |
-| `discord-notify.sh` | PostToolUse + Notification | Sends a Discord message when Claude mutates a file or needs approval — keeps you informed during long sessions without watching the terminal. Routes file mutations to a #logs webhook and approval requests to a separate #alerts webhook | Yes (requires `discord-webhook.conf`) |
+| `discord-notify.sh` | PostToolUse + Notification | Sends a Discord message after every tool call (reads, writes, searches, agent spawns, MCP calls) and when Claude needs approval — keeps you informed during long sessions without watching the terminal. Routes tool activity to a #logs webhook and approval requests to a separate #alerts webhook | Yes (requires `discord-webhook.conf`) |
 | `discord-webhook.conf.example` | Config template | Copy to `discord-webhook.conf` (gitignored) and fill in your webhook URLs | Yes |
 
 ---
@@ -18,7 +18,7 @@ The hook also **fails closed**: if python3 is unavailable or the JSON payload ca
 
 ## discord-notify.sh
 
-Keeps you informed during long-running sessions without watching the terminal. Every file mutation (PostToolUse) posts a short summary to a #logs webhook; every approval request (Notification) posts an alert to a separate #alerts webhook. The two-channel split lets you silence log noise on mobile while keeping alerts audible.
+Keeps you informed during long-running sessions without watching the terminal. Every tool call (PostToolUse) posts a short summary to a #logs webhook — reads, writes, shell commands, web searches, agent spawns, MCP calls, task operations. Every approval request (Notification) posts an alert to a separate #alerts webhook. The two-channel split lets you silence log noise on mobile while keeping alerts audible.
 
 Both sends are **backgrounded** — the hook forks `curl` and exits immediately, keeping hook latency under 1ms. The hook safely no-ops if `discord-webhook.conf` is missing, so it won't break a session on a machine without Discord configured.
 
