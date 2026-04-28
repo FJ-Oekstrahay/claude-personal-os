@@ -3,6 +3,7 @@
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
   "permissions": {
+    "_comment_openclaw": "The launchctl, openclaw, and pa-restart allow rules below require the OpenClaw companion system (not public yet — separate repo). They're here to show the real config; remove or adapt for your own setup.",
     "allow": [
       "Bash(git status*)",
       "Bash(git log*)",
@@ -48,8 +49,7 @@
       "Bash(curl * | sh*)",
       "Bash(curl *|sh*)",
       "Bash(wget * | sh*)",
-      "Bash(wget *|sh*)",
-      "Bash(eval *)"
+      "Bash(wget *|sh*)"
     ]
   },
   "hooks": {
