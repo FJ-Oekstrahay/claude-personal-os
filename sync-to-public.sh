@@ -99,6 +99,15 @@ fail() {
     exit 1
 }
 
+# Portable sed -i: handles both BSD (macOS) and GNU (Linux)
+sedi() {
+    if sed --version 2>/dev/null | grep -q GNU; then
+        sed -i "$@"
+    else
+        sed -i '' "$@"
+    fi
+}
+
 # ---------------------------------------------------------------------------
 # Trap: log any unexpected exit
 # ---------------------------------------------------------------------------
@@ -153,14 +162,13 @@ done
 
 # ---------------------------------------------------------------------------
 # 4. Use public-facing CLAUDE.md
-# Note: sed -i '' is macOS (BSD sed) syntax. Linux users: replace -i '' with -i
 # ---------------------------------------------------------------------------
 if [ -f "$SOURCE_DIR/CLAUDE.public.md" ]; then
     log "Using CLAUDE.public.md as public CLAUDE.md"
     cp "$SOURCE_DIR/CLAUDE.public.md" "$SYNC_DIR/CLAUDE.md"
 elif [ -f "$SYNC_DIR/CLAUDE.md" ]; then
     log "CLAUDE.public.md not found — redacting internal CLAUDE.md"
-    sed -i '' \
+    sedi \
         -e 's/your\.real\.email@example\.com/your@email.com/g' \
         -e 's/Real Name/FJ Oekstrahay/g' \
         "$SYNC_DIR/CLAUDE.md" || fail "CLAUDE.md redaction failed"
@@ -171,7 +179,7 @@ fi
 # ---------------------------------------------------------------------------
 log "Redacting personal info from all .md files"
 while IFS= read -r -d '' f; do
-    sed -i '' \
+    sedi \
         -e 's/your\.real\.email@example\.com/your@email.com/g' \
         -e 's/Real Name/FJ Oekstrahay/g' \
         -e 's/18789/<gateway-port>/g' \
@@ -183,12 +191,12 @@ done < <(find "$SYNC_DIR" -name "*.md" -print0)
 # ---------------------------------------------------------------------------
 if [ -f "$SYNC_DIR/settings.json" ]; then
     log "Redacting settings.json"
-    sed -i '' \
+    sedi \
         -e 's/your\.real\.email@example\.com/your@email.com/g' \
         -e 's/Real Name/FJ Oekstrahay/g' \
         "$SYNC_DIR/settings.json" || fail "settings.json redaction (names) failed"
 
-    sed -i '' \
+    sedi \
         -E 's/("(token|key|password|secret)[^"]*"[[:space:]]*:[[:space:]]*)"[^"]*"/\1"<redacted>"/gI' \
         "$SYNC_DIR/settings.json" || fail "settings.json redaction (secrets) failed"
 fi
@@ -222,7 +230,7 @@ fi
 if [ -d "$PLAYBOOKS_DEST" ]; then
     log "Redacting paths in selected-playbooks/"
     while IFS= read -r -d '' f; do
-        sed -i '' \
+        sedi \
             -e "s|${HOME}/|~/|g" \
             "$f" 2>/dev/null || true
     done < <(find "$PLAYBOOKS_DEST" -name "*.md" -print0)

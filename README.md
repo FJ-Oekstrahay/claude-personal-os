@@ -4,6 +4,8 @@ My Claude Code configuration — skills, commands, hooks, and settings. The OS l
 
 This is a dotfiles repo, not a framework. It covers the Claude-side components of the system — the configuration layer, automation, and connective tissue. There are references to a companion multi-agent system (OpenClaw) that isn't public yet, but that's coming soon.
 
+**New here?** The patterns that transfer to any Claude Code setup: [`commands/review-sequence.md`](commands/review-sequence.md) (adversarial review sequencing — why Gadfly must run before CTO), [`commands/batchc.md`](commands/batchc.md) (parallel subagent dispatch with wave sizing), [`skills/critic`](skills/critic/) (harsh pre-commit review), and [`LESSONS.md`](LESSONS.md) (hook exit codes, matcher scope gotchas, and what broke in production). Everything else requires the OpenClaw companion system, covered in the sections below.
+
 ---
 
 ## What's here
