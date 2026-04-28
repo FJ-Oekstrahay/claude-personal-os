@@ -62,18 +62,12 @@ SELECTED_PLAYBOOKS=(
     betaflight_msp_error_frame_parser.md
     betaflight_serial_reconnect_timeout.md
     blackbox_multilog_auto_analyze_last.md
-    bmx_bike_sourcing.md
     camera_vs_hdmi_capture.md
     cli_argument_subparser_completeness.md
     cloudflare_workers_kv_namespace.md
     cloudflare_workers_user_agent_bypass.md
     config_diff_completeness.md
     dev_volume_flag_testing_pattern.md
-    droneteleo_safety_philosophy.md
-    dt_agent_byok_tier_routing.md
-    dt_agent_fc_detection_pattern.md
-    dt_agent_startup_diff_scope.md
-    dt_diff_baseline_fallback.md
     edgetx_radio_battery_alert.md
     edit_tool_unicode_failures.md
     eval_harness_api_key_resolution.md
@@ -82,12 +76,8 @@ SELECTED_PLAYBOOKS=(
     fc_serial_cdc_sleep_overhead.md
     fft_blackbox_filter_tuning.md
     gadfly_multi_pass_spec_review.md
-    gemini_live_model_availability.md
-    gemini_live_voice_bot_patterns.md
     hardware_isolation_testing.md
     hid_typing_unicode_handling.md
-    jarface_output_filtering_debug_only.md
-    jarface_telemetry_event_queue.md
     launchd_git_backup_cron.md
     llm_system_prompt_safety_language.md
     macos_device_path_vs_file.md
@@ -95,29 +85,20 @@ SELECTED_PLAYBOOKS=(
     macos_homebrew_python_venv_requirement.md
     macos_sed_bash_gotchas.md
     mock_daemon_virtual_testing.md
-    motor_health_nag_muting_pattern.md
-    motor_health_post_flag_outcome_capture.md
     msp_framing_module_locations.md
     nw_builder_arm64_builds.md
-    obsidian_dashboard_queries.md
-    obsidian_sync_setup.md
     osd_apply_disables_active_items_warning.md
     osd_apply_verification_gap.md
     osd_ascii_preview_fidelity_disclaimer.md
     osd_coordinate_validation.md
     pandoc_docx_image_extraction.md
     pillow_exif_jpeg_webp_stripping.md
-    playbook_motor_baseline_schema.md
-    playbook_motor_test_safety_mitigations.md
-    process_session_flagged_yaml_archival.md
     protocol_mismatch_safety_gate_pattern.md
     python_cli_pi_arm64_porting.md
     python_global_flags_async.md
     python_venv_yaml_parsing.md
     public_sync_showcase_durability.md
     radio_edgetx_config_generation.md
-    radiomaster_boxer_mount_detection.md
-    radiomaster_pocket_mount_detection.md
     research_question_triage_cto.md
     review_sequence_protocol.md
     serial_delimiter_false_positives.md
