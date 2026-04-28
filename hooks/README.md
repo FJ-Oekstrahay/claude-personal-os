@@ -4,8 +4,8 @@ Claude Code hooks are shell scripts that run at specific points in the execution
 
 | Hook file | Type | What it does | Portable? |
 |---|---|---|---|
-| `protect-sensitive-files.sh` | PreToolUse | Blocks writes to protected paths (openclaw.json, credentials/, secrets/, IDENTITY.md, launchd plists) | Partial (path list is system-specific; pattern is portable) |
-| `discord-notify.sh` | PostToolUse + Notification | Posts tool mutation summaries to a #logs webhook; posts approval-needed alerts to an #alerts webhook | Yes (requires `discord-webhook.conf`) |
+| `protect-sensitive-files.sh` | PreToolUse | Prevents Claude from overwriting secrets and live config — blocks writes to openclaw.json, credentials/, secrets/, IDENTITY.md, and launchd plists via Write, Edit, or any Bash command | Partial (path list is system-specific; pattern is portable) |
+| `discord-notify.sh` | PostToolUse + Notification | Sends a Discord message when Claude mutates a file or needs approval — useful for monitoring long sessions from your phone without watching the terminal | Yes (requires `discord-webhook.conf`) |
 | `discord-webhook.conf.example` | Config template | Copy to `discord-webhook.conf` (gitignored) and fill in your webhook URLs | Yes |
 
 ---

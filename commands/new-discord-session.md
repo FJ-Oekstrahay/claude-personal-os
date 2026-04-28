@@ -2,31 +2,38 @@ Bind a Claude Code project directory to a Discord channel.
 
 Parse $ARGUMENTS as: `name channel_id [cwd]`
 
-- `name` — short label used for the state dir (`discord-<name>`)
-- `channel_id` — Discord channel ID to bind
+- `name` — short label for this binding (used only in the report)
+- `channel_id` — Discord channel ID to bind (use an existing OpenClaw agent channel or any channel the bot is in)
 - `cwd` — project directory to bind (defaults to current working directory)
 
 ---
 
-**Step 1 — Create the state dir and access.json**
+## Background — how the current system works
 
-Check if `~/.claude/channels/discord-<name>/` exists. If not, create it and write `access.json`:
+Each OpenClaw agent has its own dedicated Discord channel. The agent roster and channel IDs are in `~/.claude/CLAUDE.md`. A "new Discord session" means pointing a Claude Code session at one of those channels (or any other channel) so Discord messages route to it.
+
+There is **one shared Discord state dir**: `~/.claude/channels/discord/`. All Claude Code sessions use this dir — it holds the bot token (`.env`) and the access policy (`access.json`). There is no per-project state dir or thread-router. Channel routing happens via the `groups` object in `access.json`: each channel ID that appears there is a channel the bot listens to.
+
+Prerequisite skills:
+- `/discord:configure` — saves the bot token, checks token/access status
+- `/discord:access` — approves pairings, edits allowlists, adds/removes groups, sets DM policy
+
+---
+
+**Step 1 — Add the channel to access.json**
+
+Read `~/.claude/channels/discord/access.json`. Check if `channel_id` is already in `groups`. If not, add it:
 
 ```json
-{
-  "dmPolicy": "allowlist",
-  "allowFrom": ["1015620939611910254"],
-  "groups": {
-    "<channel_id>": {
-      "requireMention": false,
-      "allowFrom": []
-    }
-  },
-  "pending": {}
+"<channel_id>": {
+  "requireMention": false,
+  "allowFrom": []
 }
 ```
 
-If the dir already exists, verify `<channel_id>` is present in `groups`. Add it if missing.
+Write the updated file back (2-space indent, preserve all other keys). If the file doesn't exist, create it with defaults before adding the group.
+
+Alternatively, run: `/discord:access group add <channel_id> --no-mention`
 
 **Step 2 — Write project settings.json**
 
@@ -35,21 +42,30 @@ Create or update `<cwd>/.claude/settings.json` to set `DISCORD_STATE_DIR`:
 ```json
 {
   "env": {
-    "DISCORD_STATE_DIR": "~/.claude/channels/discord-<name>"
+    "DISCORD_STATE_DIR": "/Users/moltyjoe/.claude/channels/discord"
   }
 }
 ```
 
-If `settings.json` already exists, merge the `env` key — do not overwrite other settings.
+If `settings.json` already exists, merge the `env` key — do not overwrite other settings. Note: this path is the same for every project; it points at the single shared state dir.
 
 **Step 3 — Report**
 
-Print a table: name | channel_id | state_dir | project_dir | status (created/already present).
+Print a table: name | channel_id | state_dir | project_dir | status (group added / already present).
 
-Tell the user: the binding is active for new sessions. Open a Claude Code session from `<cwd>` and messages in channel `<channel_id>` will route to it. No restart needed.
+Tell the user: the binding is active for new sessions. Open a Claude Code session from `<cwd>` and messages in channel `<channel_id>` will route to it. No gateway restart needed — `access.json` is re-read on every inbound message.
 
 ---
 
-**How it works** (for reference):
+**Common channel IDs** (OpenClaw agent channels):
 
-The Discord plugin reads `DISCORD_STATE_DIR` at session start. The `access.json` inside that dir controls which channels and users the plugin accepts messages from. Each project gets its own state dir so channel routing is isolated per session. Bot token is shared globally from `~/.claude/channels/discord/.env`.
+| Agent | Channel ID |
+|---|---|
+| moltyjoe | 1482080556089868451 |
+| bob | 1482080606845145219 |
+| gerbilcheeks | 1482080763166982305 |
+| lumpy | 1482120668920414228 |
+| moltyjoe-sec | 1482080818477138076 |
+| bridgernelson | 1482080849930359034 |
+| moltyjoe-public | 1482080882025304176 |
+| moltyjoe-casual | 1482347476064403517 |
