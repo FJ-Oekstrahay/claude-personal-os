@@ -42,7 +42,7 @@ Create or update `<cwd>/.claude/settings.json` to set `DISCORD_STATE_DIR`:
 ```json
 {
   "env": {
-    "DISCORD_STATE_DIR": "/Users/moltyjoe/.claude/channels/discord"
+    "DISCORD_STATE_DIR": "~/.claude/channels/discord"
   }
 }
 ```
@@ -61,11 +61,11 @@ Tell the user: the binding is active for new sessions. Open a Claude Code sessio
 
 | Agent | Channel ID |
 |---|---|
-| moltyjoe | 1482080556089868451 |
-| bob | 1482080606845145219 |
-| gerbilcheeks | 1482080763166982305 |
-| lumpy | 1482120668920414228 |
-| moltyjoe-sec | 1482080818477138076 |
-| bridgernelson | 1482080849930359034 |
-| moltyjoe-public | 1482080882025304176 |
-| moltyjoe-casual | 1482347476064403517 |
+| moltyjoe | <channel-id> |
+| bob | <channel-id> |
+| gerbilcheeks | <channel-id> |
+| lumpy | <channel-id> |
+| moltyjoe-sec | <channel-id> |
+| bridgernelson | <channel-id> |
+| moltyjoe-public | <channel-id> |
+| moltyjoe-casual | <channel-id> |

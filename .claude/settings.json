@@ -1,6 +1,6 @@
 {
   "env": {
-    "DISCORD_STATE_DIR": "/Users/moltyjoe/.claude/channels/discord-git-public-repo"
+    "DISCORD_STATE_DIR": "~/.claude/channels/discord-git-public-repo"
   },
   "hooks": {
     "UserPromptSubmit": [
