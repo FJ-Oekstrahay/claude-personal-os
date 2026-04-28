@@ -1,0 +1,17 @@
+{
+  "env": {
+    "DISCORD_STATE_DIR": "/Users/moltyjoe/.claude/channels/discord-git-public-repo"
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"\nimport sys, json\ndata = json.load(sys.stdin)\nprompt = data.get('prompt', '')\nif 'source=\\\"discord\\\"' in prompt:\n    print(json.dumps({'hookSpecificOutput': {'hookEventName': 'UserPromptSubmit', 'additionalContext': 'REMINDER: This message arrived from Discord. The user reads Discord only — they cannot see your terminal output. You MUST reply using the mcp__plugin_discord_discord__reply tool. Do not respond only in the terminal.'}}))\n\""
+          }
+        ]
+      }
+    ]
+  }
+}
