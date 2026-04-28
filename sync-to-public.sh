@@ -202,6 +202,31 @@ for skill in compact-checkpoint openclaw-status snapshot; do
 done
 
 # ---------------------------------------------------------------------------
+# 3c. Write project-level .claude/settings.json
+# ---------------------------------------------------------------------------
+log "Writing .claude/settings.json"
+mkdir -p "$SYNC_DIR/.claude"
+cat > "$SYNC_DIR/.claude/settings.json" << 'SETTINGS_EOF'
+{
+  "env": {
+    "DISCORD_STATE_DIR": "/path/to/.claude/channels/your-channel-name"
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"\nimport sys, json\ndata = json.load(sys.stdin)\nprompt = data.get('prompt', '')\nif 'source=\\\"discord\\\"' in prompt:\n    print(json.dumps({'hookSpecificOutput': {'hookEventName': 'UserPromptSubmit', 'additionalContext': 'REMINDER: This message arrived from Discord. The user reads Discord only — they cannot see your terminal output. You MUST reply using the mcp__plugin_discord_discord__reply tool. Do not respond only in the terminal.'}}))\n\""
+          }
+        ]
+      }
+    ]
+  }
+}
+SETTINGS_EOF
+
+# ---------------------------------------------------------------------------
 # 4. Use public-facing CLAUDE.md
 # Note: sed -i '' is macOS (BSD sed) syntax. Linux users: replace -i '' with -i
 # ---------------------------------------------------------------------------
