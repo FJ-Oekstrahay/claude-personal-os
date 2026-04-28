@@ -55,6 +55,25 @@ try:
         cmd = safe_backtick(ti.get('command', '?'), 100)
         result_lines = tr.count('\n') + (1 if tr.strip() else 0)
         print(f'**Bash** \`{cmd}\` → {result_lines} lines')
+    elif tool == 'Read':
+        path = ti.get('file_path', '?').split('/')[-1]
+        print(f'**Read** \`{safe_backtick(path)}\`')
+    elif tool == 'WebFetch':
+        url = safe_backtick(ti.get('url', '?'), 80)
+        print(f'**WebFetch** \`{url}\`')
+    elif tool == 'WebSearch':
+        q = safe_backtick(ti.get('query', '?'), 80)
+        print(f'**WebSearch** \`{q}\`')
+    elif tool == 'Agent':
+        desc = safe_backtick(ti.get('description') or ti.get('subagent_type', '?'), 80)
+        print(f'**Agent** {desc}')
+    elif tool.startswith('mcp__'):
+        short = tool.split('__')[-1]
+        first_val = next((f'{k}={safe_backtick(str(v), 60)}' for k, v in ti.items() if v is not None), '')
+        print(f'**mcp:{short}** {first_val}')
+    elif tool.startswith('Task'):
+        ref = ti.get('title') or ti.get('id') or ''
+        print(f'**{tool}** {safe_backtick(str(ref), 60)}' if ref else f'**{tool}**')
     else:
         print(f'**{tool}**')
 except Exception as e:
