@@ -4,11 +4,11 @@ User-invoked slash commands. Type `/batchc`, `/review-sequence`, etc. at the Cla
 
 | Command | When to use | Portable? |
 |---|---|---|
-| `batchc` | Classify and dispatch a list of work items — groups parallel vs. sequential, sizes waves, routes code edits to subagents | Yes |
-| `load-handoff` | List recent session handoff files and load one for context at the start of a new session | Partial (references OpenClaw handoff format) |
+| `batchc` | You have a list of tasks and need to run them without burning the main context window — classifies each item, separates parallel from sequential, enforces wave sizing, and routes file edits to subagents | Yes |
+| `load-handoff` | Starting a new session after a break or context clear — lists recent handoff files and synthesizes the chosen one into a next-action brief instead of a raw file dump | Partial (references OpenClaw handoff format) |
 | `new-discord-session` | Wire a Discord channel into the thread router so new threads auto-provision Claude Code sessions | No (requires OpenClaw Discord binding) |
-| `review-sequence` | Run one or more adversarial reviewer roles (Critic, Gadfly, Architect, CTO) in the correct order for the work at hand | Yes |
-| `session-handoff` | Write a structured handoff file summarizing what was done, what's pending, and lessons to capture | Partial (the Seymour-spawn step requires OpenClaw; rest is portable) |
+| `review-sequence` | You want adversarial review of a plan, architecture, or spec — runs Critic, Gadfly, Architect, and/or CTO roles in the correct order so each reviewer can challenge the previous one | Yes |
+| `session-handoff` | Ending a session — writes a structured resumption document with what was done, what's pending, and lessons to capture, so the next session can pick up without re-reading the whole conversation | Partial (the Seymour-spawn step requires OpenClaw; rest is portable) |
 
 ---
 
