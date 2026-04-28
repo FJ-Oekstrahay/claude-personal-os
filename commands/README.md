@@ -6,7 +6,7 @@ User-invoked slash commands. Type `/batchc`, `/review-sequence`, etc. at the Cla
 |---|---|---|
 | `batchc` | You have a list of tasks and need to run them without burning the main context window — classifies each item, separates parallel from sequential, enforces wave sizing, and routes file edits to subagents | Yes |
 | `load-handoff` | Starting a new session after a break or context clear — lists recent handoff files and synthesizes the chosen one into a next-action brief instead of a raw file dump | Partial (references OpenClaw handoff format) |
-| `new-discord-session` | Wire a Discord channel into the thread router so new threads auto-provision Claude Code sessions | No (requires OpenClaw Discord binding) |
+| `new-discord-session` | Bind a Claude Code project directory to a Discord channel — adds the channel to `access.json` and sets `DISCORD_STATE_DIR` in project settings | No (requires OpenClaw Discord bot) |
 | `review-sequence` | You want adversarial review of a plan, architecture, or spec — runs Critic, Gadfly, Architect, and/or CTO roles in the correct order so each reviewer can challenge the previous one | Yes |
 | `session-handoff` | Ending a session — writes a structured resumption document with what was done, what's pending, and lessons to capture, so the next session can pick up without re-reading the whole conversation | Partial (the Seymour-spawn step requires OpenClaw; rest is portable) |
 
@@ -26,9 +26,9 @@ This is the entry point for resuming work after a context clear or a break. Rath
 
 ## new-discord-session
 
-Not portable — requires the OpenClaw `acpx` plugin and an active Discord bot binding.
+Not portable — requires an active OpenClaw Discord bot binding.
 
-Binds a Claude Code project directory to a Discord channel in the OpenClaw thread router. After running, new Discord threads in that channel auto-provision Claude Code sessions scoped to that directory. The command writes the binding into the router config and confirms the channel is live.
+Binds a Claude Code project directory to a Discord channel. It adds the channel to `~/.claude/channels/discord/access.json` (so the bot listens to it) and sets `DISCORD_STATE_DIR` in the project's `.claude/settings.json` (so the session knows where to find the shared Discord state). No thread router, no `acpx` plugin — just two writes and a confirmation report.
 
 Included here as an example of a project-binding workflow pattern, even though the infrastructure it targets is OpenClaw-specific.
 
