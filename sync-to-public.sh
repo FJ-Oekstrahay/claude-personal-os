@@ -114,6 +114,7 @@ SELECTED_PLAYBOOKS=(
     python_cli_pi_arm64_porting.md
     python_global_flags_async.md
     python_venv_yaml_parsing.md
+    public_sync_showcase_durability.md
     radio_edgetx_config_generation.md
     radiomaster_boxer_mount_detection.md
     radiomaster_pocket_mount_detection.md
