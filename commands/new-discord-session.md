@@ -3,14 +3,14 @@ Bind a Claude Code project directory to a Discord channel.
 Parse $ARGUMENTS as: `name channel_id [cwd]`
 
 - `name` — short label for this binding (used only in the report)
-- `channel_id` — Discord channel ID to bind (use an existing OpenClaw agent channel or any channel the bot is in)
+- `channel_id` — Discord channel ID to bind (any channel the bot has access to)
 - `cwd` — project directory to bind (defaults to current working directory)
 
 ---
 
 ## Background — how the current system works
 
-Each OpenClaw agent has its own dedicated Discord channel. The agent roster and channel IDs are in `~/.claude/CLAUDE.md`. A "new Discord session" means pointing a Claude Code session at one of those channels (or any other channel) so Discord messages route to it.
+Channel IDs are specific to your Discord server setup. Any channel the bot has access to can be bound. A "new Discord session" means pointing a Claude Code session at one of those channels so Discord messages route to it.
 
 There is **one shared Discord state dir**: `~/.claude/channels/discord/`. All Claude Code sessions use this dir — it holds the bot token (`.env`) and the access policy (`access.json`). There is no per-project state dir or thread-router. Channel routing happens via the `groups` object in `access.json`: each channel ID that appears there is a channel the bot listens to.
 
@@ -57,15 +57,6 @@ Tell the user: the binding is active for new sessions. Open a Claude Code sessio
 
 ---
 
-**Common channel IDs** (OpenClaw agent channels):
+**Finding your channel ID**
 
-| Agent | Channel ID |
-|---|---|
-| moltyjoe | 1482080556089868451 |
-| bob | 1482080606845145219 |
-| gerbilcheeks | 1482080763166982305 |
-| lumpy | 1482120668920414228 |
-| moltyjoe-sec | 1482080818477138076 |
-| bridgernelson | 1482080849930359034 |
-| moltyjoe-public | 1482080882025304176 |
-| moltyjoe-casual | 1482347476064403517 |
+Enable Developer Mode in Discord (Settings → Advanced → Developer Mode), then right-click any channel → Copy Channel ID.

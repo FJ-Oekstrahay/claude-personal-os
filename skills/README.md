@@ -11,5 +11,4 @@ Invoked by Claude via the Skill tool, triggered by context rather than explicit 
 
 ## Personal infrastructure skills
 
-Skills that require the OpenClaw companion system: [`personal-infrastructure/`](personal-infrastructure/README.md).
-These are included as examples of how skills can delegate to named subagents with their own runtime context — not portable tools.
+Skills that require the OpenClaw companion system live in [`personal-infrastructure/`](personal-infrastructure/README.md) — included as working examples of the delegation pattern — adapting them means replacing the agent IDs, channel bindings, and launchctl references with your own equivalents.
