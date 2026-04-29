@@ -64,9 +64,7 @@ Playbooks are the long-term memory of the system. Each one captures what broke, 
 
 ---
 
-## Operator tooling
-
-`agog` is a Claude Code skill that wraps the `gog` Google Workspace CLI. It covers Gmail, Calendar, Drive, and Sheets — defining the exact command forms, auth model, and guardrails so Claude can use them reliably. Useful when the work isn't code: reviewing what's in your inbox, scheduling around a deadline, pulling a document into a session.
+## Session continuity
 
 `session-handoff` writes a structured resumption document at the end of a session — what was decided, what's pending, what context the next session needs. The next session reads it instead of the transcript.
 
