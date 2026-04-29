@@ -9,7 +9,6 @@
 CONF="$HOME/.claude/hooks/discord-webhook.conf"
 [ -f "$CONF" ] || exit 0
 
-# Source conf — no set -e, malformed conf should not inject errors
 # shellcheck disable=SC1090
 source "$CONF" 2>/dev/null || exit 0
 
@@ -18,11 +17,82 @@ INPUT=$(cat)
 TOOL_NAME=$(echo "$INPUT" | /usr/bin/jq -r '.tool_name // empty' 2>/dev/null)
 
 if [ -n "$TOOL_NAME" ]; then
-  # PostToolUse path — format mutation summary
+  # PostToolUse path
   [ -z "$LOGS_WEBHOOK_URL" ] && exit 0
 
+  # --- Extract any new text blocks from the JSONL since last processed line ---
+  SESSION_ID=$(echo "$INPUT" | /usr/bin/jq -r '.session_id // empty' 2>/dev/null)
+  TRANSCRIPT_PATH=$(echo "$INPUT" | /usr/bin/jq -r '.transcript_path // empty' 2>/dev/null)
+
+  if [ -n "$SESSION_ID" ] && [ -n "$TRANSCRIPT_PATH" ]; then
+    python3 - <<PYEOF &
+import json, os, sys
+
+session_id = "$SESSION_ID"
+jsonl_path = "$TRANSCRIPT_PATH"
+logs_url = "$LOGS_WEBHOOK_URL"
+
+if not os.path.exists(jsonl_path):
+    sys.exit(0)
+
+state_dir = os.path.expanduser('~/.claude/hooks/state')
+os.makedirs(state_dir, exist_ok=True)
+state_file = os.path.join(state_dir, f'{session_id}.txt')
+
+last_line = 0
+if os.path.exists(state_file):
+    try:
+        last_line = int(open(state_file).read().strip())
+    except:
+        last_line = 0
+
+new_texts = []
+current_line = 0
+with open(jsonl_path) as f:
+    for i, line in enumerate(f):
+        current_line = i + 1
+        if i < last_line:
+            continue
+        try:
+            entry = json.loads(line)
+            if entry.get('type') == 'assistant':
+                content = entry.get('message', {}).get('content', [])
+                if isinstance(content, list):
+                    for block in content:
+                        if block.get('type') == 'text':
+                            text = block.get('text', '').strip()
+                            if text:
+                                new_texts.append(text)
+        except:
+            pass
+
+with open(state_file, 'w') as f:
+    f.write(str(current_line))
+
+if not new_texts:
+    sys.exit(0)
+
+import subprocess
+
+for text in new_texts:
+    if len(text) > 400:
+        text = text[:397] + '...'
+    text = text.replace('`', "'")
+    msg = f'> {text}'
+    payload = json.dumps({'content': msg})
+    subprocess.run(
+        ['/usr/bin/curl', '-s', '-o', '/dev/null', '--max-time', '5',
+         '-X', 'POST', logs_url,
+         '-H', 'Content-Type: application/json',
+         '-d', payload],
+        check=False
+    )
+PYEOF
+  fi
+
+  # --- Tool call summary line ---
   MSG=$(echo "$INPUT" | python3 -c "
-import sys, json
+import sys, json, os
 
 def trunc(s, n=120):
     s = str(s)
@@ -34,7 +104,6 @@ def safe_backtick(s, n=120):
     s = str(s)
     if len(s) > n:
         s = s[:n] + '...'
-    # Ensure no unmatched backticks
     s = s.replace('\`', \"'\")
     return s
 
@@ -42,7 +111,7 @@ try:
     d = json.load(sys.stdin)
     tool = d.get('tool_name', '?')
     ti = d.get('tool_input', {})
-    tr = str(d.get('tool_result', ''))
+    tr = str(d.get('tool_response', d.get('tool_result', '')))
 
     if tool == 'Write':
         path = ti.get('file_path', '?').split('/')[-1]
@@ -69,8 +138,20 @@ try:
         print(f'**Agent** {desc}')
     elif tool.startswith('mcp__'):
         short = tool.split('__')[-1]
-        first_val = next((f'{k}={safe_backtick(str(v), 60)}' for k, v in ti.items() if v is not None), '')
-        print(f'**mcp:{short}** {first_val}')
+        try:
+            import json as _json
+            _ch_path = os.path.expanduser('~/.claude/hooks/discord-channels.json')
+            _channels = _json.load(open(_ch_path)) if os.path.exists(_ch_path) else {}
+        except Exception:
+            _channels = {}
+        chat_id = ti.get('chat_id')
+        if chat_id is not None:
+            chat_id = str(chat_id)
+            ch_name = _channels.get(chat_id, f'...{chat_id[-6:]}')
+            print(f'**mcp:{short}** #{ch_name}')
+        else:
+            first_val = next((f'{k}={safe_backtick(str(v), 60)}' for k, v in ti.items() if v is not None), '')
+            print(f'**mcp:{short}** {first_val}')
     elif tool.startswith('Task'):
         ref = ti.get('title') or ti.get('id') or ''
         print(f'**{tool}** {safe_backtick(str(ref), 60)}' if ref else f'**{tool}**')
@@ -95,12 +176,18 @@ else
 Session: \`${SESSION_SHORT}\`  CWD: \`${CWD_SHORT}\`"
 
   WEBHOOK_URL="$ALERTS_WEBHOOK_URL"
+
+  # Also post a compact approval indicator to the log channel
+  if [ -n "$LOGS_WEBHOOK_URL" ]; then
+    LOGS_MSG=":bell: **Needs input** — terminal session \`${SESSION_SHORT}\` in \`${CWD_SHORT}\`"
+    /usr/bin/curl -s -o /dev/null --max-time 5 -X POST "$LOGS_WEBHOOK_URL" \
+      -H "Content-Type: application/json" \
+      -d "{\"content\": $(echo "$LOGS_MSG" | /usr/bin/jq -Rs .)}" &
+  fi
 fi
 
 [ -z "$MSG" ] && exit 0
 
-# Background curl — exits immediately, Discord POST runs async
-# --max-time 5 bounds orphan lifetime
 /usr/bin/curl -s -o /dev/null --max-time 5 -X POST "$WEBHOOK_URL" \
   -H "Content-Type: application/json" \
   -d "{\"content\": $(echo "$MSG" | /usr/bin/jq -Rs .)}" &

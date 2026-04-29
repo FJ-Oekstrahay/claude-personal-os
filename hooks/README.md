@@ -5,27 +5,46 @@ Claude Code hooks are shell scripts that run at specific points in the execution
 | Hook file | Type | What it does | Portable? |
 |---|---|---|---|
 | `protect-sensitive-files.sh` | PreToolUse | Blocks writes to protected paths (openclaw.json, credentials/, secrets/, IDENTITY.md, launchd plists) | Partial (path list is system-specific; pattern is portable) |
-| `discord-notify.sh` | PostToolUse + Notification | Sends a Discord message after every tool call (reads, writes, searches, agent spawns, MCP calls) and when Claude needs approval — keeps you informed during long sessions without watching the terminal. Routes tool activity to a #logs webhook and approval requests to a separate #alerts webhook | Yes (requires `discord-webhook.conf`) |
-| `discord-webhook.conf.example` | Config template | Copy to `discord-webhook.conf` (gitignored) and fill in your webhook URLs | Yes |
+| `discord-notify.sh` | PostToolUse + Notification | Posts Claude's narrative text and tool call summaries to a #logs webhook after each tool use; posts to #alerts and #logs when approval is needed | Yes (requires `discord-webhook.conf`) |
 
 ---
 
 ## protect-sensitive-files.sh
 
-The critical design detail here is that the tool matcher covers **Bash in addition to Write and Edit**. A `Write|Edit`-only matcher misses file writes that happen through shell commands (`cp`, `tee`, `>>`). Since protected files can be overwritten via any of these paths, all three must be covered.
-
-The hook also **fails closed**: if python3 is unavailable or the JSON payload can't be parsed, it exits 2 and blocks the operation. A broken hook that blocks everything is visible; a broken hook that silently protects nothing is invisible and dangerous.
+Blocks writes to a hardcoded list of sensitive paths: `openclaw.json`, `credentials/`, `secrets/`, any `IDENTITY.md` under `agents/`, and LaunchAgents plists. The matcher covers **Write, Edit, and Bash** — a `Write|Edit`-only matcher misses file writes that happen through shell commands (`cp`, `tee`, `>>`). The block reason is written to stderr (Claude only receives stderr when exit 2 fires). The hook **fails closed**: if python3 is unavailable or the JSON payload can't be parsed, it exits 2 and blocks. A broken hook that blocks everything is visible; a broken hook that silently allows everything is not.
 
 ## discord-notify.sh
 
-Keeps you informed during long-running sessions without watching the terminal. Every tool call (PostToolUse) posts a short summary to a #logs webhook — reads, writes, shell commands, web searches, agent spawns, MCP calls, task operations. Every approval request (Notification) posts an alert to a separate #alerts webhook. The two-channel split lets you silence log noise on mobile while keeping alerts audible.
+Keeps you informed during long-running sessions without watching the terminal. Handles two hook types:
 
-Both sends are **backgrounded** — the hook forks `curl` and exits immediately, keeping hook latency under 1ms. The hook safely no-ops if `discord-webhook.conf` is missing, so it won't break a session on a machine without Discord configured.
+**PostToolUse** — After each tool call, the hook reads the session JSONL transcript (`~/.claude/projects/<encoded-path>/<session_id>.jsonl`) to find any Claude narrative text blocks written since the last check. Those are posted as `> quoted` lines to the LOGS webhook. Then a one-line tool call summary is posted (format varies by tool: Write, Edit, Bash, Read, mcp:\*, Agent, Task, etc.). State is tracked in `state/<session_id>.txt` as the last-read line number so each run only processes new content.
 
-To set up: copy `discord-webhook.conf.example` to `~/.claude/hooks/discord-webhook.conf`, fill in two Discord webhook URLs (one for logs, one for alerts). Create webhooks via Discord: Server Settings → Integrations → Webhooks → New Webhook.
+**Notification** — When Claude needs terminal input (approval requests, etc.), posts to both the ALERTS and LOGS webhooks so the alert is audible on mobile while the LOGS channel retains context.
+
+Both sends are **backgrounded** (`curl` is forked and the hook exits immediately), keeping hook latency under 1ms. The hook safely no-ops if `discord-webhook.conf` is missing, so it won't break sessions on machines without Discord configured.
 
 ---
 
-## Hook lessons
+## Config
 
-Exit codes, matcher scope, and fail-closed design are documented in detail in [`LESSONS.md`](../LESSONS.md).
+**`discord-webhook.conf`** (gitignored — copy from `discord-webhook.conf.example`):
+- `LOGS_WEBHOOK_URL` — webhook for tool call summaries and narrative text
+- `ALERTS_WEBHOOK_URL` — webhook for approval/notification alerts
+
+**`discord-channels.json`** — maps Discord channel IDs to agent names. Used by `discord-notify.sh` to label which agent a notification comes from when the hook fires inside an agent-spawned session.
+
+**`state/<session_id>.txt`** — one file per session, contains the last-read JSONL line number. Created automatically; safe to delete (resets to line 0, may re-post old content once).
+
+To create webhooks: Discord Server Settings → Integrations → Webhooks → New Webhook. Set the target channel, copy the URL, paste into `discord-webhook.conf`.
+
+---
+
+## Gotchas
+
+- **Exit codes**: exit 2 blocks (PreToolUse only), exit 0 allows, exit 1 is non-blocking. Only exit 2 stops the tool call.
+- **Stderr vs stdout**: Claude only sees stderr when a hook exits 2. Block reasons must go to stderr.
+- **Matcher scope**: A matcher of `Write|Edit` misses Bash-based writes. Always include `Bash` when protecting file paths.
+- **Fail closed**: if a hook can't parse its input, exit 2. Don't silently exit 0.
+- **`tool_input`**: the correct key in the PreToolUse JSON payload (not `input`).
+
+Full lessons from hook development are in [`../CLAUDE.md`](../CLAUDE.md) under "Lessons Learned → Claude Code hooks".
