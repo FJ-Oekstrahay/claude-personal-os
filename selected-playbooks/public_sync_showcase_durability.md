@@ -25,6 +25,18 @@ The trap is that the public repo looks like a normal git repo. You can create fi
 
 A file created in the public repo during a work session looks permanent. It's committed. It's pushed. But if it didn't originate from `~/.claude/` and there's no transformation step that generates it, it will be gone after the next nightly run. This is especially dangerous for documentation files, reorganized directory structures, or anything added "just to the showcase."
 
+## Fix private source first, then mirror to public
+
+Before editing a file in the public repo, check whether it originates from the private source:
+
+1. Is the file at the same relative path under `~/.claude/`? If yes, the private copy is the authoritative one.
+2. Fix the private source first (`~/.claude/...`).
+3. Then apply the same change to the public repo.
+
+If you fix only the public repo, the next nightly sync will overwrite it with the unchanged private source and your edit disappears silently.
+
+This matters even for documentation and READMEs — they're rsync'd verbatim.
+
 ## How to test durability
 
 For any new file in the public repo, ask:
