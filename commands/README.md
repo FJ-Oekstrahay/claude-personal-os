@@ -6,7 +6,7 @@ User-invoked slash commands. Type `/batchc`, `/review-sequence`, etc. at the Cla
 |---|---|---|
 | `batchc` | Classify and dispatch a list of work items — groups parallel vs. sequential, sizes waves, routes code edits to subagents | Yes |
 | `load-handoff` | List recent session handoff files and load one for context at the start of a new session | Partial (references OpenClaw handoff format) |
-| `new-discord-session` | Bind a Claude Code project directory to a Discord channel — adds the channel to `access.json` and sets `DISCORD_STATE_DIR` in project settings | No (requires OpenClaw Discord bot) |
+| `new-discord-session` | Bind a Claude Code project directory to a Discord channel — adds the channel to `access.json` and sets `DISCORD_STATE_DIR` in project settings | Yes (requires a Discord bot token and the Discord MCP plugin) |
 | `review-sequence` | Run one or more adversarial reviewer roles (Critic, Gadfly, Architect, CTO) in the correct order for the work at hand | Yes |
 | `session-handoff` | Write a structured handoff file summarizing what was done, what's pending, and lessons to capture | Partial (the Seymour-spawn step requires OpenClaw; rest is portable) |
 
@@ -26,11 +26,9 @@ This is the entry point for resuming work after a context clear or a break. Rath
 
 ## new-discord-session
 
-Not portable — requires an active OpenClaw Discord bot binding.
+Binds a Claude Code project directory to a Discord channel. It adds the channel to `~/.claude/channels/discord/access.json` (so the bot listens to it) and sets `DISCORD_STATE_DIR` in the project's `.claude/settings.json` (so the session knows where to find the shared Discord state). No thread router, no extra plugin — just two writes and a confirmation report.
 
-Binds a Claude Code project directory to a Discord channel. It adds the channel to `~/.claude/channels/discord/access.json` (so the bot listens to it) and sets `DISCORD_STATE_DIR` in the project's `.claude/settings.json` (so the session knows where to find the shared Discord state). No thread router, no `acpx` plugin — just two writes and a confirmation report.
-
-Included here as an example of a project-binding workflow pattern, even though the infrastructure it targets is OpenClaw-specific.
+Prerequisites: a Discord bot token configured via `/discord:configure`, and the Discord MCP plugin active in your Claude Code session. Any channel the bot has access to can be bound to any project.
 
 ## review-sequence
 
