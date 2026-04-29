@@ -42,12 +42,15 @@ Create or update `<cwd>/.claude/settings.json` to set `DISCORD_STATE_DIR`:
 ```json
 {
   "env": {
-    "DISCORD_STATE_DIR": "~/.claude/channels/discord"
+    "DISCORD_STATE_DIR": "~/.claude/channels/discord",
+    "DISCORD_CHAT_ID": "<channel_id — set this to the bound channel_id value>"
   }
 }
 ```
 
 If `settings.json` already exists, merge the `env` key — do not overwrite other settings. Note: this path is the same for every project; it points at the single shared state dir.
+
+Setting `DISCORD_CHAT_ID` lets the discord-notify hook identify this session's conversation channel when posting activity to a centralized log channel.
 
 **Step 3 — Report**
 

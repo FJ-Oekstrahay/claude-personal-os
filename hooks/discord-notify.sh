@@ -86,8 +86,13 @@ try:
         chat_id = ti.get('chat_id')
         if chat_id is not None:
             chat_id = str(chat_id)
-            ch_name = _channels.get(chat_id, f'...{chat_id[-6:]}')
-            print(f'**mcp:{short}** \`{ch_name}\`')
+            log_ch = os.environ.get('DISCORD_LOG_CHANNEL_ID', '')
+            if log_ch and chat_id == log_ch:
+                convo_id = os.environ.get('DISCORD_CHAT_ID', '')
+                label = _channels.get(convo_id, f'...{convo_id[-6:]}') if convo_id else _channels.get(chat_id, f'...{chat_id[-6:]}')
+            else:
+                label = _channels.get(chat_id, f'...{chat_id[-6:]}')
+            print(f'**mcp:{short}** \`{label}\`')
         else:
             first_val = next((f'{k}={safe_backtick(str(v), 60)}' for k, v in ti.items() if v is not None), '')
             print(f'**mcp:{short}** {first_val}')

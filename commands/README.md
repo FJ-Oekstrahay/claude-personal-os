@@ -28,6 +28,8 @@ This is the entry point for resuming work after a context clear or a break. Rath
 
 Binds a Claude Code project directory to a Discord channel. It adds the channel to `~/.claude/channels/discord/access.json` (so the bot listens to it) and sets `DISCORD_STATE_DIR` in the project's `.claude/settings.json` (so the session knows where to find the shared Discord state). No thread router, no extra plugin — just two writes and a confirmation report.
 
+Also writes `DISCORD_CHAT_ID` to the project env so the `discord-notify` hook can identify which channel a session is talking in — useful when the hook posts activity to a centralized log channel.
+
 Prerequisites: a Discord bot token configured via `/discord:configure`, and the Discord MCP plugin active in your Claude Code session. Any channel the bot has access to can be bound to any project.
 
 ## review-sequence
