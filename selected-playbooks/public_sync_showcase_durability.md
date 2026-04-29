@@ -46,7 +46,7 @@ Similarly: step 5d in both scripts was still generating a thin stub `selected-pl
 
 ## Concrete examples (2026-04-27)
 
-**gog skill** — Added `skills/gog/SKILL.md` to the public repo. Not in `~/.claude/`. Fix: mirrored to `~/.claude/skills/gog/SKILL.md` so rsync carries it.
+**agog skill** — Added `skills/agog/SKILL.md` to the public repo. Not in `~/.claude/`. Fix: mirrored to `~/.claude/skills/agog/SKILL.md` so rsync carries it.
 
 **`.claude/settings.json`** — Project-level settings file (UserPromptSubmit hook + DISCORD_STATE_DIR env). `~/.claude/` has no `.claude/` subdirectory, so rsync never writes this file. Fix: added step 3c to both sync scripts (`~/.openclaw/bin/sync-claude-to-public.sh` and `sync-to-public.sh` in public repo) that writes a sanitized copy after every rsync.
 

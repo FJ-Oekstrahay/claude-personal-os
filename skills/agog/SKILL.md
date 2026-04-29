@@ -1,6 +1,6 @@
 ---
-name: gog
-description: Google Workspace CLI (gogcli) for Gmail, Google Calendar, Drive, Docs, Sheets, and Contacts. Uses your already-authorized local gog install.
+name: agog
+description: Google Workspace skill for Claude Code — wraps the gog CLI for Gmail, Google Calendar, Drive, Docs, Sheets, and Contacts. Uses your already-authorized local gog install.
 keywords:
   - gmail
   - email
