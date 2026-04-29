@@ -5,7 +5,9 @@ Claude Code hooks are shell scripts that run at specific points in the execution
 | Hook file | Type | What it does | Portable? |
 |---|---|---|---|
 | `protect-sensitive-files.sh` | PreToolUse | Blocks writes to protected paths (openclaw.json, credentials/, secrets/, IDENTITY.md, launchd plists) | Partial (path list is system-specific; pattern is portable) |
-| `discord-notify.sh` | PostToolUse + Notification | Posts Claude's narrative text and tool call summaries to a #logs webhook after each tool use; posts to #alerts and #logs when approval is needed | Yes (requires `discord-webhook.conf`) |
+| `discord-notify.sh` | PostToolUse + Notification | Posts Claude's narrative text and tool call summaries to a logs webhook after each tool use; posts to alerts and logs when approval is needed | Yes (requires `discord-webhook.conf`) |
+
+**`discord-text-extract.py`** is a helper script called by `discord-notify.sh` — not a hook itself. It reads new assistant text blocks from the session JSONL and posts them as blockquotes before each tool summary. It accepts three arguments: `session_id`, `transcript_path`, `logs_webhook_url`. State is tracked in `state/<session_id>.txt`.
 
 ---
 

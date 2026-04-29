@@ -25,69 +25,8 @@ if [ -n "$TOOL_NAME" ]; then
   TRANSCRIPT_PATH=$(echo "$INPUT" | /usr/bin/jq -r '.transcript_path // empty' 2>/dev/null)
 
   if [ -n "$SESSION_ID" ] && [ -n "$TRANSCRIPT_PATH" ]; then
-    python3 - <<PYEOF &
-import json, os, sys
-
-session_id = "$SESSION_ID"
-jsonl_path = "$TRANSCRIPT_PATH"
-logs_url = "$LOGS_WEBHOOK_URL"
-
-if not os.path.exists(jsonl_path):
-    sys.exit(0)
-
-state_dir = os.path.expanduser('~/.claude/hooks/state')
-os.makedirs(state_dir, exist_ok=True)
-state_file = os.path.join(state_dir, f'{session_id}.txt')
-
-last_line = 0
-if os.path.exists(state_file):
-    try:
-        last_line = int(open(state_file).read().strip())
-    except:
-        last_line = 0
-
-new_texts = []
-current_line = 0
-with open(jsonl_path) as f:
-    for i, line in enumerate(f):
-        current_line = i + 1
-        if i < last_line:
-            continue
-        try:
-            entry = json.loads(line)
-            if entry.get('type') == 'assistant':
-                content = entry.get('message', {}).get('content', [])
-                if isinstance(content, list):
-                    for block in content:
-                        if block.get('type') == 'text':
-                            text = block.get('text', '').strip()
-                            if text:
-                                new_texts.append(text)
-        except:
-            pass
-
-with open(state_file, 'w') as f:
-    f.write(str(current_line))
-
-if not new_texts:
-    sys.exit(0)
-
-import subprocess
-
-for text in new_texts:
-    if len(text) > 400:
-        text = text[:397] + '...'
-    text = text.replace('`', "'")
-    msg = f'> {text}'
-    payload = json.dumps({'content': msg})
-    subprocess.run(
-        ['/usr/bin/curl', '-s', '-o', '/dev/null', '--max-time', '5',
-         '-X', 'POST', logs_url,
-         '-H', 'Content-Type: application/json',
-         '-d', payload],
-        check=False
-    )
-PYEOF
+    python3 "$HOME/.claude/hooks/discord-text-extract.py" \
+      "$SESSION_ID" "$TRANSCRIPT_PATH" "$LOGS_WEBHOOK_URL" &
   fi
 
   # --- Tool call summary line ---
@@ -148,7 +87,7 @@ try:
         if chat_id is not None:
             chat_id = str(chat_id)
             ch_name = _channels.get(chat_id, f'...{chat_id[-6:]}')
-            print(f'**mcp:{short}** #{ch_name}')
+            print(f'**mcp:{short}** \`{ch_name}\`')
         else:
             first_val = next((f'{k}={safe_backtick(str(v), 60)}' for k, v in ti.items() if v is not None), '')
             print(f'**mcp:{short}** {first_val}')
