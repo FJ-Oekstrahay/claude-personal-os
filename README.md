@@ -18,7 +18,7 @@ This is a dotfiles repo, not a framework. It covers the Claude-side components o
 
 **`commands/`** — user-invoked slash commands. `review-sequence` runs adversarial reviewers in the correct order (gadfly before CTO, or the CTO's plan anchors everything). `batchc` dispatches parallel subagent work with wave sizing and merge-before-parallelize enforcement. `session-handoff` writes a structured resumption document so the next session can pick up without re-reading the full transcript. See [`commands/README.md`](commands/README.md) for the full list.
 
-**`skills/`** — Claude-invoked tools triggered automatically by context, not explicit user commands. `critic` runs adversarial review before you commit to a plan. `gog` gives Claude access to Gmail, Calendar, Drive, and Sheets through a locally-authenticated CLI. Several skills require the OpenClaw companion system — they're included as working examples of how skills can delegate to named subagents. See [`skills/README.md`](skills/README.md).
+**`skills/`** — Claude-invoked tools triggered automatically by context, not explicit user commands. `critic` runs adversarial review before you commit to a plan. `gog` gives Claude access to Gmail, Calendar, Drive, and Sheets through a locally-authenticated CLI. Several skills require the OpenClaw companion system — they're included as examples of the delegation pattern, not portable tools. See [`skills/README.md`](skills/README.md).
 
 ---
 

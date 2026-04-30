@@ -6,8 +6,26 @@ Called with: session_id transcript_path logs_webhook_url
 """
 import json
 import os
+import re
 import subprocess
 import sys
+
+
+_CHANNEL_ID_RE = re.compile(r'\b(\d{17,19})\b')
+
+def load_channels() -> dict:
+    path = os.path.expanduser('~/.claude/hooks/discord-channels.json')
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def substitute_channel_ids(text: str, channels: dict) -> str:
+    def replace(m):
+        cid = m.group(1)
+        return channels.get(cid, cid)
+    return _CHANNEL_ID_RE.sub(replace, text)
 
 
 def main():
@@ -55,7 +73,9 @@ def main():
     with open(state_file, 'w') as f:
         f.write(str(current_line))
 
+    channels = load_channels()
     for text in new_texts:
+        text = substitute_channel_ids(text, channels)
         if len(text) > 400:
             text = text[:397] + '...'
         text = text.replace('`', "'")

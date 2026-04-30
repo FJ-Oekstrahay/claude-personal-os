@@ -9,3 +9,7 @@
 
 LOGS_WEBHOOK_URL="https://discord.com/api/webhooks/YOUR_SERVER/YOUR_TOKEN"
 ALERTS_WEBHOOK_URL="https://discord.com/api/webhooks/YOUR_SERVER/YOUR_TOKEN"
+
+# Bot token for Stop hook — posts missed replies to Discord when Claude forgets.
+# Get from Discord Developer Portal -> your app -> Bot -> Token.
+DISCORD_BOT_TOKEN="YOUR_BOT_TOKEN_HERE"

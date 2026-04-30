@@ -1,5 +1,6 @@
 #!/bin/bash
-# PostToolUse + Notification hook: post Claude Code activity to Discord webhooks
+# PreToolUse + PostToolUse + Notification hook: post Claude Code activity to Discord webhooks
+# PreToolUse: flush narrative text before the tool runs → LOGS_WEBHOOK_URL (early, no delay)
 # PostToolUse: play-by-play mutations → LOGS_WEBHOOK_URL
 # Notification: approval alerts → ALERTS_WEBHOOK_URL
 #
@@ -15,12 +16,31 @@ source "$CONF" 2>/dev/null || exit 0
 INPUT=$(cat)
 
 TOOL_NAME=$(echo "$INPUT" | /usr/bin/jq -r '.tool_name // empty' 2>/dev/null)
+HAS_RESPONSE=$(echo "$INPUT" | /usr/bin/jq -r 'if has("tool_response") then "yes" else "no" end' 2>/dev/null)
 
-if [ -n "$TOOL_NAME" ]; then
+if [ -n "$TOOL_NAME" ] && [ "$HAS_RESPONSE" = "no" ]; then
+  # PreToolUse path — flush narrative text before the tool runs so it arrives in Discord
+  # immediately rather than after the (potentially slow) tool completes.
+  # Must exit 0 always — never block the tool call.
+  [ -z "$LOGS_WEBHOOK_URL" ] && exit 0
+
+  SESSION_ID=$(echo "$INPUT" | /usr/bin/jq -r '.session_id // empty' 2>/dev/null)
+  TRANSCRIPT_PATH=$(echo "$INPUT" | /usr/bin/jq -r '.transcript_path // empty' 2>/dev/null)
+
+  if [ -n "$SESSION_ID" ] && [ -n "$TRANSCRIPT_PATH" ]; then
+    python3 "$HOME/.claude/hooks/discord-text-extract.py" \
+      "$SESSION_ID" "$TRANSCRIPT_PATH" "$LOGS_WEBHOOK_URL" 2>/dev/null &
+  fi
+
+  exit 0
+
+elif [ -n "$TOOL_NAME" ]; then
   # PostToolUse path
   [ -z "$LOGS_WEBHOOK_URL" ] && exit 0
 
   # --- Extract any new text blocks from the JSONL since last processed line ---
+  # (Usually finds nothing — PreToolUse already flushed them. Catches edge cases
+  # where PreToolUse didn't run, e.g. hook was just added mid-session.)
   SESSION_ID=$(echo "$INPUT" | /usr/bin/jq -r '.session_id // empty' 2>/dev/null)
   TRANSCRIPT_PATH=$(echo "$INPUT" | /usr/bin/jq -r '.transcript_path // empty' 2>/dev/null)
 
@@ -107,6 +127,19 @@ except Exception as e:
 
   WEBHOOK_URL="$LOGS_WEBHOOK_URL"
 
+elif [ -z "$TOOL_NAME" ] && echo "$INPUT" | /usr/bin/jq -e 'has("transcript_path")' >/dev/null 2>&1; then
+  # Stop hook path — turn ended. Post to Discord if a Discord message arrived this turn
+  # but no reply was sent (safety net for when Claude forgets to use the reply tool).
+  SESSION_ID=$(echo "$INPUT" | /usr/bin/jq -r '.session_id // empty' 2>/dev/null)
+  TRANSCRIPT_PATH=$(echo "$INPUT" | /usr/bin/jq -r '.transcript_path // empty' 2>/dev/null)
+
+  if [ -n "$SESSION_ID" ] && [ -n "$TRANSCRIPT_PATH" ]; then
+    python3 "$HOME/.claude/hooks/discord-stop-check.py" \
+      "$SESSION_ID" "$TRANSCRIPT_PATH" 2>/dev/null &
+  fi
+
+  exit 0
+
 else
   # Notification path — approval alert
   [ -z "$ALERTS_WEBHOOK_URL" ] && exit 0
@@ -121,12 +154,19 @@ Session: \`${SESSION_SHORT}\`  CWD: \`${CWD_SHORT}\`"
 
   WEBHOOK_URL="$ALERTS_WEBHOOK_URL"
 
-  # Also post a compact approval indicator to the log channel
+  # Also post a compact approval indicator to the log channel (with @mention so notification fires)
   if [ -n "$LOGS_WEBHOOK_URL" ]; then
-    LOGS_MSG=":bell: **Needs input** — terminal session \`${SESSION_SHORT}\` in \`${CWD_SHORT}\`"
+    if [ -n "$DISCORD_ALERT_USER_ID" ]; then
+      LOGS_MSG=":bell: **Needs input** — terminal session \`${SESSION_SHORT}\` in \`${CWD_SHORT}\` <@${DISCORD_ALERT_USER_ID}>"
+      PAYLOAD=$(jq -n --arg content "$LOGS_MSG" --arg uid "$DISCORD_ALERT_USER_ID" \
+        '{"content": $content, "allowed_mentions": {"users": [$uid]}}')
+    else
+      LOGS_MSG=":bell: **Needs input** — terminal session \`${SESSION_SHORT}\` in \`${CWD_SHORT}\`"
+      PAYLOAD=$(echo "$LOGS_MSG" | /usr/bin/jq -Rs '{"content": .}')
+    fi
     /usr/bin/curl -s -o /dev/null --max-time 5 -X POST "$LOGS_WEBHOOK_URL" \
       -H "Content-Type: application/json" \
-      -d "{\"content\": $(echo "$LOGS_MSG" | /usr/bin/jq -Rs .)}" &
+      -d "$PAYLOAD" &
   fi
 fi
 

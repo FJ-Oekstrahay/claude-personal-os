@@ -63,6 +63,15 @@
             "command": "~/.claude/hooks/protect-sensitive-files.sh"
           }
         ]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/discord-notify.sh"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
@@ -78,6 +87,16 @@
     "PostToolUse": [
       {
         "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/discord-notify.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
         "hooks": [
           {
             "type": "command",

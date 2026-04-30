@@ -16,12 +16,27 @@ Smartbatch execution protocol. Read the full prompt before touching anything, th
 1b. **Wave sizing — tool-heavy tasks**
    - A wave should contain no more than **3 concurrent tool-heavy tasks**
    - Use fewer than 3 when tasks are large, context-heavy, or likely to trigger follow-up work
+   - **Reduce to 1–2 tasks** when: prior wave was tool-heavy, context/tool usage was large, follow-up work is likely, or throttle risk is HIGH (see 1d)
    - If you are about to dispatch more than 3 tool-heavy tasks in one wave, stop and re-read rule 1a — most batches that hit 3+ have merge candidates
    - Queue remaining work into later waves; do not pre-initialize all future work at once
 
-1c. **Wave gating**
+1c. **Wave gating and pacing**
    - Do not start the next wave until the current wave has produced useful results
-   - Between waves, avoid rapid re-dispatching — treat urgency to immediately fire the next wave as a throttle risk signal
+   - For tool-heavy waves: enforce a turn boundary before dispatching the next wave — do not fire the next wave in the same turn as receiving results
+   - Urgency to immediately fire the next wave is a throttle-risk signal; treat it as a forced pause, not a reason to accelerate
+
+1d. **Throttle-risk heuristic**
+   - Declare **HIGH throttle risk** if any of the following apply:
+     - Two or more consecutive waves were tool-heavy
+     - Prior wave involved large context or many tool calls
+     - Multiple waves dispatched in quick succession (pattern of rapid firing)
+   - Under HIGH throttle risk: cap wave at 1–2 tasks; enforce turn boundary between waves; do not skip this check
+
+1e. **Hard stop condition**
+   - If 3 or more waves have executed in rapid succession, OR throttle risk has been HIGH for 2+ consecutive waves:
+     - Stop. State what was completed and what remains.
+     - Ask the user whether to continue before dispatching another wave.
+   - Do not continue autonomously past this checkpoint.
 
 2. **Map dependencies** — classify each as:
    - **HARD**: must wait for another task's output
@@ -58,6 +73,11 @@ Smartbatch execution protocol. Read the full prompt before touching anything, th
    - All file edits and code changes go to a Cob subagent
    - Report only: what changed, which file, one-line summary
    - Never paste diffs or code blocks into main context
+
+7a. **Subagent amplification**
+   - A single Cob subagent may internally trigger many tool calls (reads, edits, shell commands)
+   - Treat any Cob task as **tool-heavy** when assessing wave size and throttle risk — even if it appears as one item
+   - Do not undercount exposure by treating Cob tasks as lightweight
 
 8. **Context discipline**
    - Send only the incremental context needed for the next wave — no full-prompt recaps
