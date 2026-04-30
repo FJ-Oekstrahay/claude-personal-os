@@ -1,53 +1,54 @@
 # claude-personal-os
 
-My Claude Code configuration — skills, commands, hooks, and settings. The OS layer under every session: what the model is allowed to do, what it does automatically, how context moves between sessions.
+A personal Claude Code "OS" — skills, commands, hooks, and playbooks built up through daily use and published so others can learn from or adapt the patterns. Not a framework, not a template. One person's actual config, warts included.
 
-This is a dotfiles repo, not a framework. It covers the Claude-side components of the system — the configuration layer, automation, and connective tissue. There are references to a companion multi-agent system (OpenClaw) that isn't public yet, but that's coming soon.
-
-**New here?** The patterns that transfer to any Claude Code setup: [`commands/review-sequence.md`](commands/review-sequence.md) (adversarial review sequencing — why Gadfly must run before CTO), [`commands/batchc.md`](commands/batchc.md) (parallel subagent dispatch with wave sizing), [`skills/critic`](skills/critic/) (harsh pre-commit review), and [`LESSONS.md`](LESSONS.md) (hook exit codes, matcher scope gotchas, and what broke in production). Everything else requires the OpenClaw companion system, covered in the sections below.
+There's a private `~/.claude` directory where this all actually lives. This repo is a sanitized mirror of the portable parts, auto-synced nightly via `sync-to-public.sh`. The sync is mechanical — automated redaction and an allowlist for playbooks — not a manual curated export. What you're reading reflects the config as it ran last night.
 
 ---
 
-## What's here
+## What's in here
 
-**`CLAUDE.md`** — the session-level instructions Claude Code loads on every startup. Sets the working model, behavioral constraints, tool permissions, and the context the user expects at the start of each session. The lessons-learned section at the bottom is the most honest part: `exit 2` vs `exit 1` in hooks, why `Write|Edit` as a hook matcher misses `Bash`-based writes, a private key found inside a file that looked like a device ID.
+**`CLAUDE.md`** — the session-level instructions Claude Code loads on every startup. Sets behavioral constraints, tool permissions, and the context expected at the start of each session. The lessons-learned section at the bottom is the most honest part.
 
-**`LESSONS.md`** — the hard-won knowledge extracted from production use, standalone as a reference. Covers hook exit codes and matcher scope, git permission gotchas, file staging risks, and skill design constraints. This is the content that moved from notes and incident post-mortems into durable documentation.
+**`LESSONS.md`** — hard-won knowledge extracted from production use, kept standalone as a reference. Hook exit codes, matcher scope gotchas, git permission footguns, file staging risks, skill design constraints. These entries exist because the things they describe broke in production.
 
-**`hooks/`** — shell scripts that fire at specific lifecycle points. `protect-sensitive-files.sh` blocks writes to live config and credentials on every `Write`, `Edit`, or `Bash` call. `discord-notify.sh` streams Claude's session to Discord in real time: narrative text blocks (what Claude is about to do, in its own words) followed by a one-line tool call summary for every tool use. Also posts to an alerts channel when approval is needed. Lets you monitor a long session from your phone without watching the terminal. The companion `discord-text-extract.py` handles the JSONL transcript reading. See [`hooks/README.md`](hooks/README.md) for design details.
+**`hooks/`** — shell scripts that fire at specific lifecycle points. `protect-sensitive-files.sh` blocks writes to live config and credentials on every `Write`, `Edit`, or `Bash` call. `discord-notify.sh` streams Claude's session activity to Discord in real time — tool call summaries and narrative blocks — so you can monitor a long session from your phone. See [`hooks/README.md`](hooks/README.md).
 
-**`commands/`** — user-invoked slash commands. `review-sequence` runs adversarial reviewers in the correct order (gadfly before CTO, or the CTO's plan anchors everything). `batchc` dispatches parallel subagent work with wave sizing and merge-before-parallelize enforcement. `session-handoff` writes a structured resumption document so the next session can pick up without re-reading the full transcript. See [`commands/README.md`](commands/README.md) for the full list.
+**`commands/`** — user-invoked slash commands. `review-sequence` runs adversarial reviewers in the correct order (Gadfly before CTO, or the CTO's plan anchors everything). `batchc` dispatches parallel subagent work with wave sizing and merge-before-parallelize enforcement. `session-handoff` writes a structured resumption document so the next session can pick up without re-reading the full transcript. See [`commands/README.md`](commands/README.md).
 
-**`skills/`** — Claude-invoked tools triggered automatically by context, not explicit user commands. `critic` runs adversarial review before you commit to a plan. `gog` gives Claude access to Gmail, Calendar, Drive, and Sheets through a locally-authenticated CLI. Several skills require the OpenClaw companion system — they're included as examples of the delegation pattern, not portable tools. See [`skills/README.md`](skills/README.md).
+**`skills/`** — Claude-invoked tools triggered automatically by context, not explicit user commands. `critic` runs adversarial review before you commit to a plan. Several skills require the OpenClaw companion system — included as design examples, not drop-in tools. See [`skills/README.md`](skills/README.md).
+
+**`selected-playbooks/`** — a representative subset of the full playbook library (~150 total), stripped of personal context. Playbooks are the long-term memory of the system: what broke, why it broke, and how to apply the lesson going forward. Format is consistent: fact, why it happened, how to apply. Categories: agent behavior, Claude Code/API quirks, hardware interfaces, macOS gotchas, build/CI patterns, safety and protocol, LLM product patterns.
 
 ---
 
-## Playbooks
+## What's portable vs. what requires OpenClaw
 
-Playbooks are the long-term memory of the system. Each one records a specific thing that broke, or a pattern that worked, or a behavioral constraint that emerged from real use. They're stored in a separate location (outside `~/.claude/`) and loaded into context by the agent when a task matches the topic.
+OpenClaw is a separate multi-agent system — not in this repo. Several skills and commands here delegate to it or depend on its infrastructure (Discord bot, named agents, gateway).
 
-The format is consistent: what happened, why it happened, and how to apply the lesson going forward. They accumulate over time across different domains — firmware tooling, agent behavior patterns, API quirks, hardware interfaces, macOS gotchas.
+**Portable — usable by anyone:**
+- `critic` skill — adversarial pre-commit review
+- `batchc` command — parallel subagent dispatch protocol
+- `review-sequence` command — adversarial reviewer sequencing
+- `protect-sensitive-files.sh` hook — blocks writes to protected paths
+- `discord-notify.sh` hook — streams session activity to Discord (needs your own bot token)
+- Most playbooks in `selected-playbooks/`
+- `LESSONS.md` in its entirety
 
-**`selected-playbooks/`** contains a representative subset with no personal information or customer-specific context. Excluded from this folder: playbooks that reference specific systems, personal accounts, internal tooling, or project-specific operational details. What's here: technical gotchas and behavioral patterns that are broadly reusable.
+**Requires OpenClaw:**
+- `deploy-task` skill — enforces the OpenClaw governance model
+- `debug-agent` skill — reads OpenClaw agent sessions and identity files
+- `gog` skill — delegates to a locally-installed CLI (`gog`) with a Google Workspace auth binding
+- `new-discord-session` command — targets an OpenClaw Discord bot binding
+- `personal-infrastructure/` skills — all OpenClaw-specific, included as delegation pattern examples
 
-The full library is ~150 playbooks across these categories:
-
-- **Agent behavior** — prompt execution model quirks, third-person language artifacts, confirmation/contradiction loops, model selection tradeoffs
-- **Betaflight / FC tooling** — serial reconnect, MSP framing, blackbox parsing, OSD coordinate validation, CLI gotchas
-- **Claude Code / API** — hook exit codes, tool matcher scope, rate limit partial completion, multimodal content field handling
-- **Hardware interfaces** — USB HID gadget mode, composite gadget config, serial port contention, CDC sleep overhead
-- **macOS** — Homebrew venv requirement, sed/bash gotchas, FAT32 permissions, device path vs file path
-- **Build / CI patterns** — eval harness compression, dev volume flag testing, mock daemon virtual testing
-- **Safety and protocol** — motor test safety mitigations, protocol mismatch gate patterns, signal swallowing
-- **LLM products** — system prompt safety language, context injection gap, output filtering patterns
-
-This methodology — skills, hooks, and playbooks as a persistent knowledge layer — is being productized into software products we're actively developing. The pattern applied at the personal-config level here is the same pattern applied at the product level for end users: knowledge that accumulates through use, codified so it doesn't have to be rediscovered.
+The OpenClaw-specific stuff is included because the patterns are worth seeing even if the infrastructure isn't public yet. When it is, it'll be in a separate repo.
 
 ---
 
 ## The sync pipeline
 
-This repo is auto-synced from my private `~/.claude` directory on a nightly cron. The sync script lives at `sync-to-public.sh` in this repo — the same script that produced what you're reading.
+This repo is auto-synced from my private `~/.claude` directory on a nightly cron. The sync script is `sync-to-public.sh` — the same script that produced what you're reading.
 
 What it does:
 
@@ -58,9 +59,9 @@ What it does:
 5. Copies selected playbooks from the workspace memory library (explicit allowlist, no grep heuristics)
 6. Commits and force-pushes if there are changes
 
-The design goal: the repo stays current automatically, sanitization is mechanical rather than manual, and there's nothing to remember to export. What's here reflects the actual config as it ran last night.
+The design goal: the repo stays current automatically, sanitization is mechanical rather than manual, and there's nothing to remember to export. The exclude list (`claude-public-exclude.txt`) is also in the repo if you want to see what gets stripped.
 
-The script demonstrates the fail-closed trap pattern: any unexpected non-zero exit hits the `fail()` function, which logs the error and appends to an alert file before exiting. The trap is explicitly disarmed on clean exit so it doesn't fire twice. The exclude list (`claude-public-exclude.txt`) is also in the repo.
+The script uses a fail-closed trap pattern: any unexpected non-zero exit hits a `fail()` function that logs the error before exiting. The trap is explicitly disarmed on clean exit so it doesn't fire twice.
 
 ---
 
@@ -74,7 +75,7 @@ Two things about Claude Code's PreToolUse hook model that aren't obvious from th
 
 Both of these came from things that broke in production.
 
-One other thing worth noting: the fail-closed design of the hook is intentional even though it means a misconfigured hook blocks all tool use. The alternative — failing open — would silently allow writes to protected files if the hook misbehaves. A broken hook that blocks everything is a visible problem. A broken hook that protects nothing is an invisible one. Visible problems get fixed.
+The fail-closed design of the hook is intentional even though it means a misconfigured hook blocks all tool use. The alternative — failing open — would silently allow writes to protected files if the hook misbehaves. A broken hook that blocks everything is a visible problem. A broken hook that protects nothing is an invisible one. Visible problems get fixed.
 
 ---
 
@@ -84,12 +85,4 @@ MSEE from UVa Engineering, 30+ years in technical sales and marketing. I use Cla
 
 The config reflects genuine use over time, not a designed showcase. Some parts are cleaner than others. The lessons-learned section is the most honest indicator of what actually got built — those entries exist because the things they describe broke in production.
 
-Some of what's here has since been productized — Anthropic and OpenAI have shipped features in the past month that cover patterns I was building manually. That's not a surprise. Building it first is how you know the problem was real.
-
 The companion system runs 6 named agents simultaneously on different models. Whether that's thorough or overkill probably depends on your perspective.
-
----
-
-## OpenClaw
-
-The companion system — multi-agent, Discord-connected, scheduled ops, named agents on different models — is not public yet. When it is, it'll be in a separate repo. Several skills and commands here reference it directly.

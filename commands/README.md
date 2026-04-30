@@ -1,6 +1,6 @@
 # Commands
 
-User-invoked slash commands. Type `/batchc`, `/review-sequence`, etc. at the Claude Code prompt.
+Slash commands for this system — type `/batchc`, `/review-sequence`, etc. at the Claude Code prompt. Portability varies: some work standalone, others require the OpenClaw companion system. The table below notes which is which.
 
 | Command | When to use | Portable? |
 |---|---|---|
