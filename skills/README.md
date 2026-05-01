@@ -1,6 +1,6 @@
 # Skills
 
-Claude-invoked tools for this system — triggered automatically by context rather than explicit user command. Each skill has a `when to use` guard in its SKILL.md. Some skills are broadly portable; others are designed for the OpenClaw companion system and are included as design examples rather than drop-in tools.
+Invoked by Claude via the Skill tool, triggered by context rather than explicit user command. Each skill has a `when to use` guard in its SKILL.md that tells Claude when to fire it automatically.
 
 | Skill | What problem it solves |
 |---|---|

@@ -13,6 +13,43 @@ CONF="$HOME/.claude/hooks/discord-webhook.conf"
 # shellcheck disable=SC1090
 source "$CONF" 2>/dev/null || exit 0
 
+resolve_log_webhook() {
+  local session_id="$1"
+  local routing_file="$HOME/.claude/hooks/discord-routing.json"
+  [ -f "$routing_file" ] || { echo "$LOGS_WEBHOOK_URL"; return; }
+
+  # Try routing IDs in priority order:
+  # 1. routechatid — parent-resolved ID (set for thread sessions so they route to parent channel)
+  # 2. chatid — raw Discord channel from the session
+  # 3. DISCORD_CHAT_ID env var — per-project fallback
+  local state_base="$HOME/.claude/hooks/state/${session_id}"
+  local chat_id=""
+  for candidate_file in "${state_base}.routechatid" "${state_base}.chatid"; do
+    if [ -f "$candidate_file" ]; then
+      chat_id=$(tr -d '[:space:]' < "$candidate_file" 2>/dev/null)
+      [ -n "$chat_id" ] && break
+    fi
+  done
+  [ -z "$chat_id" ] && chat_id="${DISCORD_CHAT_ID:-}"
+  [ -z "$chat_id" ] && { echo "$LOGS_WEBHOOK_URL"; return; }
+
+  local var_name
+  var_name=$(python3 -c "
+import json, sys
+try:
+    routing = json.load(open(sys.argv[1]))
+    print(routing.get(sys.argv[2], ''))
+except Exception:
+    pass
+" "$routing_file" "$chat_id" 2>/dev/null)
+
+  if [ -n "$var_name" ]; then
+    local url="${!var_name}"
+    [ -n "$url" ] && echo "$url" && return
+  fi
+  echo "$LOGS_WEBHOOK_URL"
+}
+
 INPUT=$(cat)
 
 TOOL_NAME=$(echo "$INPUT" | /usr/bin/jq -r '.tool_name // empty' 2>/dev/null)
@@ -28,8 +65,9 @@ if [ -n "$TOOL_NAME" ] && [ "$HAS_RESPONSE" = "no" ]; then
   TRANSCRIPT_PATH=$(echo "$INPUT" | /usr/bin/jq -r '.transcript_path // empty' 2>/dev/null)
 
   if [ -n "$SESSION_ID" ] && [ -n "$TRANSCRIPT_PATH" ]; then
+    ACTIVE_LOG_WEBHOOK=$(resolve_log_webhook "$SESSION_ID")
     python3 "$HOME/.claude/hooks/discord-text-extract.py" \
-      "$SESSION_ID" "$TRANSCRIPT_PATH" "$LOGS_WEBHOOK_URL" 2>/dev/null &
+      "$SESSION_ID" "$TRANSCRIPT_PATH" "$ACTIVE_LOG_WEBHOOK" 2>/dev/null &
   fi
 
   exit 0
@@ -46,7 +84,7 @@ elif [ -n "$TOOL_NAME" ]; then
 
   if [ -n "$SESSION_ID" ] && [ -n "$TRANSCRIPT_PATH" ]; then
     python3 "$HOME/.claude/hooks/discord-text-extract.py" \
-      "$SESSION_ID" "$TRANSCRIPT_PATH" "$LOGS_WEBHOOK_URL" &
+      "$SESSION_ID" "$TRANSCRIPT_PATH" "$(resolve_log_webhook "$SESSION_ID")" &
   fi
 
   # --- Tool call summary line ---
@@ -125,7 +163,7 @@ except Exception as e:
     print(f'**hook-error** {str(e)[:60]}')
 " 2>/dev/null)
 
-  WEBHOOK_URL="$LOGS_WEBHOOK_URL"
+  WEBHOOK_URL=$(resolve_log_webhook "$SESSION_ID")
 
 elif [ -z "$TOOL_NAME" ] && echo "$INPUT" | /usr/bin/jq -e 'has("transcript_path")' >/dev/null 2>&1; then
   # Stop hook path — turn ended. Post to Discord if a Discord message arrived this turn
@@ -142,32 +180,60 @@ elif [ -z "$TOOL_NAME" ] && echo "$INPUT" | /usr/bin/jq -e 'has("transcript_path
 
 else
   # Notification path — approval alert
-  [ -z "$ALERTS_WEBHOOK_URL" ] && exit 0
-
   SESSION=$(echo "$INPUT" | /usr/bin/jq -r '.session_id // "unknown"' 2>/dev/null)
   CWD_VAL=$(echo "$INPUT" | /usr/bin/jq -r '.cwd // "unknown"' 2>/dev/null)
   SESSION_SHORT="${SESSION:0:8}"
   CWD_SHORT=$(echo "$CWD_VAL" | sed 's|/Users/[^/]*/||')
 
-  MSG=":rotating_light: **Claude Code needs input**
-Session: \`${SESSION_SHORT}\`  CWD: \`${CWD_SHORT}\`"
+  # Post directly to the source discussion channel via bot API (with @mention)
+  CHATID_FILE="$HOME/.claude/hooks/state/${SESSION}.chatid"
+  BOT_TOKEN=$(python3 -c "
+import os
+for path in ['~/.claude/hooks/discord-webhook.conf', '~/.claude/channels/discord/.env']:
+    try:
+        for line in open(os.path.expanduser(path)).read().splitlines():
+            if line.startswith('DISCORD_BOT_TOKEN='):
+                print(line.split('=',1)[1].strip().strip('\"').strip(\"'\"))
+                exit()
+    except Exception:
+        pass
+" 2>/dev/null)
 
-  WEBHOOK_URL="$ALERTS_WEBHOOK_URL"
-
-  # Also post a compact approval indicator to the log channel (with @mention so notification fires)
-  if [ -n "$LOGS_WEBHOOK_URL" ]; then
+  if [ -f "$CHATID_FILE" ] && [ -n "$BOT_TOKEN" ]; then
+    CHAT_ID=$(cat "$CHATID_FILE")
     if [ -n "$DISCORD_ALERT_USER_ID" ]; then
-      LOGS_MSG=":bell: **Needs input** — terminal session \`${SESSION_SHORT}\` in \`${CWD_SHORT}\` <@${DISCORD_ALERT_USER_ID}>"
-      PAYLOAD=$(jq -n --arg content "$LOGS_MSG" --arg uid "$DISCORD_ALERT_USER_ID" \
+      DIRECT_MSG=":bell: **Claude Code needs your approval** — check terminal <@${DISCORD_ALERT_USER_ID}>"
+      DIRECT_PAYLOAD=$(/usr/bin/jq -n --arg content "$DIRECT_MSG" --arg uid "$DISCORD_ALERT_USER_ID" \
         '{"content": $content, "allowed_mentions": {"users": [$uid]}}')
     else
-      LOGS_MSG=":bell: **Needs input** — terminal session \`${SESSION_SHORT}\` in \`${CWD_SHORT}\`"
-      PAYLOAD=$(echo "$LOGS_MSG" | /usr/bin/jq -Rs '{"content": .}')
+      DIRECT_MSG=":bell: **Claude Code needs approval** — check terminal"
+      DIRECT_PAYLOAD=$(echo "$DIRECT_MSG" | /usr/bin/jq -Rs '{"content": .}')
     fi
-    /usr/bin/curl -s -o /dev/null --max-time 5 -X POST "$LOGS_WEBHOOK_URL" \
+    /usr/bin/curl -s -o /dev/null --max-time 5 \
+      -X POST "https://discord.com/api/v10/channels/$CHAT_ID/messages" \
+      -H "Authorization: Bot $BOT_TOKEN" \
       -H "Content-Type: application/json" \
-      -d "$PAYLOAD" &
+      -d "$DIRECT_PAYLOAD" &
   fi
+
+  # Also post to log webhook and ALERTS webhook as secondary channels
+  ACTIVE_LOG_WEBHOOK=$(resolve_log_webhook "$SESSION")
+  [ -z "$ACTIVE_LOG_WEBHOOK" ] && ACTIVE_LOG_WEBHOOK="$LOGS_WEBHOOK_URL"
+  if [ -n "$ACTIVE_LOG_WEBHOOK" ]; then
+    LOG_MSG=":bell: **Needs input** — session \`${SESSION_SHORT}\` in \`${CWD_SHORT}\`"
+    /usr/bin/curl -s -o /dev/null --max-time 5 -X POST "$ACTIVE_LOG_WEBHOOK" \
+      -H "Content-Type: application/json" \
+      -d "{\"content\": $(echo "$LOG_MSG" | /usr/bin/jq -Rs .)}" &
+  fi
+  if [ -n "$ALERTS_WEBHOOK_URL" ]; then
+    ALERTS_MSG=":rotating_light: **Claude Code needs input**
+Session: \`${SESSION_SHORT}\`  CWD: \`${CWD_SHORT}\`"
+    /usr/bin/curl -s -o /dev/null --max-time 5 -X POST "$ALERTS_WEBHOOK_URL" \
+      -H "Content-Type: application/json" \
+      -d "{\"content\": $(echo "$ALERTS_MSG" | /usr/bin/jq -Rs .)}" &
+  fi
+
+  exit 0
 fi
 
 [ -z "$MSG" ] && exit 0

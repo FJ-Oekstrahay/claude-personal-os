@@ -13,3 +13,15 @@ ALERTS_WEBHOOK_URL="https://discord.com/api/webhooks/YOUR_SERVER/YOUR_TOKEN"
 # Bot token for Stop hook — posts missed replies to Discord when Claude forgets.
 # Get from Discord Developer Portal -> your app -> Bot -> Token.
 DISCORD_BOT_TOKEN="YOUR_BOT_TOKEN_HERE"
+
+# Per-channel log routing (optional). Create one webhook per log channel.
+# discord-routing.json maps source channel IDs to these variable names.
+# Channels without a mapping fall back to LOGS_WEBHOOK_URL.
+LOG_CLAUDE_CONFIG_WEBHOOK_URL="https://discord.com/api/webhooks/YOUR_SERVER/YOUR_TOKEN"
+LOG_DRONETELEO_WEBHOOK_URL="https://discord.com/api/webhooks/YOUR_SERVER/YOUR_TOKEN"
+LOG_PUBLISHING_WEBHOOK_URL="https://discord.com/api/webhooks/YOUR_SERVER/YOUR_TOKEN"
+LOG_GIT_PUBLIC_REPO_WEBHOOK_URL="https://discord.com/api/webhooks/YOUR_SERVER/YOUR_TOKEN"
+
+# Discord user ID to @mention in alert messages (optional).
+# Get from Discord: User Settings -> Advanced -> Developer Mode, then right-click your name.
+DISCORD_ALERT_USER_ID="YOUR_DISCORD_USER_ID"

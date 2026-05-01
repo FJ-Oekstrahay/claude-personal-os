@@ -12,6 +12,18 @@ import sys
 
 
 _CHANNEL_ID_RE = re.compile(r'\b(\d{17,19})\b')
+_CHANNEL_TAG_RE = re.compile(r'<channel[^>]+source="plugin:discord:discord"[^>]+chat_id="(\d+)"')
+
+DEFAULT_MODEL_TAG = 'sonnet-4-6'
+
+
+def model_badge(model: str) -> str:
+    """Return a compact [model] badge if model is non-default, else empty string."""
+    if not model or DEFAULT_MODEL_TAG in model:
+        return ''
+    name = model.replace('claude-', '')
+    name = re.sub(r'-\d{8}$', '', name)
+    return f'[{name}]'
 
 def load_channels() -> dict:
     path = os.path.expanduser('~/.claude/hooks/discord-channels.json')
@@ -43,6 +55,35 @@ def main():
     os.makedirs(state_dir, exist_ok=True)
     state_file = os.path.join(state_dir, f'{session_id}.txt')
 
+    # Detect active Discord source channel and persist for routing
+    chatid_file = os.path.join(state_dir, f'{session_id}.chatid')
+    active_chat_id = None
+    try:
+        with open(jsonl_path) as _f:
+            for _line in _f:
+                try:
+                    _entry = json.loads(_line)
+                    if _entry.get('type') == 'user':
+                        _content = _entry.get('message', {}).get('content', '')
+                        if isinstance(_content, list):
+                            _content = ' '.join(
+                                b.get('text', '') for b in _content
+                                if isinstance(b, dict) and b.get('type') == 'text'
+                            )
+                        _m = _CHANNEL_TAG_RE.search(str(_content))
+                        if _m:
+                            active_chat_id = _m.group(1)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    if active_chat_id:
+        try:
+            with open(chatid_file, 'w') as f:
+                f.write(active_chat_id)
+        except Exception:
+            pass
+
     last_line = 0
     if os.path.exists(state_file):
         try:
@@ -60,13 +101,15 @@ def main():
             try:
                 entry = json.loads(line)
                 if entry.get('type') == 'assistant':
+                    entry_model = entry.get('message', {}).get('model', '')
+                    badge = model_badge(entry_model)
                     content = entry.get('message', {}).get('content', [])
                     if isinstance(content, list):
                         for block in content:
                             if block.get('type') == 'text':
                                 text = block.get('text', '').strip()
                                 if text:
-                                    new_texts.append(text)
+                                    new_texts.append((text, badge))
             except Exception:
                 pass
 
@@ -74,12 +117,13 @@ def main():
         f.write(str(current_line))
 
     channels = load_channels()
-    for text in new_texts:
+    for text, badge in new_texts:
         text = substitute_channel_ids(text, channels)
         if len(text) > 400:
             text = text[:397] + '...'
         text = text.replace('`', "'")
-        msg = f'> {text}'
+        prefix = f'{badge} ' if badge else ''
+        msg = f'{prefix}> {text}'
         payload = json.dumps({'content': msg})
         subprocess.run(
             ['/usr/bin/curl', '-s', '-o', '/dev/null', '--max-time', '5',
