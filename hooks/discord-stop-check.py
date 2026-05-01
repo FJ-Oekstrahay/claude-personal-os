@@ -177,7 +177,25 @@ def main():
                 if t:
                     last_text = t
 
-    if replied or not last_text:
+    if replied:
+        # Claude replied via discord tool — send @mention so the user's device pings
+        if alert_user_id and last_discord_chat_id:
+            payload_dict = {
+                'content': f'<@{alert_user_id}> done — waiting for your next message.',
+                'allowed_mentions': {'users': [alert_user_id]},
+            }
+            subprocess.run(
+                ['/usr/bin/curl', '-s', '-o', '/dev/null', '--max-time', '10',
+                 '-X', 'POST',
+                 f'https://discord.com/api/v10/channels/{last_discord_chat_id}/messages',
+                 '-H', f'Authorization: Bot {bot_token}',
+                 '-H', 'Content-Type: application/json',
+                 '-d', json.dumps(payload_dict)],
+                check=False
+            )
+        sys.exit(0)
+
+    if not last_text:
         sys.exit(0)
 
     if len(last_text) > 1850:

@@ -147,9 +147,24 @@ try:
             log_ch = os.environ.get('DISCORD_LOG_CHANNEL_ID', '')
             if log_ch and chat_id == log_ch:
                 convo_id = os.environ.get('DISCORD_CHAT_ID', '')
-                label = _channels.get(convo_id, f'...{convo_id[-6:]}') if convo_id else _channels.get(chat_id, f'...{chat_id[-6:]}')
+                label = _channels.get(convo_id) if convo_id else _channels.get(chat_id)
             else:
-                label = _channels.get(chat_id, f'...{chat_id[-6:]}')
+                label = _channels.get(chat_id)
+            if not label:
+                # chat_id may be a thread (dynamic ID not in channels map); fall back to session state
+                _session_id = d.get('session_id', '')
+                if _session_id:
+                    _state_base = os.path.expanduser(f'~/.claude/hooks/state/{_session_id}')
+                    for _sfx in ('routechatid', 'chatid'):
+                        try:
+                            _stored = open(f'{_state_base}.{_sfx}').read().strip()
+                            if _stored in _channels:
+                                label = _channels[_stored]
+                                break
+                        except Exception:
+                            pass
+            if not label:
+                label = f'...{chat_id[-6:]}'
             print(f'**mcp:{short}** \`{label}\`')
         else:
             first_val = next((f'{k}={safe_backtick(str(v), 60)}' for k, v in ti.items() if v is not None), '')
