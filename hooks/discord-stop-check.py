@@ -178,6 +178,10 @@ def main():
                     last_text = t
 
     if replied:
+        # Wait briefly for any in-flight background webhook posts (text extractor) to land
+        # before sending the "done" ping — prevents ordering inversion in Discord.
+        import time
+        time.sleep(1.5)
         # Claude replied via discord tool — send @mention so the user's device pings
         if alert_user_id and last_discord_chat_id:
             payload_dict = {

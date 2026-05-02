@@ -3,4 +3,4 @@ Context is getting heavy. Before compacting:
    - What we've done, what files changed, current status, next steps
 2. Confirm the file was written
 3. Tell the user: "Checkpoint saved at [path]. Running /compact now."
-4. Then run /compact with focus: "Continue working on [current task]. See checkpoint at [path]."
+4. Then run /compact with focus: "Continue working on [current task]. See checkpoint at [path]. Prioritize recent messages and current state — earlier exploration and superseded decisions can be dropped."
