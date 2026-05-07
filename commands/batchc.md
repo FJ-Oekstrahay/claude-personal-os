@@ -96,6 +96,8 @@ Smartbatch execution protocol. Read the full prompt before touching anything, th
    - Stage only the specific changed files
    - Use a conventional commit message ending with:
      Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+   - When prompting Cob subagents to commit, instruct them: "End the commit message with Co-Authored-By using your actual model name. If your model name is unavailable or reports as 'synthetic', write: Co-Authored-By: Claude (model unknown) <noreply@anthropic.com>"
+   - Never fabricate a model name. "model unknown" is correct; a wrong model name is not.
 
 10. **Use unambiguous past tense in summaries**
     - Write "committed", "shipped", "done", "applied"

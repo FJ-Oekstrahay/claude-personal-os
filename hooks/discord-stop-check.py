@@ -74,6 +74,24 @@ def is_question(text):
     return any(phrase in lower for phrase in QUESTION_PHRASES)
 
 
+def _resolve_log_channel(session_id):
+    """Return the log channel ID for this session using per-session state files."""
+    log_channels_path = os.path.expanduser('~/.claude/hooks/discord-log-channels.json')
+    try:
+        mapping = json.load(open(log_channels_path))
+    except Exception:
+        return ''
+    state_dir = os.path.expanduser('~/.claude/hooks/state')
+    for suffix in ('routechatid', 'chatid'):
+        try:
+            chat_id = open(os.path.join(state_dir, f'{session_id}.{suffix}')).read().strip()
+            if chat_id and chat_id in mapping:
+                return mapping[chat_id]
+        except Exception:
+            pass
+    return ''
+
+
 def main():
     if len(sys.argv) < 3:
         sys.exit(0)
@@ -182,8 +200,10 @@ def main():
         # before sending the "done" ping — prevents ordering inversion in Discord.
         import time
         time.sleep(1.5)
-        # Claude replied via discord tool — send @mention so the user's device pings
-        if alert_user_id and last_discord_chat_id:
+        # Resolve the log channel: prefer per-session routing over the global env fallback.
+        # Priority: session routechatid → session chatid → DISCORD_LOG_CHANNEL_ID env var.
+        ping_channel = _resolve_log_channel(session_id) or os.environ.get('DISCORD_LOG_CHANNEL_ID', '') or last_discord_chat_id
+        if alert_user_id and ping_channel:
             payload_dict = {
                 'content': f'<@{alert_user_id}> done — waiting for your next message.',
                 'allowed_mentions': {'users': [alert_user_id]},
@@ -191,7 +211,7 @@ def main():
             subprocess.run(
                 ['/usr/bin/curl', '-s', '-o', '/dev/null', '--max-time', '10',
                  '-X', 'POST',
-                 f'https://discord.com/api/v10/channels/{last_discord_chat_id}/messages',
+                 f'https://discord.com/api/v10/channels/{ping_channel}/messages',
                  '-H', f'Authorization: Bot {bot_token}',
                  '-H', 'Content-Type: application/json',
                  '-d', json.dumps(payload_dict)],
