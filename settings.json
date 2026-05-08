@@ -138,5 +138,6 @@
   "effortLevel": "medium",
   "skipDangerousModePermissionPrompt": true,
   "teammateMode": "tmux",
-  "voiceEnabled": false
+  "voiceEnabled": false,
+  "model": "opus"
 }
