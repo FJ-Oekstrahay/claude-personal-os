@@ -125,7 +125,9 @@
     ]
   },
   "enabledPlugins": {
-    "discord@claude-plugins-official": true
+    "discord@claude-plugins-official": true,
+    "slack@claude-plugins-official": true,
+    "memsearch@memsearch-plugins": true
   },
   "extraKnownMarketplaces": {
     "claude-plugins-official": {
@@ -133,11 +135,17 @@
         "source": "github",
         "repo": "anthropics/claude-plugins-official"
       }
+    },
+    "memsearch-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "zilliztech/memsearch"
+      }
     }
   },
   "effortLevel": "medium",
   "skipDangerousModePermissionPrompt": true,
+  "theme": "dark",
   "teammateMode": "tmux",
-  "voiceEnabled": false,
-  "model": "opus"
+  "voiceEnabled": false
 }
