@@ -24,6 +24,3 @@ backups/
 **/tool-results/
 # Session UUID directories (hex names) under projects
 projects/*/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-*/
-
-# LaTeX build artifacts
-*.bbl

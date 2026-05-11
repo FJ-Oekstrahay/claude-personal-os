@@ -116,6 +116,7 @@ After all work items are committed and done:
   - **"Context safe to clear — no handoff needed."** (minor work, nothing worth capturing)
   - **"Full /session-handoff recommended before clearing context."** (substantial work or learnings)
   Do not omit this even if the session feels small. The user cannot tell from Discord whether the terminal is done or just quiet.
+- **Discord-bound sessions — mandatory completion signal:** If any message in this session arrived via Discord (i.e., a `<channel source="plugin:discord:discord" chat_id="...">` tag was present), you MUST also send the closing statement via `mcp__plugin_discord_discord__reply` using the `chat_id` from the most recent inbound Discord message. Do not rely on terminal output alone — the user is watching Discord, not the terminal. Send this reply as the final action of the batch, after all other steps are done.
 
 When $ARGUMENTS is empty, apply this protocol to the items in the current user message.
 When $ARGUMENTS contains items, treat those as the work list.

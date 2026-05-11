@@ -1,7 +1,6 @@
 {
   "env": {
-    "DISCORD_STATE_DIR": "/Users/moltyjoe/.claude/channels/discord-git-public-repo",
-    "DISCORD_LOG_CHANNEL_ID": "1499364108829720576"
+    "DISCORD_STATE_DIR": "/Users/moltyjoe/.claude/channels/discord-git-public-repo"
   },
   "hooks": {
     "UserPromptSubmit": [
