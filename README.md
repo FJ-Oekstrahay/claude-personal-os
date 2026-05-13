@@ -1,6 +1,6 @@
 # claude-personal-os
 
-My Claude Code configuration — skills, commands, hooks, and settings. The OS layer under every session: what the model is allowed to do, what it does automatically, how context moves between sessions.
+FJ Oekstrahay's Claude Code configuration — skills, commands, hooks, and settings. The OS layer under every session: what the model is allowed to do, what it does automatically, how context moves between sessions.
 
 This is a dotfiles repo, not a framework. It covers the Claude-side components of the system — the configuration layer, automation, and connective tissue. There are references to a companion multi-agent system (OpenClaw) that isn't public yet, but that's coming soon.
 
