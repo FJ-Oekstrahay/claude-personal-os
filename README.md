@@ -12,7 +12,7 @@ This is a dotfiles repo, not a framework. It covers the Claude-side components o
 
 ## What's here
 
-**`CLAUDE.md`** — the session-level instructions Claude Code loads on every startup. Sets the working model, behavioral constraints, tool permissions, and the context the user expects at the start of each session. The lessons-learned section at the bottom is the most honest part: `exit 2` vs `exit 1` in hooks, why `Write|Edit` as a hook matcher misses `Bash`-based writes, a private key found inside a file that looked like a device ID.
+**`CLAUDE.md`** — the session-level instructions Claude Code loads on every startup. Sets the working model, behavioral constraints, tool permissions, and the context the author expects at the start of each session. The lessons-learned section at the bottom is the most honest part: `exit 2` vs `exit 1` in hooks, why `Write|Edit` as a hook matcher misses `Bash`-based writes, a private key found inside a file that looked like a device ID.
 
 **`LESSONS.md`** — the hard-won knowledge extracted from production use, standalone as a reference. Covers hook exit codes and matcher scope, git permission gotchas, file staging risks, and skill design constraints. This is the content that moved from notes and incident post-mortems into durable documentation.
 
