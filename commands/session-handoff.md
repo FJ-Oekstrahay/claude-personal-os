@@ -64,7 +64,7 @@ Rules:
 - If this session changed any system config (new/removed agents, plugins toggled, integrations added, hardware changed), update `~/.openclaw/workspace/memory/system_info.md` to reflect it and note it under Lessons Captured.
 - Evidence-based only. Don't claim something is done without a file path, command, or diff to back it up.
 - Be specific about what the user did manually vs what you did.
-- Update `~/.openclaw/workspace/BOARD.md` first if any board items changed status this session, then reference the board in the handoff rather than duplicating the full backlog.
+- If any board items changed status this session: (1) edit `~/.openclaw/workspace/projects/project-board/board.json` with the updated state, (2) run `python3 ~/.openclaw/workspace/projects/project-board/generate_board_md.py ~/.openclaw/workspace/BOARD.md` to regenerate the Obsidian-readable copy, (3) commit + push the board.json change to GitHub (`cd ~/.openclaw/workspace/projects/project-board && git add board.json && git commit -m "chore: update board" && git push`). Then reference the board in the handoff rather than duplicating the full backlog. Never edit `~/.openclaw/workspace/BOARD.md` directly — it is generated.
 - Keep it under ~60 lines. If it's longer, you're putting too much in the handoff instead of the board.
 - Use Obsidian wiki-links (`[[filename]]`) when referencing workspace .md files — playbooks, BOARD, AGENTS, GOVERNANCE, etc. Use the filename without extension and without path (e.g. `[[launchd_git_backup_cron]]` not the full path). This makes the handoff navigable in Obsidian.
 
