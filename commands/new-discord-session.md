@@ -42,7 +42,7 @@ Create or update `<cwd>/.claude/settings.json` to set `DISCORD_STATE_DIR`:
 ```json
 {
   "env": {
-    "DISCORD_STATE_DIR": "~/.claude/channels/discord",
+    "DISCORD_STATE_DIR": "/Users/moltyjoe/.claude/channels/discord",
     "DISCORD_CHAT_ID": "<channel_id — set this to the bound channel_id value>"
   }
 }
