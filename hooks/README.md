@@ -22,6 +22,8 @@ Keeps you informed during long-running sessions without watching the terminal. H
 
 **PostToolUse** — After each tool call, the hook reads the session JSONL transcript (`~/.claude/projects/<encoded-path>/<session_id>.jsonl`) to find any Claude narrative text blocks written since the last check. Those are posted as `> quoted` lines to the LOGS webhook. Then a one-line tool call summary is posted (format varies by tool: Write, Edit, Bash, Read, mcp:\*, Agent, Task, etc.). State is tracked in `state/<session_id>.txt` as the last-read line number so each run only processes new content.
 
+For **Agent** (subagent dispatch) calls, the summary includes: subagent type (e.g. `cob`, `gadfly`), description field, and the prompt text capped at ~1500 chars in a code block. Format: `**Agent** → \`<subagent_type>\` — <description>` followed by the prompt excerpt. This makes every Cob, Gadfly, CTO, or Seymour dispatch visible in Discord without watching the terminal.
+
 **Notification** — When Claude needs terminal input (approval requests, etc.), posts to both the ALERTS and LOGS webhooks so the alert is audible on mobile while the LOGS channel retains context. Note: `ALERTS_WEBHOOK_URL` is optional — the @mention to the per-session log webhook fires regardless.
 
 **Stop** — When a Claude Code turn ends, if a Discord message arrived during the turn but no reply was sent via the Discord plugin, the hook posts the assistant's last text to the originating Discord channel using the bot API (requires `DISCORD_BOT_TOKEN` in conf). If the last text contains a question (ends with `?` or contains question phrases), the post includes an @mention. All stop-hook posts are prefixed with `[turn done]` to distinguish them from live replies.

@@ -1,8 +1,6 @@
 # claude-personal-os
 
-FJ Oekstrahay's Claude Code configuration — skills, commands, hooks, and settings. The OS layer under every session: what the model is allowed to do, what it does automatically, how context moves between sessions.
-
-This is a dotfiles repo, not a framework. It covers the Claude-side components of the system — the configuration layer, automation, and connective tissue. There are references to a companion multi-agent system (OpenClaw) that isn't public yet, but that's coming soon.
+FJ Oekstrahay's Claude Code configuration — skills, commands, hooks, and settings. A behavioral and operational configuration layer: what the model is allowed to do, what it does automatically, how context moves between sessions, and how every tool call streams to Discord in real time.
 
 **[→ Full documentation](https://fj-oekstrahay.github.io/claude-personal-os/)**
 
@@ -16,7 +14,7 @@ This is a dotfiles repo, not a framework. It covers the Claude-side components o
 
 **`LESSONS.md`** — the hard-won knowledge extracted from production use, standalone as a reference. Covers hook exit codes and matcher scope, git permission gotchas, file staging risks, and skill design constraints. This is the content that moved from notes and incident post-mortems into durable documentation.
 
-**`hooks/`** — shell scripts that fire at specific lifecycle points. `protect-sensitive-files.sh` blocks writes to live config and credentials on every `Write`, `Edit`, or `Bash` call. `discord-notify.sh` streams Claude's session to Discord in real time: narrative text blocks (what Claude is about to do, in its own words) followed by a one-line tool call summary for every tool use. Also posts to an alerts channel when approval is needed. Lets you monitor a long session from your phone without watching the terminal. The companion `discord-text-extract.py` handles the JSONL transcript reading. See [`hooks/README.md`](hooks/README.md) for design details.
+**`hooks/`** — shell scripts that fire at specific lifecycle points. `protect-sensitive-files.sh` blocks writes to live config and credentials on every `Write`, `Edit`, or `Bash` call. `discord-notify.sh` streams Claude's session to Discord in real time: narrative text blocks (what Claude is about to do, in its own words) followed by a one-line tool call summary for every tool use. For Agent (subagent) calls, it posts the subagent type, description, and the full prompt (capped at ~1500 chars) — every dispatch is visible in Discord. Also posts to an alerts channel when approval is needed. The companion `discord-text-extract.py` handles the JSONL transcript reading. See [`hooks/README.md`](hooks/README.md) for design details.
 
 **`commands/`** — user-invoked slash commands. `review-sequence` runs adversarial reviewers in the correct order (gadfly before CTO, or the CTO's plan anchors everything). `batchc` dispatches parallel subagent work with wave sizing and merge-before-parallelize enforcement. `mmguns` is a research-to-integration loop: given a topic, it websearches for SOTA tools, processes, and methodologies; inventories the current project; produces a ranked 3-item brief; and dispatches to implementation or a spec stub. `session-handoff` writes a structured resumption document so the next session can pick up without re-reading the full transcript. See [`commands/README.md`](commands/README.md) for the full list.
 

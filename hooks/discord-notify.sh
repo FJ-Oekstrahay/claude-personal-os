@@ -131,8 +131,22 @@ try:
         q = safe_backtick(ti.get('query', '?'), 80)
         print(f'**WebSearch** \`{q}\`')
     elif tool == 'Agent':
-        desc = safe_backtick(ti.get('description') or ti.get('subagent_type', '?'), 80)
-        print(f'**Agent** {desc}')
+        subagent = ti.get('subagent_type', '?')
+        desc = ti.get('description', '')
+        prompt = ti.get('prompt', '')
+        header = f'**Agent** → `{safe_backtick(subagent, 40)}`'
+        if desc:
+            header += f' — {safe_backtick(desc, 80)}'
+        if prompt:
+            prompt_str = str(prompt)
+            cap = 1500
+            if len(prompt_str) > cap:
+                prompt_body = prompt_str[:cap] + '…'
+            else:
+                prompt_body = prompt_str
+            print(f'{header}\n```\n{prompt_body}\n```')
+        else:
+            print(header)
     elif tool.startswith('mcp__'):
         short = tool.split('__')[-1]
         try:
