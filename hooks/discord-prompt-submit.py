@@ -215,10 +215,13 @@ def main():
             except Exception:
                 pass
 
-    # Model alert: post compact note to Discord when running non-default model
-    if bot_token and transcript_path:
-        model = get_current_model(transcript_path)
-        if model and model != DEFAULT_MODEL:
+    # Model alert: post compact note to Discord when running non-default model.
+    # Use model from hook payload only — accurate for the current turn.
+    # Transcript scan (old approach) has a 1-turn lag after model switches,
+    # causing false positives when switching back to the default model.
+    if bot_token:
+        model = data.get('model', '') or ''
+        if model and DEFAULT_MODEL not in model:
             short = model.replace('claude-', '')
             post_to_discord(chat_id, f'`[model: {short}]`', bot_token)
 
