@@ -21,6 +21,7 @@ CONF_PATH = os.path.expanduser('~/.claude/hooks/discord-webhook.conf')
 ROUTING_PATH = os.path.expanduser('~/.claude/hooks/discord-routing.json')
 STATE_DIR = os.path.expanduser('~/.claude/hooks/state')
 DEFAULT_MODEL = 'claude-sonnet-4-6'
+MODEL_STATE_SUFFIX = '.model'
 
 
 def load_conf():
@@ -216,13 +217,27 @@ def main():
                 pass
 
     # Model alert: post compact note to Discord when running non-default model.
-    # Use model from hook payload only — accurate for the current turn.
-    # Transcript scan (old approach) has a 1-turn lag after model switches,
-    # causing false positives when switching back to the default model.
+    #
+    # Source priority:
+    # 1. Per-session state file written by stop hook after a confirmed model switch.
+    #    This is accurate because it's written AFTER the switch completes, so the
+    #    next UserPromptSubmit sees the correct model with zero lag.
+    # 2. Hook payload 'model' field (fallback). This lags by 1 turn — it reflects
+    #    the model used for the previous response, not the current session config.
+    #    Used when no state file exists (new session, or stop hook hasn't run yet).
     if bot_token:
-        model = data.get('model', '') or ''
+        model_state_file = os.path.join(STATE_DIR, f'{session_id}{MODEL_STATE_SUFFIX}')
+        model = ''
+        try:
+            model = open(model_state_file).read().strip()
+        except Exception:
+            pass
+        if not model:
+            model = data.get('model', '') or ''
         if model and DEFAULT_MODEL not in model:
             short = model.replace('claude-', '')
+            if '/' in short:
+                short = short.split('/')[-1]
             post_to_discord(chat_id, f'`[model: {short}]`', bot_token)
 
     print(json.dumps({

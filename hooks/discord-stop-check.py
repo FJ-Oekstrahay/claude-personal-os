@@ -23,6 +23,11 @@ CHANNEL_TAG_RE = re.compile(r'<channel[^>]+source="plugin:discord:discord"[^>]+c
 
 QUESTION_PHRASES = ('which', 'would you like', 'do you want', 'should i', 'can you')
 
+# Matches: "Model set to sonnet46 (anthropic/claude-sonnet-4-6)."
+#          "Model reset to default (sonnet46 (anthropic/claude-sonnet-4-6))."
+# Captures the full provider/model ID from the innermost parentheses.
+MODEL_SWITCH_RE = re.compile(r'Model (?:set to|reset to default)\b.*?\(([a-zA-Z0-9_][a-zA-Z0-9_./-]*)\)\.')
+
 
 def load_conf():
     bot_token = ''
@@ -127,6 +132,30 @@ def main():
 
     if not last_discord_chat_id or last_discord_idx < 0:
         sys.exit(0)
+
+    # --- Model switch detection: update state file if model changed this turn ---
+    # UserPromptSubmit reads this file to label non-default models. Writing it here
+    # (after the turn completes) means the next turn sees the correct model with no lag.
+    state_dir = os.path.expanduser('~/.claude/hooks/state')
+    model_state_file = os.path.join(state_dir, f'{session_id}.model')
+    for entry in entries[last_discord_idx:]:
+        if entry.get('type') != 'assistant':
+            continue
+        content = entry.get('message', {}).get('content', [])
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if not isinstance(block, dict) or block.get('type') != 'text':
+                continue
+            m = MODEL_SWITCH_RE.search(block.get('text', ''))
+            if m:
+                new_model = m.group(1)
+                try:
+                    os.makedirs(state_dir, exist_ok=True)
+                    with open(model_state_file, 'w') as f:
+                        f.write(new_model)
+                except Exception:
+                    pass
 
     # --- Job 1: flush unposted text since last text-extractor run ---
     # The text extractor (PreToolUse/PostToolUse) writes a state file tracking

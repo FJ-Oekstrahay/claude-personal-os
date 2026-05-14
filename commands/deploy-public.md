@@ -69,7 +69,7 @@ The sync no longer wipes `docs/` — verify it survived:
 ls ~/.openclaw/public-sync/claude-personal-os/docs/
 ```
 
-Should show `index.html` and `hero.jpeg`. If missing (e.g. first-time setup or manual wipe), restore from source:
+Should show `index.html`, `hero.jpeg`, and `.nojekyll`. If missing (e.g. first-time setup or manual wipe), restore from source:
 
 ```
 cp ~/.openclaw/workspace/projects/git-public-repo/pages/index.html \
@@ -77,6 +77,9 @@ cp ~/.openclaw/workspace/projects/git-public-repo/pages/index.html \
 
 cp ~/.openclaw/workspace/projects/git-public-repo/pages/hero.jpeg \
    ~/.openclaw/public-sync/claude-personal-os/docs/hero.jpeg
+
+cp ~/.openclaw/workspace/projects/git-public-repo/pages/.nojekyll \
+   ~/.openclaw/public-sync/claude-personal-os/docs/.nojekyll
 ```
 
 ## Step 4: Commit and push docs/ (only if Step 3 restored files)
@@ -84,7 +87,7 @@ cp ~/.openclaw/workspace/projects/git-public-repo/pages/hero.jpeg \
 In `~/.openclaw/public-sync/claude-personal-os/`:
 
 ```
-git add docs/index.html docs/hero.jpeg
+git add docs/index.html docs/hero.jpeg docs/.nojekyll
 git commit -m "site: redeploy landing page + restore hero.jpeg
 
 Co-Authored-By: Claude Sonnet <noreply@anthropic.com>"
