@@ -119,8 +119,8 @@ def main():
     channels = load_channels()
     for text, badge in new_texts:
         text = substitute_channel_ids(text, channels)
-        if len(text) > 400:
-            text = text[:397] + '...'
+        if len(text) > 1700:
+            text = text[:1697] + '...'
         text = text.replace('`', "'")
         prefix = f'{badge} ' if badge else ''
         msg = f'{prefix}> {text}'

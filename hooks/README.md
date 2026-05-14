@@ -5,8 +5,8 @@ Claude Code hooks are shell scripts that run at specific points in the execution
 | Hook file | Type | What it does | Portable? |
 |---|---|---|---|
 | `protect-sensitive-files.sh` | PreToolUse | Blocks writes to protected paths (openclaw.json, credentials/, secrets/, IDENTITY.md, launchd plists) | Partial (path list is system-specific; pattern is portable) |
-| `discord-notify.sh` | PreToolUse + PostToolUse + Notification + Stop | Posts narrative text (pre-tool) and tool summaries (post-tool) to per-session log webhooks; posts to alerts and logs when approval is needed; posts turn-end notifications to the originating Discord channel when a turn completes. For Agent (subagent) calls, posts the subagent type, description, and the full prompt (capped at 1500 chars) so every dispatch is visible from Discord. | Yes (requires `discord-webhook.conf`) |
-| `discord-prompt-submit.py` | UserPromptSubmit | Detects incoming Discord messages, writes `state/<session_id>.chatid` for log routing, injects reminder to reply via Discord tool | Yes (no config required) |
+| `discord-notify.sh` | PreToolUse + PostToolUse + Notification + Stop | Posts narrative text (pre-tool) and tool summaries (post-tool) to per-session log webhooks; posts to alerts and logs when approval is needed; posts turn-end notifications to the originating Discord channel when a turn completes. For Agent (subagent) calls, posts the subagent type, description, and the full prompt (capped at 1500 chars) so every dispatch is visible from Discord. For Skill calls, posts the skill name and args (if non-empty). Stop hook now also flushes trailing narrative text (after the last tool call) to the log webhook. Narrative truncation cap raised to 1700 chars. | Yes (requires `discord-webhook.conf`) |
+| `discord-prompt-submit.py` | UserPromptSubmit | Detects incoming Discord messages, writes `state/<session_id>.chatid` for log routing, injects reminder to reply via Discord tool. Also detects `<command-name>` blocks (slash commands) and posts a one-liner to the log webhook on every prompt submission — no Discord tag required. | Yes (no config required) |
 
 **`discord-text-extract.py`** is a helper script called by `discord-notify.sh` — not a hook itself. It reads new assistant text blocks from the session JSONL and posts them as blockquotes before each tool summary. It accepts three arguments: `session_id`, `transcript_path`, `logs_webhook_url`. State is tracked in `state/<session_id>.txt` (last-read line number) and `state/<session_id>.chatid` (active Discord source channel for log routing). Note: `.chatid` is now written by BOTH `discord-prompt-submit.py` (on UserPromptSubmit, eliminating routing lag) and `discord-text-extract.py` (as a fallback on each tool call).
 
@@ -28,18 +28,6 @@ Keeps you informed during long-running sessions without watching the terminal. H
 ```<prompt body>```
 ```
 This makes every subagent dispatch — Cob, Gadfly, CTO, Seymour, etc. — visible from Discord without watching the terminal.
-
-**PreToolUse announcements** — Before certain high-signal tool calls, a brief announcement is posted to the LOGS webhook immediately after any pending narrative is flushed. This means you see what's about to happen before it does. Triggers and formats:
-
-| Tool | Announcement |
-|---|---|
-| `Skill` | `⚡ **Skill:** \`{skill_name}\`` |
-| `Agent` | `🤖 **Agent dispatch:** \`{description}\` [{subagent_type}]` |
-| `mcp__plugin_discord_discord__reply` | `💬 **Discord reply** queued` |
-
-**Completion lines** — After `Skill` and `Agent` tool calls complete (PostToolUse), a second webhook post confirms completion:
-- Skill: `✅ **Skill done:** \`{skill_name}\``
-- Agent: `✅ **Agent done:** \`{description}\``
 
 **Notification** — When Claude needs terminal input (approval requests, etc.), posts to both the ALERTS and LOGS webhooks so the alert is audible on mobile while the LOGS channel retains context. Note: `ALERTS_WEBHOOK_URL` is optional — the @mention to the per-session log webhook fires regardless.
 

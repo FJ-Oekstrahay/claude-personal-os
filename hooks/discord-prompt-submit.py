@@ -14,6 +14,8 @@ import sys
 _CHANNEL_TAG_RE = re.compile(
     r'<channel[^>]+source="plugin:discord:discord"[^>]+chat_id="(\d+)"'
 )
+_COMMAND_NAME_RE = re.compile(r'<command-name>(.*?)</command-name>', re.DOTALL)
+_COMMAND_ARGS_RE = re.compile(r'<command-args>(.*?)</command-args>', re.DOTALL)
 
 CONF_PATH = os.path.expanduser('~/.claude/hooks/discord-webhook.conf')
 ROUTING_PATH = os.path.expanduser('~/.claude/hooks/discord-routing.json')
@@ -113,6 +115,43 @@ def get_current_model(transcript_path):
     return None
 
 
+def resolve_log_webhook(session_id, conf, routing):
+    """Return the log webhook URL for this session, with per-channel routing."""
+    logs_url = conf.get('LOGS_WEBHOOK_URL', '')
+    state_dir = STATE_DIR
+    chat_id = ''
+    for suffix in ('routechatid', 'chatid'):
+        try:
+            candidate = open(os.path.join(state_dir, f'{session_id}.{suffix}')).read().strip()
+            if candidate:
+                chat_id = candidate
+                break
+        except Exception:
+            pass
+    if not chat_id:
+        chat_id = os.environ.get('DISCORD_CHAT_ID', '')
+    if not chat_id:
+        return logs_url
+    var_name = routing.get(chat_id, '')
+    if var_name:
+        url = conf.get(var_name, '')
+        if url:
+            return url
+    return logs_url
+
+
+def post_to_webhook(url, text):
+    """Fire-and-forget POST to a webhook URL."""
+    payload = json.dumps({'content': text})
+    subprocess.Popen(
+        ['/usr/bin/curl', '-s', '-o', '/dev/null', '--max-time', '5',
+         '-X', 'POST', url,
+         '-H', 'Content-Type: application/json',
+         '-d', payload],
+        close_fds=True,
+    )
+
+
 def post_to_discord(chat_id, text, bot_token):
     payload = json.dumps({'content': text})
     subprocess.Popen(
@@ -135,14 +174,29 @@ def main():
     session_id = data.get('session_id', '')
     transcript_path = data.get('transcript_path', '')
 
+    conf = load_conf()
+    routing = load_routing()
+    bot_token = conf.get('DISCORD_BOT_TOKEN', '')
+
+    # --- Path A: slash command detection (unconditional) ---
+    cmd_m = _COMMAND_NAME_RE.search(prompt)
+    if cmd_m:
+        cmd_name = cmd_m.group(1).strip()
+        args_m = _COMMAND_ARGS_RE.search(prompt)
+        args_str = args_m.group(1).strip() if args_m else ''
+        if args_str and len(args_str) > 120:
+            args_str = args_str[:117] + '...'
+        log_msg = f'**/{cmd_name}**' + (f' {args_str}' if args_str else '')
+        log_url = resolve_log_webhook(session_id, conf, routing)
+        if log_url:
+            post_to_webhook(log_url, log_msg)
+
+    # --- Path B: Discord channel message detection ---
     m = _CHANNEL_TAG_RE.search(prompt)
     if not m:
         sys.exit(0)
 
     chat_id = m.group(1)
-    conf = load_conf()
-    routing = load_routing()
-    bot_token = conf.get('DISCORD_BOT_TOKEN', '')
 
     if session_id:
         os.makedirs(STATE_DIR, exist_ok=True)
