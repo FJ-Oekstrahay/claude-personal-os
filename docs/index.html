@@ -877,6 +877,12 @@ flowchart TD
     <p>Wave sizing is explicit, not inferred. Three waves of three agents each is different from nine agents at once — both in rate limit exposure and in context coherence at merge.</p>
     <p>The command also enforces: don't dispatch a consumer before its dependency. If Agent B needs Agent A's output, they don't run in the same wave.</p>
 
+    <h3>mmguns</h3>
+    <p>Research-to-integration loop. <code>/mmguns &lt;topic&gt;</code> finds the current best approaches for a capability area — tools, libraries, processes, and methodologies — compares them against what exists in the current project, and produces a ranked 3-item brief with a dispatch action.</p>
+    <p>The workflow: websearch in 4 parallel angles (SOTA, production libraries, comparison discussions, process/methodology patterns), inventory the current project (CLAUDE.md, specs, memory, packages, source), gap analysis (quick win / medium lift / non-starter), and a structured brief that always has the same format. Then it dispatches: quick wins ask for confirm then implement, medium lifts generate a spec stub, non-starters get ruled out with reasoning.</p>
+    <p>Flags: <code>--global</code> scans across all projects; <code>--implement</code> skips the confirm step; <code>--spec</code> forces a spec even if #1 is a quick win.</p>
+    <p>The point is closing the loop. A research command that stops at a report is just expensive grep.</p>
+
     <h3>session-handoff</h3>
     <p>Structured resumption document, written at the end of a session.</p>
     <p>Covers: what was accomplished, what's in progress, what's blocked, what the next session should start with. Stored in <code>workspace/HANDOFF.md</code>. The next session reads it, not the transcript.</p>
