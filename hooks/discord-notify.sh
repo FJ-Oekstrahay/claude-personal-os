@@ -70,6 +70,44 @@ if [ -n "$TOOL_NAME" ] && [ "$HAS_RESPONSE" = "no" ]; then
       "$SESSION_ID" "$TRANSCRIPT_PATH" "$ACTIVE_LOG_WEBHOOK" 2>/dev/null &
   fi
 
+  # Immediate PreToolUse announcements for notable tools
+  PRE_MSG=$(echo "$INPUT" | python3 -c "
+import sys, json
+
+def safe_backtick(s, n=120):
+    s = str(s)
+    if len(s) > n:
+        s = s[:n] + '...'
+    s = s.replace('\`', \"'\")
+    return s
+
+try:
+    d = json.load(sys.stdin)
+    tool = d.get('tool_name', '')
+    ti = d.get('tool_input', {})
+
+    if tool == 'Skill':
+        skill_name = ti.get('skill', '?')
+        print(f'⚡ **Skill:** \`{safe_backtick(skill_name)}\`')
+    elif tool == 'Agent':
+        desc = ti.get('description', '?')
+        subagent_type = ti.get('subagent_type', 'general') or 'general'
+        print(f'🤖 **Agent dispatch:** \`{safe_backtick(desc, 80)}\` [{safe_backtick(subagent_type, 30)}]')
+    elif tool == 'mcp__plugin_discord_discord__reply':
+        print('💬 **Discord reply** queued')
+except Exception:
+    pass
+" 2>/dev/null)
+
+  if [ -n "$PRE_MSG" ]; then
+    if [ -z "$ACTIVE_LOG_WEBHOOK" ]; then
+      ACTIVE_LOG_WEBHOOK=$(resolve_log_webhook "$SESSION_ID")
+    fi
+    /usr/bin/curl -s -o /dev/null --max-time 5 -X POST "$ACTIVE_LOG_WEBHOOK" \
+      -H "Content-Type: application/json" \
+      -d "{\"content\": $(echo "$PRE_MSG" | /usr/bin/jq -Rs .)}" &
+  fi
+
   exit 0
 
 elif [ -n "$TOOL_NAME" ]; then
@@ -130,6 +168,9 @@ try:
     elif tool == 'WebSearch':
         q = safe_backtick(ti.get('query', '?'), 80)
         print(f'**WebSearch** \`{q}\`')
+    elif tool == 'Skill':
+        skill_name = ti.get('skill', '?')
+        print(f'✅ **Skill done:** \`{safe_backtick(skill_name)}\`')
     elif tool == 'Agent':
         subagent = ti.get('subagent_type', '?')
         desc = ti.get('description', '')
@@ -270,5 +311,37 @@ fi
 /usr/bin/curl -s -o /dev/null --max-time 5 -X POST "$WEBHOOK_URL" \
   -H "Content-Type: application/json" \
   -d "{\"content\": $(echo "$MSG" | /usr/bin/jq -Rs .)}" &
+
+# PostToolUse completion announcements for Skill and Agent tools
+DONE_MSG=$(echo "$INPUT" | python3 -c "
+import sys, json
+
+def safe_backtick(s, n=120):
+    s = str(s)
+    if len(s) > n:
+        s = s[:n] + '...'
+    s = s.replace('\`', \"'\")
+    return s
+
+try:
+    d = json.load(sys.stdin)
+    tool = d.get('tool_name', '')
+    ti = d.get('tool_input', {})
+
+    if tool == 'Skill':
+        skill_name = ti.get('skill', '?')
+        print(f'✅ **Skill done:** \`{safe_backtick(skill_name)}\`')
+    elif tool == 'Agent':
+        desc = ti.get('description', '') or ti.get('subagent_type', '?')
+        print(f'✅ **Agent done:** \`{safe_backtick(desc, 80)}\`')
+except Exception:
+    pass
+" 2>/dev/null)
+
+if [ -n "$DONE_MSG" ]; then
+  /usr/bin/curl -s -o /dev/null --max-time 5 -X POST "$WEBHOOK_URL" \
+    -H "Content-Type: application/json" \
+    -d "{\"content\": $(echo "$DONE_MSG" | /usr/bin/jq -Rs .)}" &
+fi
 
 exit 0

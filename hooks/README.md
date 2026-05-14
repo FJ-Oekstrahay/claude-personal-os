@@ -29,6 +29,18 @@ Keeps you informed during long-running sessions without watching the terminal. H
 ```
 This makes every subagent dispatch — Cob, Gadfly, CTO, Seymour, etc. — visible from Discord without watching the terminal.
 
+**PreToolUse announcements** — Before certain high-signal tool calls, a brief announcement is posted to the LOGS webhook immediately after any pending narrative is flushed. This means you see what's about to happen before it does. Triggers and formats:
+
+| Tool | Announcement |
+|---|---|
+| `Skill` | `⚡ **Skill:** \`{skill_name}\`` |
+| `Agent` | `🤖 **Agent dispatch:** \`{description}\` [{subagent_type}]` |
+| `mcp__plugin_discord_discord__reply` | `💬 **Discord reply** queued` |
+
+**Completion lines** — After `Skill` and `Agent` tool calls complete (PostToolUse), a second webhook post confirms completion:
+- Skill: `✅ **Skill done:** \`{skill_name}\``
+- Agent: `✅ **Agent done:** \`{description}\``
+
 **Notification** — When Claude needs terminal input (approval requests, etc.), posts to both the ALERTS and LOGS webhooks so the alert is audible on mobile while the LOGS channel retains context. Note: `ALERTS_WEBHOOK_URL` is optional — the @mention to the per-session log webhook fires regardless.
 
 **Stop** — When a Claude Code turn ends, if a Discord message arrived during the turn but no reply was sent via the Discord plugin, the hook posts the assistant's last text to the originating Discord channel using the bot API (requires `DISCORD_BOT_TOKEN` in conf). If the last text contains a question (ends with `?` or contains question phrases), the post includes an @mention. All stop-hook posts are prefixed with `[turn done]` to distinguish them from live replies.
