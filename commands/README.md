@@ -11,7 +11,6 @@ User-invoked slash commands. Type `/batchc`, `/review-sequence`, etc. at the Cla
 | `new-discord-session` | Bind a Claude Code project directory to a Discord channel — adds the channel to `access.json` and sets `DISCORD_STATE_DIR` in project settings | No (requires OpenClaw Discord bot) |
 | `review-sequence` | Run one or more adversarial reviewer roles (Critic, Gadfly, Architect, CTO) in the correct order for the work at hand | Yes |
 | `session-handoff` | Write a structured handoff file summarizing what was done, what's pending, and lessons to capture | Partial (the Seymour-spawn step requires OpenClaw; rest is portable) |
-| `update-public-repo` | Update public-sync README files and landing page, then commit and push (lighter-weight precursor to `deploy-public`) | No (requires sync script + OpenClaw paths) |
 
 ---
 

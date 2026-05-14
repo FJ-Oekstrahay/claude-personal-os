@@ -5,11 +5,9 @@ Audit and update the public repo README files and landing page, then commit `~/.
 ## Context
 
 - Source of truth: `~/.claude/` (local config). Public mirror: `~/.openclaw/public-sync/claude-personal-os/` (rsync mirror of `~/.claude/`).
-- Sync script: `~/.openclaw/bin/sync-claude-to-public.sh` — rsyncs `~/.claude/` to the public repo and auto-commits. It **wipes** `docs/` and any non-synced directories on each run.
-- Landing page source: `~/.openclaw/workspace/projects/git-public-repo/pages/` (`index.html`, `hero.jpeg`). These must be manually restored to `docs/` after every sync because sync wipes `docs/`.
+- Sync script: `~/.openclaw/bin/sync-claude-to-public.sh` — rsyncs `~/.claude/` to the public repo and auto-commits. The wipe step and rsync both exclude `docs/`, so the landing page and hero image survive syncs automatically.
+- Landing page source: `~/.openclaw/workspace/projects/git-public-repo/pages/` (`index.html`, `hero.jpeg`).
 - Public repo: `~/.openclaw/public-sync/claude-personal-os/`
-
-**TODO (long-term fix):** Update `sync-claude-to-public.sh` to add `--exclude 'docs/'` to the rsync call so the landing page survives syncs automatically. The command currently re-deploys manually as a workaround.
 
 ## Step 1: Audit README files
 
@@ -63,9 +61,15 @@ If unrelated files are dirty (e.g. memory files from other projects), commit the
 
 This rsyncs `~/.claude/` to `~/.openclaw/public-sync/claude-personal-os/` and auto-commits. Note the commit SHA.
 
-## Step 3: Restore the landing page
+## Step 3: Verify landing page
 
-After sync wipes `docs/`:
+The sync no longer wipes `docs/` — verify it survived:
+
+```
+ls ~/.openclaw/public-sync/claude-personal-os/docs/
+```
+
+Should show `index.html` and `hero.jpeg`. If missing (e.g. first-time setup or manual wipe), restore from source:
 
 ```
 cp ~/.openclaw/workspace/projects/git-public-repo/pages/index.html \
@@ -75,7 +79,7 @@ cp ~/.openclaw/workspace/projects/git-public-repo/pages/hero.jpeg \
    ~/.openclaw/public-sync/claude-personal-os/docs/hero.jpeg
 ```
 
-## Step 4: Commit and push docs/
+## Step 4: Commit and push docs/ (only if Step 3 restored files)
 
 In `~/.openclaw/public-sync/claude-personal-os/`:
 

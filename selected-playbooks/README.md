@@ -4,7 +4,7 @@ Playbooks are persistent lessons extracted from real incidents and patterns — 
 
 Format: YAML frontmatter (`what`, `why`, `how` keys or equivalent) followed by prose. The frontmatter is designed to be machine-searchable; the prose is the actual lesson.
 
-This is a curated subset of a larger library (~150 entries). Excluded: project-specific playbooks for DroneTeleos, Jarface, personal financial tooling, and BMX sourcing — entries that only make sense with private context.
+This is a curated subset of a larger library (~220 entries). Excluded: project-specific playbooks for DroneTeleos, Jarface, personal financial tooling, and BMX sourcing — entries that only make sense with private context.
 
 ---
 

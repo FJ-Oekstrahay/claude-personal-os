@@ -28,7 +28,7 @@ The format is consistent: what happened, why it happened, and how to apply the l
 
 **`selected-playbooks/`** contains a representative subset with no personal information or customer-specific context. Excluded from this folder: playbooks that reference specific systems, personal accounts, internal tooling, or project-specific operational details. What's here: technical gotchas and behavioral patterns that are broadly reusable.
 
-The full library is ~150 playbooks across these categories:
+The full library is ~220 playbooks across these categories:
 
 - **Agent behavior** — prompt execution model quirks, third-person language artifacts, confirmation/contradiction loops, model selection tradeoffs
 - **Betaflight / FC tooling** — serial reconnect, MSP framing, blackbox parsing, OSD coordinate validation, CLI gotchas
@@ -50,7 +50,7 @@ This repo is auto-synced from my private `~/.claude` directory on a nightly cron
 What it does:
 
 1. Pulls the latest from this remote
-2. Wipes the working directory (preserving `.git`)
+2. Wipes the working directory (preserving `.git` and `docs/`)
 3. rsyncs the source, excluding sessions, memory, credentials, caches, and agent data
 4. Does a redaction pass — personal identifiers and secret tokens replaced mechanically
 5. Copies selected playbooks from the workspace memory library (explicit allowlist, no grep heuristics)
