@@ -5,10 +5,13 @@ User-invoked slash commands. Type `/batchc`, `/review-sequence`, etc. at the Cla
 | Command | When to use | Portable? |
 |---|---|---|
 | `batchc` | Classify and dispatch a list of work items — groups parallel vs. sequential, sizes waves, routes code edits to subagents | Yes |
+| `deploy-public` | Audit READMEs, commit `~/.claude/` private repo, sync to the public mirror, restore the landing page, push | No (requires sync script + OpenClaw paths) |
 | `load-handoff` | List recent session handoff files and load one for context at the start of a new session | Partial (references OpenClaw handoff format) |
+| `mmguns` | Research-to-integration loop — find SOTA for a capability area, gap-analyze against current project, produce ranked 3-item brief, then dispatch | Yes |
 | `new-discord-session` | Bind a Claude Code project directory to a Discord channel — adds the channel to `access.json` and sets `DISCORD_STATE_DIR` in project settings | No (requires OpenClaw Discord bot) |
 | `review-sequence` | Run one or more adversarial reviewer roles (Critic, Gadfly, Architect, CTO) in the correct order for the work at hand | Yes |
 | `session-handoff` | Write a structured handoff file summarizing what was done, what's pending, and lessons to capture | Partial (the Seymour-spawn step requires OpenClaw; rest is portable) |
+| `update-public-repo` | Update public-sync README files and landing page, then commit and push (lighter-weight precursor to `deploy-public`) | No (requires sync script + OpenClaw paths) |
 
 ---
 
@@ -18,11 +21,34 @@ A full dispatch protocol, not just a task grouper. When given a list of work ite
 
 The key constraint it enforces: **all file edits go to a Cob subagent — never inline.** This prevents large batches from burning the main context window on implementation work. Born from experience running multi-file refactors inline and hitting the context limit mid-batch.
 
+## deploy-public
+
+End-to-end public repo deployment in one command. Sequence:
+
+1. Audit `~/.claude/` READMEs against the current directory state — update anything stale or missing
+2. Commit `~/.claude/` (private repo) using the batchc grouping: hook/command work as one commit, memory updates as another, other changes individually
+3. Run `sync-claude-to-public.sh` — rsyncs `~/.claude/` to the public mirror, auto-commits
+4. Restore `docs/index.html` and `docs/hero.jpeg` from `pages/` (the sync wipes `docs/` on every run)
+5. Commit and push the docs restore
+
+Uses batchc methodology throughout — classify before acting, no inline diffs returned to main context.
+
 ## load-handoff
 
 Lists the 5 most recent `HANDOFF-*.md` files from the workspace, lets you pick by number, reads the chosen file, and delivers a structured summary: what was accomplished, what's pending or blocked, gotchas and surprises, and the suggested first step as a concrete action.
 
 This is the entry point for resuming work after a context clear or a break. Rather than re-reading a raw handoff file, it synthesizes it into a next-action-oriented brief.
+
+## mmguns
+
+Research-to-integration loop for any capability area. Steps:
+
+1. Web-search for current SOTA tools, papers, or patterns in `<topic>`
+2. Compare against what's already in the project — gap analysis, not a survey
+3. Produce a ranked 3-item brief: quick win (implement now), medium lift (spec stub), non-starter (ruled out with reasoning)
+4. Dispatch the quick win via batchc if clear enough to execute immediately
+
+The output must drive action, not just summarize. If nothing actionable emerges, that's the output — but it's explicit, not a default.
 
 ## new-discord-session
 

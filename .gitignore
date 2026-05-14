@@ -14,6 +14,22 @@ todos/
 
 # Contains secrets (Discord bot token etc)
 channels/
+hooks/discord-webhook.conf
+
+# Contains API keys and OAuth tokens
+.mcp.json
+.credentials.json
+
+# Ephemeral runtime files
+mcp-needs-auth-cache.json
+.last-cleanup
+plans/
+hooks/state/
+hooks/__pycache__/
+plugins/install-counts-cache.json
+plugins/marketplaces/
+teams/
+.DS_Store
 
 # Backups are redundant if we're doing git
 backups/

@@ -45,7 +45,7 @@ This methodology — skills, hooks, and playbooks as a persistent knowledge laye
 
 ## The sync pipeline
 
-This repo is auto-synced from my private `~/.claude` directory on a nightly cron. The sync script lives at `sync-to-public.sh` in this repo — the same script that produced what you're reading.
+This repo is auto-synced from my private `~/.claude` directory on a nightly cron. The sync script lives at `~/.openclaw/bin/sync-claude-to-public.sh` — the same script that produced what you're reading.
 
 What it does:
 

@@ -1,4 +1,6 @@
-Audit and update the public repo README files and landing page, then commit and push.
+Audit and update the public repo README files and landing page, then commit `~/.claude/` private repo, sync, and push.
+
+**Use batchc methodology** (`~/.claude/commands/batchc.md`): classify each item, merge trivial items, dispatch in waves, no parallel tasks that share files, return concise summaries (no diff dumps, no file contents in main context).
 
 ## Context
 
@@ -36,6 +38,22 @@ Rules:
 - README edits go in `~/.claude/` (source), not directly in the public-sync mirror — the sync script propagates them
 
 **Do NOT edit `~/.openclaw/public-sync/claude-personal-os/` READMEs directly.** Edit `~/.claude/` counterparts, then run the sync.
+
+## Step 1b: Commit ~/.claude private repo
+
+`~/.claude/` is a git repo (remote: `FJ-Oekstrahay/claude-config`, private). Before running the sync, commit any modified files there so the private repo and the public mirror stay aligned.
+
+```
+cd ~/.claude
+git status --short                  # review what will be committed
+git add <specific files from Step 1 + today's actual changes>   # NOT git add -A — review first
+git commit -m "<descriptive message>
+
+Co-Authored-By: Claude <model> <noreply@anthropic.com>"
+git push origin main
+```
+
+If unrelated files are dirty (e.g. memory files from other projects), commit them in a separate commit with a generic message rather than mixing them in. Do not commit anything that looks like a secret — `protect-sensitive-files.sh` should catch most, but verify with `git diff --staged` before committing.
 
 ## Step 2: Run the sync
 
