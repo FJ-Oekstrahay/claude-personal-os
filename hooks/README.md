@@ -5,7 +5,7 @@ Claude Code hooks are shell scripts that run at specific points in the execution
 | Hook file | Type | What it does | Portable? |
 |---|---|---|---|
 | `protect-sensitive-files.sh` | PreToolUse | Blocks writes to protected paths (openclaw.json, credentials/, secrets/, IDENTITY.md, launchd plists) | Partial (path list is system-specific; pattern is portable) |
-| `discord-notify.sh` | PreToolUse + PostToolUse + Notification + Stop | Posts narrative text (pre-tool) and tool summaries (post-tool) to per-session log webhooks; posts to alerts and logs when approval is needed; posts turn-end notifications to the originating Discord channel when a turn completes | Yes (requires `discord-webhook.conf`) |
+| `discord-notify.sh` | PreToolUse + PostToolUse + Notification + Stop | Posts narrative text (pre-tool) and tool summaries (post-tool) to per-session log webhooks; posts to alerts and logs when approval is needed; posts turn-end notifications to the originating Discord channel when a turn completes. For Agent (subagent) calls, posts the subagent type, description, and the full prompt (capped at 1500 chars) so every dispatch is visible from Discord. | Yes (requires `discord-webhook.conf`) |
 | `discord-prompt-submit.py` | UserPromptSubmit | Detects incoming Discord messages, writes `state/<session_id>.chatid` for log routing, injects reminder to reply via Discord tool | Yes (no config required) |
 
 **`discord-text-extract.py`** is a helper script called by `discord-notify.sh` — not a hook itself. It reads new assistant text blocks from the session JSONL and posts them as blockquotes before each tool summary. It accepts three arguments: `session_id`, `transcript_path`, `logs_webhook_url`. State is tracked in `state/<session_id>.txt` (last-read line number) and `state/<session_id>.chatid` (active Discord source channel for log routing). Note: `.chatid` is now written by BOTH `discord-prompt-submit.py` (on UserPromptSubmit, eliminating routing lag) and `discord-text-extract.py` (as a fallback on each tool call).
@@ -22,7 +22,12 @@ Keeps you informed during long-running sessions without watching the terminal. H
 
 **PostToolUse** — After each tool call, the hook reads the session JSONL transcript (`~/.claude/projects/<encoded-path>/<session_id>.jsonl`) to find any Claude narrative text blocks written since the last check. Those are posted as `> quoted` lines to the LOGS webhook. Then a one-line tool call summary is posted (format varies by tool: Write, Edit, Bash, Read, mcp:\*, Agent, Task, etc.). State is tracked in `state/<session_id>.txt` as the last-read line number so each run only processes new content.
 
-For **Agent** (subagent dispatch) calls, the summary includes: subagent type (e.g. `cob`, `gadfly`), description field, and the prompt text capped at ~1500 chars in a code block. Format: `**Agent** → \`<subagent_type>\` — <description>` followed by the prompt excerpt. This makes every Cob, Gadfly, CTO, or Seymour dispatch visible in Discord without watching the terminal.
+**Subagent call telemetry:** For `Agent` tool calls, the summary includes the `subagent_type`, the description, and the prompt text (capped at ~1500 chars with `…` truncation). Format:
+```
+**Agent** → `<subagent_type>` — <description>
+```<prompt body>```
+```
+This makes every subagent dispatch — Cob, Gadfly, CTO, Seymour, etc. — visible from Discord without watching the terminal.
 
 **Notification** — When Claude needs terminal input (approval requests, etc.), posts to both the ALERTS and LOGS webhooks so the alert is audible on mobile while the LOGS channel retains context. Note: `ALERTS_WEBHOOK_URL` is optional — the @mention to the per-session log webhook fires regardless.
 

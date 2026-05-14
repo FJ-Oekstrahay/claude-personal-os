@@ -5,7 +5,7 @@ After the subagent returns its review:
 1. Determine the current date (run `date +%Y-%m-%d` if needed).
 2. Choose a short kebab-case topic slug from the reviewed content (e.g., `onboarding-flow`, `pid-tuning-wizard`).
 3. Save the full review output to:
-   `/Users/moltyjoe/.openclaw/workspace/projects/droneteleo/reviews/YYYY-MM-DD-cto-[topic].md`
+   `~/.openclaw/workspace/projects/droneteleo/reviews/YYYY-MM-DD-cto-[topic].md`
    replacing YYYY-MM-DD with the actual date and [topic] with the slug.
 4. Confirm the file path to the user.
 

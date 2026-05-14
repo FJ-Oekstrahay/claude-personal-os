@@ -6,7 +6,6 @@ User-invoked slash commands. Type `/batchc`, `/review-sequence`, etc. at the Cla
 |---|---|---|
 | `batchc` | Classify and dispatch a list of work items — groups parallel vs. sequential, sizes waves, routes code edits to subagents | Yes |
 | `load-handoff` | List recent session handoff files and load one for context at the start of a new session | Partial (references OpenClaw handoff format) |
-| `mmguns` | Research-to-integration workflow — find SOTA tools, libraries, processes, and methodologies for a capability area; compare to current project; rank improvements; dispatch to implementation or spec | Yes |
 | `new-discord-session` | Bind a Claude Code project directory to a Discord channel — adds the channel to `access.json` and sets `DISCORD_STATE_DIR` in project settings | No (requires OpenClaw Discord bot) |
 | `review-sequence` | Run one or more adversarial reviewer roles (Critic, Gadfly, Architect, CTO) in the correct order for the work at hand | Yes |
 | `session-handoff` | Write a structured handoff file summarizing what was done, what's pending, and lessons to capture | Partial (the Seymour-spawn step requires OpenClaw; rest is portable) |
@@ -34,19 +33,6 @@ Binds a Claude Code project directory to a Discord channel. It adds the channel 
 Also writes `DISCORD_CHAT_ID` to the project env so the `discord-notify` hook can identify which channel a session is talking in — useful when the hook posts activity to a centralized log channel.
 
 Included here as an example of a project-binding workflow pattern, even though the infrastructure it targets is OpenClaw-specific.
-
-## mmguns
-
-Research-to-integration loop for any capability area. When you want to know "what's the best current approach to X and are we doing it," `/mmguns <topic>` handles the full workflow: websearch (4 angles, parallel dispatch), inventory of the current project, gap analysis, and a ranked 3-item brief — then dispatches to implementation or a spec stub.
-
-The topic can be a tool category, a process, a methodology, or a pattern. `/mmguns eval methodology` surfaces process improvements alongside library choices. `/mmguns websearch` tells you if switching from Brave to Perplexity is worth it. `/mmguns memory architecture --global` scans across all projects.
-
-Flags:
-- `--global` — also scans `~/.openclaw/workspace/` and `~/.claude/` in addition to the current project
-- `--implement` — skip the confirm step on quick wins
-- `--spec` — force a spec stub output even if #1 qualifies as a quick win
-
-Dispatch logic closes the loop: quick wins ask for confirm then implement; medium lifts write a `specs/<topic>.md` DRAFT and list required reviews; non-starters are ruled out with reasoning.
 
 ## review-sequence
 

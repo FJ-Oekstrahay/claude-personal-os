@@ -91,7 +91,7 @@ Compare Phase 1 findings against the Phase 2 inventory. Classify every candidate
 - Doesn't change API or persistent data contracts
 - Adds no new user-facing command or output format
 - Reversible within one session
-- Geoff can review the diff in ~5 minutes
+- the user can review the diff in ~5 minutes
 
 **Medium lift** — needs a spec first. Any of:
 - Creates new persistent data (files, schemas, build profiles)
@@ -161,10 +161,10 @@ Decision table:
 |---|---|
 | `--implement` flag set AND #1 is a quick win | Implement #1 immediately. No confirm step. |
 | `--spec` flag set | Generate a spec stub for #1 (treat as medium lift regardless of classification). |
-| #1 is a quick win (no flag override) | Ask Geoff one short confirm question, then implement on yes. |
+| #1 is a quick win (no flag override) | Ask the user one short confirm question, then implement on yes. |
 | #1 is a medium lift | Generate a spec stub at `specs/<topic-kebab-case>.md` with status DRAFT. Note required reviews. Do not write code. |
 | #1 is a non-starter AND #2 is a quick win | Implement #2 instead. Don't let a non-starter at the top block action. |
-| Everything is medium lift or non-starter | Stop after the brief. Let Geoff pick which to spec first. |
+| Everything is medium lift or non-starter | Stop after the brief. Let the user pick which to spec first. |
 
 ### Implementing a quick win
 
@@ -203,7 +203,7 @@ _Created: <today's date>_
 <Gadfly if user-facing. CTO if architectural or new data model. Safety Officer if touches FC writes or hardware safety recommendations. Architect if crosses >1 system boundary or touches >3 files.>
 ```
 
-After writing the spec, state in chat: which reviews are required, and offer to dispatch the review pipeline. Do not auto-dispatch reviews without confirmation — Geoff may want to read the spec first.
+After writing the spec, state in chat: which reviews are required, and offer to dispatch the review pipeline. Do not auto-dispatch reviews without confirmation — the user may want to read the spec first.
 
 ### Spec-first rule (mandatory, no exceptions for fitting cases)
 
@@ -233,9 +233,9 @@ Design notes (do not print):
 
 1. Single-file command, not decomposed into skills. The five phases are linear with no natural reuse boundary — Phase 2 inventory depends on the project, Phase 3 depends on Phase 1+2, dispatch depends on Phase 3. Splitting would require state-passing across skill invocations with no payoff.
 
-2. Three-recommendation cap is deliberate. Geoff has stated preference for ranked output over comprehensive lists. A six-item list with equal framing is decision-deferral disguised as thoroughness.
+2. Three-recommendation cap is deliberate. the user has stated preference for ranked output over comprehensive lists. A six-item list with equal framing is decision-deferral disguised as thoroughness.
 
-3. Dispatch logic intentionally asks for confirm on quick wins by default, with --implement as the override. Defaulting to silent implementation risks landing changes Geoff hasn't seen the rationale for. Defaulting to "ask first" makes the override flag the right tool for trusted topics.
+3. Dispatch logic intentionally asks for confirm on quick wins by default, with --implement as the override. Defaulting to silent implementation risks landing changes the user hasn't seen the rationale for. Defaulting to "ask first" makes the override flag the right tool for trusted topics.
 
 4. Spec template is inlined as a fallback so the command works in projects that don't have specs/TEMPLATE.md. In droneteleo it does exist and will be preferred.
 
