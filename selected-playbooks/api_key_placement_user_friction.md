@@ -22,4 +22,4 @@ The setup barrier is high enough to reduce adoption significantly. A $0.01–0.0
 
 **Decision:** Brave Search for WEBSEARCH feature uses Cloudflare Worker with server-side key (Option B). No BYOK equivalent.
 
-**Related:** proxy rate-limit + telemetry pattern (`proxy_rate_limit_worker_pattern.md`)
+**Related:** proxy rate-limit + telemetry pattern ([[proxy_rate_limit_worker_pattern]])

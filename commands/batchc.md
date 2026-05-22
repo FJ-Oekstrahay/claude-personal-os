@@ -1,5 +1,13 @@
 Smartbatch execution protocol. Read the full prompt before touching anything, then:
 
+0. **Check resource pressure** (before classifying anything)
+   - Run: `python3 -c "import json; d=json.load(open(os.path.expanduser('~/.claude/hooks/state/session-pressure.json'))); print(d['pressure'], d['tool_calls'], d['checkpoint_due'])" 2>/dev/null` — or simply `cat ~/.claude/hooks/state/session-pressure.json`.
+   - If the file is missing or unreadable, treat as `normal`.
+   - **elevated** (50–74% context): cap wave size at 2; enforce turn boundaries between all waves regardless of task weight.
+   - **high** (75%+ context): cap wave size at 1; stop after each wave and ask the user before continuing.
+   - If `checkpoint_due` is `true` and a `compact-checkpoint` has not been run this session: run `/compact-checkpoint` now, before dispatching any wave.
+   - State the pressure level in your wave plan line: "Wave 1 [pressure: elevated]: ..."
+
 1. **Classify every item** into one of four buckets:
    - **Inline answer** — can be answered from existing context, no tools needed
    - **Parallel dispatch** — independent subagent or tool work, no dependencies
@@ -66,8 +74,10 @@ Smartbatch execution protocol. Read the full prompt before touching anything, th
 5. **Sequential execution constraint**
    - Sequential execution is only allowed when a dependency or resource conflict is explicitly identified
 
-6. **Inline answers come last**
+6. **Inline answers come last — but in the same turn as dispatch**
    - Write them after dispatching, so parallel work is already running while you type
+   - **CRITICAL:** Inline answers MUST appear in the same assistant turn as the dispatch call — text before or after the tool call in a single message. Do NOT write them in a separate follow-up message after tool results return. A separate turn means the user waits for all parallel work to finish before seeing your answers — that defeats the purpose.
+   - **Discord sessions:** When any message in the current conversation arrived via a `<channel source="plugin:discord:discord">` tag, inline answers must be sent via `mcp__plugin_discord_discord__reply` using the `chat_id` from that tag — in the same turn as dispatch. Text output alone is invisible to the Discord user. Use the `text` parameter (not `content`). If the inline answer is short, combine it with the dispatch context (e.g., "Working on X and Y in parallel — here's the answer to Z: ..."). This is required even if the post-batch checklist will also send a reply — don't make the user wait for parallel work to finish to see an answer you already have.
    - Only answer inline items that have no unresolved dependencies
    - If an inline item depends on parallel work, defer it and state the dependency
 
@@ -114,9 +124,10 @@ After all work items are committed and done:
 - Write any next-session prompts now while context is fresh, even if the session is not ending yet.
 - **Always** close every batch with one of these explicit statements — no exceptions:
   - **"Context safe to clear — no handoff needed."** (minor work, nothing worth capturing)
-  - **"Full /session-handoff recommended before clearing context."** (substantial work or learnings)
-  Do not omit this even if the session feels small. The user cannot tell from Discord whether the terminal is done or just quiet.
-- **Discord-bound sessions — mandatory completion signal:** If any message in this session arrived via Discord (i.e., a `<channel source="plugin:discord:discord" chat_id="...">` tag was present), you MUST also send the closing statement via `mcp__plugin_discord_discord__reply` using the `chat_id` from the most recent inbound Discord message. Do not rely on terminal output alone — the user is watching Discord, not the terminal. Send this reply as the final action of the batch, after all other steps are done.
+  - **"Handoff written — context can now be cleared."** (handoff was completed in this batch — use this when /session-handoff was already run)
+  - **"Full /session-handoff recommended before clearing context."** (substantial work or learnings, handoff NOT yet done)
+  Do not omit this even if the session feels small. The user cannot tell from Discord whether the terminal is done or just quiet. Do not say "recommended" when the handoff is already done — that's contradictory.
+- **Discord-bound sessions — REQUIRED BLOCKER:** If any message in this session arrived via Discord (i.e., a `<channel source="plugin:discord:discord" chat_id="...">` tag was present), you MUST send the closing statement via `mcp__plugin_discord_discord__reply` using the `chat_id` from the most recent inbound Discord message. Use the `text` parameter (not `content`). This step is NON-OPTIONAL — skipping it is a failure of the batch protocol. Do not rely on terminal output alone — the user is watching Discord, not the terminal. This is the FINAL action of the batch; nothing comes after it.
 
 When $ARGUMENTS is empty, apply this protocol to the items in the current user message.
 When $ARGUMENTS contains items, treat those as the work list.

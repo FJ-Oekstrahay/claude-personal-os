@@ -94,6 +94,10 @@ def _resolve_log_channel(session_id):
                 return mapping[chat_id]
         except Exception:
             pass
+    # Fallback: use DISCORD_CHAT_ID env var (set per-project in .claude/settings.json)
+    env_chat_id = os.environ.get('DISCORD_CHAT_ID', '')
+    if env_chat_id and env_chat_id in mapping:
+        return mapping[env_chat_id]
     return ''
 
 

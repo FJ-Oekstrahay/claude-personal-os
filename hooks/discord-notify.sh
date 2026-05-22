@@ -16,7 +16,7 @@ source "$CONF" 2>/dev/null || exit 0
 resolve_log_webhook() {
   local session_id="$1"
   local routing_file="$HOME/.claude/hooks/discord-routing.json"
-  [ -f "$routing_file" ] || { echo "$LOGS_WEBHOOK_URL"; return; }
+  [ -f "$routing_file" ] || { echo ""; return; }
 
   # Try routing IDs in priority order:
   # 1. routechatid — parent-resolved ID (set for thread sessions so they route to parent channel)
@@ -31,7 +31,7 @@ resolve_log_webhook() {
     fi
   done
   [ -z "$chat_id" ] && chat_id="${DISCORD_CHAT_ID:-}"
-  [ -z "$chat_id" ] && { echo "$LOGS_WEBHOOK_URL"; return; }
+  [ -z "$chat_id" ] && { echo ""; return; }
 
   local var_name
   var_name=$(python3 -c "
@@ -47,7 +47,7 @@ except Exception:
     local url="${!var_name}"
     [ -n "$url" ] && echo "$url" && return
   fi
-  echo "$LOGS_WEBHOOK_URL"
+  echo ""
 }
 
 INPUT=$(cat)

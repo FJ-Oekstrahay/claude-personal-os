@@ -94,5 +94,5 @@ def is_real_prompt(buffer, delimiter=b'\r\n# '):
 ```
 
 ## Related playbooks
-- `serial_port_contention.md` — multi-process serial access
-- `betaflight_dji_msp.md` — Betaflight CLI reference and firmware-specific quirks
+- [[serial_port_contention]] — multi-process serial access
+- [[betaflight_dji_msp]] — Betaflight CLI reference and firmware-specific quirks

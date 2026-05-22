@@ -115,5 +115,5 @@ This pattern applies to:
 - Any config with multiple structural section types
 
 ## Related playbooks
-- `betaflight_dji_msp.md` — Betaflight CLI settings reference
-- `radio_edgetx_config_generation.md` — EdgeTX model structure
+- [[betaflight_dji_msp]] — Betaflight CLI settings reference
+- [[radio_edgetx_config_generation]] — EdgeTX model structure

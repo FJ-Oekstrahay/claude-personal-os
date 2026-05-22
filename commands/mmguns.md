@@ -34,9 +34,11 @@ Hold the inferred stack in mind for Phase 1 queries and Phase 3 non-starter clas
 
 The topic may point to tools, libraries, processes, workflows, or methodologies — cover all of these. A search for "eval methodology" should surface process improvements (how to structure tests, what to run in CI vs. locally) as well as tool choices.
 
+**Check resource pressure before dispatching.** Read `~/.claude/hooks/state/session-pressure.json`. If pressure is `elevated`, reduce the search wave to 2 queries (drop the least-relevant angle). If pressure is `high`, reduce to 1 query and skip WebFetch depth reads — surface-level results only.
+
 **Use batchc dispatch for the search wave.** Classify the searches as parallel (all independent), issue all three in the same wave, merge before proceeding. Do not run them sequentially.
 
-Run at least four WebSearch calls with different angles. Suggested templates (adapt to the topic):
+Run at least four WebSearch calls with different angles (two if elevated pressure, one if high). Suggested templates (adapt to the topic):
 
 1. `<topic> best practices 2025` or `<topic> state of the art 2025`
 2. `<topic> production libraries <inferred-stack>` — tool/library angle
