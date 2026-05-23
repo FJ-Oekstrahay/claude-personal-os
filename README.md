@@ -32,7 +32,7 @@ The format is consistent: what happened, why it happened, and how to apply the l
 
 **`selected-playbooks/`** contains a representative subset with no personal information or customer-specific context. Excluded from this folder: playbooks that reference specific systems, personal accounts, internal tooling, or project-specific operational details. What's here: technical gotchas and behavioral patterns that are broadly reusable.
 
-The full library is ~220 playbooks across these categories:
+The full library is ~240 playbooks across these categories:
 
 - **Agent behavior** — prompt execution model quirks, third-person language artifacts, confirmation/contradiction loops, model selection tradeoffs
 - **Betaflight / FC tooling** — serial reconnect, MSP framing, blackbox parsing, OSD coordinate validation, CLI gotchas

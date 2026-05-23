@@ -2,6 +2,8 @@
 
 Claude Code hooks are shell scripts that run at specific points in the execution lifecycle. **PreToolUse** hooks run before a tool call and can block it (exit 2) or allow it (exit 0). **PostToolUse** hooks run after a tool call completes and cannot block execution. **Notification** hooks fire when Claude needs user attention (e.g., waiting for approval).
 
+> **Note:** The Discord integration here is hook-based — hooks stream session output to Discord. The Discord MCP plugin (separate from hooks) is what allows Claude to read messages and reply to Discord channels directly. These are two distinct systems that work together.
+
 | Hook file | Type | What it does | Portable? |
 |---|---|---|---|
 | `protect-sensitive-files.sh` | PreToolUse | Blocks writes to protected paths (openclaw.json, credentials/, secrets/, IDENTITY.md, launchd plists) | Partial (path list is system-specific; pattern is portable) |
@@ -63,14 +65,14 @@ To create webhooks: Discord Server Settings → Integrations → Webhooks → Ne
 
 ---
 
-## resource-pressure.py state schema
+## resource-pressure.py — State Schema
 
 State is written to `~/.claude/hooks/state/session-pressure.json` and read by batchc, mmguns, and review-sequence to adjust dispatch behavior.
 
 - `pressure`: `"normal"` | `"elevated"` | `"high"`
 - `fill_pct`: float 0–1 derived from token usage in the session JSONL (primary); tool-call count is the fallback when token data is unavailable
 - `checkpoint_due`: `true` when `fill_pct >= 0.65`
-- The `/pressure` command overrides the pressure level manually and sets `manual_override: true`; the PostToolUse hook will not overwrite the state while an override is active
+- `manual_override`: `true` when set via `/pressure` command; the PostToolUse hook will not overwrite the state while an override is active
 
 ---
 
