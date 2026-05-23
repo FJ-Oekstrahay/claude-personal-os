@@ -609,7 +609,7 @@
         <p class="lede">Hooks, memory, Discord routing, and the operational knowledge that accumulates from running real sessions over time.</p>
 
         <div class="hero-badges">
-          <span class="badge"><span class="dot"></span>hooks: PreToolUse · PostToolUse · Stop · PostCompact</span>
+          <span class="badge"><span class="dot"></span>hooks: PreToolUse · PostToolUse · Stop · SessionStart · UserPromptSubmit</span>
           <span class="badge"><span class="dot"></span>memory: 3-layer</span>
           <span class="badge"><span class="dot"></span>agents: 8 named types</span>
           <span class="badge"><span class="dot"></span>Discord-native</span>
@@ -664,6 +664,7 @@ flowchart LR
         <tr><td><code>PostToolUse</code></td><td>After any tool call</td><td>Post per-tool summary line to Discord log channel</td></tr>
         <tr><td><code>Stop</code></td><td>When a response ends</td><td>Safety net: check if a Discord message arrived without a reply</td></tr>
         <tr><td><code>PostCompact</code></td><td>After context compression</td><td>Re-inject critical context that would otherwise be lost</td></tr>
+        <tr><td><code>SessionStart</code></td><td>At session start</td><td>(1) Infra health check (memsearch/Milvus — alert on failure, never block); (2) reset context pressure state for new session; (3) pre-seed Discord chat ID for correct log routing from the first tool call</td></tr>
       </tbody>
     </table>
 
@@ -819,6 +820,7 @@ flowchart TD
     <h3>Layer 3: Auto-Memory — Session Continuity</h3>
     <p>The memsearch plugin (installed 2026-05-09) captures session transcripts automatically and indexes them via local ONNX embeddings (bge-m3, ~558 MB, runs entirely on-device). Per-project isolation — each git root gets its own <code>.memsearch/</code> collection. Semantic search against prior sessions is injected as hints at session start.</p>
     <p>Separately, structured memory files (<code>memory/*.md</code>) record decisions, project state, and non-obvious facts that need to survive across sessions. A <code>MEMORY.md</code> index (200-line limit, one-line entries per file) makes retrieval fast without loading everything into context.</p>
+    <p>Structured memory files follow a four-type taxonomy, each as a separate <code>.md</code> file with YAML frontmatter: <strong>user</strong> (role, preferences, expertise — tailors how Claude collaborates), <strong>feedback</strong> (behavioral corrections and confirmed non-obvious approaches — prevents the same guidance from needing to be given twice), <strong>project</strong> (active work state, decisions, deadlines — decays over time), and <strong>reference</strong> (pointers to external systems like Linear, Grafana, Slack channels). Each type has a <code>name</code>, <code>description</code>, and <code>type</code> field in frontmatter. A 200-line <code>MEMORY.md</code> index keeps retrieval fast without loading everything into context.</p>
     <p>The design intent: Claude Code should be able to answer "what did we decide about X" or "why did we do Y" from memory — not from re-reading the transcript.</p>
   </section>
 
@@ -839,6 +841,8 @@ flowchart TD
       <li>Posts to a dedicated <code>#alerts</code> webhook</li>
       <li>Posts to the per-session log webhook</li>
     </ul>
+
+    <p><strong>UserPromptSubmit (session binding):</strong> When a message arrives from a Discord channel, the hook detects it and writes <code>state/{session_id}.chatid</code> immediately — eliminating routing lag that previously caused the first tool call of a session to use the wrong log channel. Also posts a one-liner to the log webhook for every prompt submission so the Discord log reflects when a new turn starts.</p>
 
     <p><strong>Per-session channel routing:</strong> Sessions started from different project directories are bound to different Discord channels. The hook reads session state files to determine which log webhook to use, so each project's output flows to its own channel rather than a shared log.</p>
 
@@ -887,6 +891,10 @@ flowchart TD
     <p>Structured resumption document, written at the end of a session.</p>
     <p>Covers: what was accomplished, what's in progress, what's blocked, what the next session should start with. Stored in <code>workspace/HANDOFF.md</code>. The next session reads it, not the transcript.</p>
     <p>A well-written one-page handoff is worth more for continuity than the raw conversation history. The transcript has everything but requires synthesis at read time. The handoff has the synthesis already done.</p>
+
+    <h3>session pressure</h3>
+    <p>Context fill is tracked automatically per session. The <code>resource-pressure.py</code> hook reads token usage from the session JSONL after each tool call and computes fill percentage against the 200k-token context window. When fill crosses thresholds — 50% (elevated) or 75% (high) — commands like <code>batchc</code>, <code>mmguns</code>, and <code>review-sequence</code> automatically throttle: smaller wave sizes, mandatory pauses between waves, and a checkpoint prompt at high pressure.</p>
+    <p>The <code>/pressure</code> command lets you override manually (<code>normal</code>/<code>elevated</code>/<code>high</code>) when the auto-tracker misreads context fill. The override persists for the session; the PostToolUse hook won't overwrite it while active.</p>
   </section>
 
   <div class="section-rule"></div>
