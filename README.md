@@ -22,6 +22,8 @@ My Claude Code configuration — skills, commands, hooks, and settings. A behavi
 
 ## Playbooks
 
+The auto-memory system saves structured entries across four typed categories: **user** (role, goals, and preferences), **feedback** (behavioral corrections and confirmations — both what to stop and what to keep doing), **project** (active work state, motivations, and deadlines), and **reference** (pointers to external systems like issue trackers or dashboards). Each entry is saved as a separate file with YAML frontmatter and indexed in `MEMORY.md`, which is loaded into every session context. The four-type taxonomy keeps the index scannable and prevents all memory from collapsing into a single undifferentiated log.
+
 Playbooks are the long-term memory of the system. Each one records a specific thing that broke, or a pattern that worked, or a behavioral constraint that emerged from real use. They're stored in a separate location (outside `~/.claude/`) and loaded into context by the agent when a task matches the topic.
 
 The format is consistent: what happened, why it happened, and how to apply the lesson going forward. They accumulate over time across different domains — firmware tooling, agent behavior patterns, API quirks, hardware interfaces, macOS gotchas.
@@ -84,7 +86,7 @@ The config reflects genuine use over time, not a designed showcase. Some parts a
 
 Some of what's here has since been productized — Anthropic and OpenAI have shipped features in the past month that cover patterns I was building manually. That's not a surprise. Building it first is how you know the problem was real.
 
-The companion system runs 6 named agents simultaneously on different models. Whether that's thorough or overkill probably depends on your perspective.
+The companion system runs 8 named agent types simultaneously on different models. Whether that's thorough or overkill probably depends on your perspective.
 
 ---
 

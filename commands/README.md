@@ -10,6 +10,7 @@ User-invoked slash commands. Type `/batchc`, `/review-sequence`, etc. at the Cla
 | `mmguns` | Research-to-integration loop — find SOTA for a capability area, gap-analyze against current project, produce ranked 3-item brief, then dispatch | Yes |
 | `new-discord-session` | Bind a Claude Code project directory to a Discord channel — adds the channel to `access.json` and sets `DISCORD_STATE_DIR` in project settings | No (requires OpenClaw Discord bot) |
 | `review-sequence` | Run one or more adversarial reviewer roles (Critic, Gadfly, Architect, CTO) in the correct order for the work at hand | Yes |
+| `pressure` | Manually override session pressure level (`normal`/`elevated`/`high`) in the state file. Used when the auto-tracker misreads context fill. All pressure-aware commands (batchc, mmguns, review-sequence) throttle accordingly until cleared. | Yes |
 | `session-handoff` | Write a structured handoff file summarizing what was done, what's pending, and lessons to capture | Partial (the Seymour-spawn step requires OpenClaw; rest is portable) |
 
 ---
