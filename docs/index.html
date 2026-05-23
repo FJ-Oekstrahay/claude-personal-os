@@ -644,7 +644,7 @@ flowchart LR
     <span class="section-tag">01</span>
     <h2>What This Is</h2>
     <p>A behavioral and operational configuration layer for Claude Code: the rules, automation, and connective tissue that run under every session. Not a framework, not a product — a configuration system where the interesting parts are the constraints, the failure history, and the accumulated operational knowledge.</p>
-    <p>What makes this config worth looking at: it's the result of real use over time, not a designed showcase. The hook errata section exists because those things broke in production. The playbook library (~150 entries) exists because the same problems kept coming back.</p>
+    <p>What makes this config worth looking at: it's the result of real use over time, not a designed showcase. The hook errata section exists because those things broke in production. The playbook library (~240 entries) exists because the same problems kept coming back.</p>
     <p>The system started with a companion multi-agent platform (OpenClaw) handling autonomous background tasks — named agents running on different models, Discord-connected, scheduled. That layer is still running but largely idle for now. Claude Code's built-in capabilities — hooks, MCP, native multi-agent dispatch — have grown to cover most of what I needed from it, and cron jobs handle the rest. The story of how that happened is in the billing section.</p>
   </section>
 
@@ -698,11 +698,12 @@ flowchart TD
     <h3>MCP Integration</h3>
     <p>Claude Code supports MCP natively. This config runs:</p>
     <ul>
-      <li><strong>Discord MCP plugin</strong> — Claude Code reads and replies to Discord channels directly. The same Discord server also receives hook-streamed session output.</li>
+      <li><strong>Discord MCP plugin</strong> — Claude reads and replies to Discord channels directly. This is distinct from the hook-based Discord streaming (which sends session output <em>to</em> Discord); the MCP plugin is how Claude reads messages and sends replies. Both run simultaneously — hooks stream, plugin receives and responds.</li>
       <li><strong>Playwright MCP</strong> — Browser automation inside Claude Code sessions. Runs on a node@22 wrapper due to a simdjson mismatch with the system node.</li>
-      <li><strong>Google Workspace</strong> — Email, Calendar, Drive, Sheets via the <code>gog</code> CLI. Not MCP, but used the same way: available in any session, no separate setup.</li>
+      <li><strong>Google Workspace</strong> — Email, Calendar, Drive, Sheets via the <code>gog</code> CLI. Not MCP, but available in any session the same way: no OAuth flow at runtime.</li>
+      <li><strong>memsearch</strong> (Zilliz, open-source) — Semantic memory plugin. Captures session transcripts and indexes them via local ONNX embeddings (bge-m3, ~558 MB, runs entirely on-device). Per-project isolation — each git root gets its own <code>.memsearch/</code> collection. Semantic search against prior sessions is injected as context at session start. Installed via the memsearch Claude Code plugin.</li>
+      <li><strong>Custom MCP memory server</strong> (<code>mcp-memory-server.py</code>, ~160 LOC) — A local stdio MCP server that exposes the playbook library as a queryable wiki. Three tools: <code>list_memory()</code> returns a compact index (~500 tokens), <code>get_memory(name)</code> returns a full file, <code>search_memory(query)</code> does keyword grep. ~50ms per query. Preferred over memsearch for structured knowledge retrieval: faster, no auth issues, token-efficient (returns only what's needed rather than auto-loading everything at session start).</li>
     </ul>
-    <p>The memsearch plugin (v0.4.2) runs local vector embeddings via ONNX and stores session transcripts in a per-project Milvus SQLite database. Semantic search against prior sessions is available at session start.</p>
 
     <h3>Multi-Agent Architecture</h3>
     <p>Named agent types are defined as <code>.md</code> files in <code>~/.claude/agents/</code>. Each specifies a model, description, and behavioral persona. The Agent tool dispatches to them by <code>subagent_type</code>.</p>
@@ -780,7 +781,7 @@ flowchart TD
           L2<strong>Playbooks</strong>
         </div>
         <div class="mem-layer-body">
-          <p>~150 entries indexed by keyword in <code>memory/00_index.md</code>. Each records what broke, why, and how to apply the lesson. Read on demand when the topic matches.</p>
+          <p>~240 entries indexed by keyword in <code>memory/00_index.md</code>. Each records what broke, why, and how to apply the lesson. Read on demand when the topic matches.</p>
         </div>
         <div class="mem-layer-trigger">
           <span class="trigger-pill">keyword match</span>
@@ -791,7 +792,7 @@ flowchart TD
           L3<strong>Auto-memory</strong>
         </div>
         <div class="mem-layer-body">
-          <p>memsearch indexes session transcripts via local ONNX embeddings (bge-m3, on-device). Per-project isolation. Structured <code>memory/*.md</code> files for decisions and project state.</p>
+          <p>Two retrieval mechanisms: <strong>memsearch</strong> (semantic search via local ONNX/bge-m3 over session transcripts) and a <strong>custom MCP server</strong> (grep-based wiki access to the playbook library via <code>list_memory</code> / <code>get_memory</code> / <code>search_memory</code>). Structured <code>memory/*.md</code> files for decisions and project state — four types: user, feedback, project, reference.</p>
         </div>
         <div class="mem-layer-trigger">
           <span class="trigger-pill">semantic / session start</span>
@@ -820,6 +821,7 @@ flowchart TD
 
     <h3>Layer 3: Auto-Memory — Session Continuity</h3>
     <p>The memsearch plugin (installed 2026-05-09) captures session transcripts automatically and indexes them via local ONNX embeddings (bge-m3, ~558 MB, runs entirely on-device). Per-project isolation — each git root gets its own <code>.memsearch/</code> collection. Semantic search against prior sessions is injected as hints at session start.</p>
+    <p>Alongside memsearch, a custom MCP memory server (<code>mcp-memory-server.py</code>) provides structured wiki-style access to the playbook library. Three tools: <code>list_memory()</code> (compact name+description index, ~500 tokens), <code>get_memory(name)</code> (full file), <code>search_memory(query)</code> (grep-based keyword search). Grep over ~240 markdown files runs in ~50ms. This is preferred over memsearch for the playbook library specifically — the playbooks are structured knowledge, not conversational context, so semantic similarity adds less value than keyword precision.</p>
     <p>Separately, structured memory files (<code>memory/*.md</code>) record decisions, project state, and non-obvious facts that need to survive across sessions. A <code>MEMORY.md</code> index (200-line limit, one-line entries per file) makes retrieval fast without loading everything into context.</p>
     <p>Structured memory files follow a four-type taxonomy, each as a separate <code>.md</code> file with YAML frontmatter: <strong>user</strong> (role, preferences, expertise — tailors how Claude collaborates), <strong>feedback</strong> (behavioral corrections and confirmed non-obvious approaches — prevents the same guidance from needing to be given twice), <strong>project</strong> (active work state, decisions, deadlines — decays over time), and <strong>reference</strong> (pointers to external systems like Linear, Grafana, Slack channels). Each type has a <code>name</code>, <code>description</code>, and <code>type</code> field in frontmatter. A 200-line <code>MEMORY.md</code> index keeps retrieval fast without loading everything into context.</p>
     <p>The design intent: Claude Code should be able to answer "what did we decide about X" or "why did we do Y" from memory — not from re-reading the transcript.</p>
