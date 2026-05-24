@@ -1,7 +1,5 @@
 # claude-personal-os
 
-**[Live page →](https://fj-oekstrahay.github.io/claude-personal-os/)**
-
 My Claude Code configuration — skills, commands, hooks, and settings. A behavioral and operational configuration layer: what the model is allowed to do, what it does automatically, how context moves between sessions, and how every tool call streams to Discord in real time.
 
 **New here?** The patterns that transfer to any Claude Code setup: [`commands/review-sequence.md`](commands/review-sequence.md) (adversarial review sequencing — why Gadfly must run before CTO), [`commands/batchc.md`](commands/batchc.md) (parallel subagent dispatch with wave sizing), [`commands/mmguns.md`](commands/mmguns.md) (research-to-integration loop — find SOTA for any capability area and dispatch to implementation), [`skills/critic`](skills/critic/) (harsh pre-commit review), and [`LESSONS.md`](LESSONS.md) (hook exit codes, matcher scope gotchas, and what broke in production). Everything else requires the OpenClaw companion system, covered in the sections below.
@@ -20,11 +18,11 @@ My Claude Code configuration — skills, commands, hooks, and settings. A behavi
 
 **`skills/`** — Claude-invoked tools triggered automatically by context, not explicit user commands. `critic` runs adversarial review before you commit to a plan. `gog` gives Claude access to Gmail, Calendar, Drive, and Sheets through a locally-authenticated CLI. Several skills require the OpenClaw companion system — they're included as examples of the delegation pattern, not portable tools. See [`skills/README.md`](skills/README.md).
 
+**Memory & MCP tools** — Three distinct layers handle memory and knowledge retrieval. The auto-memory system uses a four-type taxonomy: **user** (role and preferences), **feedback** (behavioral corrections and confirmed approaches — both what to stop and what to keep doing), **project** (active work state and decisions), and **reference** (pointers to external systems). Each type is a separate `.md` file with YAML frontmatter, indexed in `MEMORY.md`, which is loaded into every session. **memsearch** (third-party, from Zilliz) provides semantic search over session transcripts via local ONNX embeddings (bge-m3, ~558 MB, on-device), with per-project isolation in `.memsearch/` directories. A custom **MCP memory server** (`mcp-memory-server.py`, ~160 LOC) provides grep-based wiki-style access to the playbook library via 3 tools: `list_memory` (compact index, ~500 tokens), `get_memory` (full file), `search_memory` (keyword grep). ~50ms per query. Preferred over memsearch for structured knowledge retrieval — faster, no auth issues, token-efficient.
+
 ---
 
 ## Playbooks
-
-The auto-memory system saves structured entries across four typed categories: **user** (role, goals, and preferences), **feedback** (behavioral corrections and confirmations — both what to stop and what to keep doing), **project** (active work state, motivations, and deadlines), and **reference** (pointers to external systems like issue trackers or dashboards). Each entry is saved as a separate file with YAML frontmatter and indexed in `MEMORY.md`, which is loaded into every session context. The four-type taxonomy keeps the index scannable and prevents all memory from collapsing into a single undifferentiated log.
 
 Playbooks are the long-term memory of the system. Each one records a specific thing that broke, or a pattern that worked, or a behavioral constraint that emerged from real use. They're stored in a separate location (outside `~/.claude/`) and loaded into context by the agent when a task matches the topic.
 

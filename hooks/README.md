@@ -69,7 +69,7 @@ To create webhooks: Discord Server Settings → Integrations → Webhooks → Ne
 
 State is written to `~/.claude/hooks/state/session-pressure.json` and read by batchc, mmguns, and review-sequence to adjust dispatch behavior.
 
-- `pressure`: `"normal"` | `"elevated"` | `"high"`
+- `pressure`: `"normal"` | `"elevated"` | `"high"` — 50%+ fill = elevated, 75%+ = high
 - `fill_pct`: float 0–1 derived from token usage in the session JSONL (primary); tool-call count is the fallback when token data is unavailable
 - `checkpoint_due`: `true` when `fill_pct >= 0.65`
 - `manual_override`: `true` when set via `/pressure` command; the PostToolUse hook will not overwrite the state while an override is active
