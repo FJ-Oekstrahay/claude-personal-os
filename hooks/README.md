@@ -2,16 +2,11 @@
 
 Claude Code hooks are shell scripts that run at specific points in the execution lifecycle. **PreToolUse** hooks run before a tool call and can block it (exit 2) or allow it (exit 0). **PostToolUse** hooks run after a tool call completes and cannot block execution. **Notification** hooks fire when Claude needs user attention (e.g., waiting for approval).
 
-> **Note:** The Discord integration here is hook-based — hooks stream session output to Discord. The Discord MCP plugin (separate from hooks) is what allows Claude to read messages and reply to Discord channels directly. These are two distinct systems that work together.
-
 | Hook file | Type | What it does | Portable? |
 |---|---|---|---|
 | `protect-sensitive-files.sh` | PreToolUse | Blocks writes to protected paths (openclaw.json, credentials/, secrets/, IDENTITY.md, launchd plists) | Partial (path list is system-specific; pattern is portable) |
 | `discord-notify.sh` | PreToolUse + PostToolUse + Notification + Stop | Posts narrative text (pre-tool) and tool summaries (post-tool) to per-session log webhooks; posts to alerts and logs when approval is needed; posts turn-end notifications to the originating Discord channel when a turn completes. For Agent (subagent) calls, posts the subagent type, description, and the full prompt (capped at 1500 chars) so every dispatch is visible from Discord. For Skill calls, posts the skill name and args (if non-empty). Stop hook now also flushes trailing narrative text (after the last tool call) to the log webhook. Narrative truncation cap raised to 1700 chars. | Yes (requires `discord-webhook.conf`) |
 | `discord-prompt-submit.py` | UserPromptSubmit | Detects incoming Discord messages, writes `state/<session_id>.chatid` for log routing, injects reminder to reply via Discord tool. Also detects `<command-name>` blocks (slash commands) and posts a one-liner to the log webhook on every prompt submission — no Discord tag required. | Yes (no config required) |
-| `discord-seed-chatid.sh` | SessionStart | Pre-seeds `state/{session_id}.chatid` from the `DISCORD_CHAT_ID` project env var so log routing works correctly from the very first tool call (before any Discord message arrives). Guards: only writes if `DISCORD_CHAT_ID` is set, only if file doesn't already exist (UserPromptSubmit owns it). | Partial (requires `DISCORD_CHAT_ID` in project env) |
-| `resource-pressure.py` | PostToolUse + SessionStart | Tracks per-session context fill pressure. PostToolUse mode reads token usage from session JSONL and computes fill % against the 200k-token context window (fallback: tool-call counting). SessionStart (`--reset`) resets state for new sessions. State written to `~/.claude/hooks/state/session-pressure.json`. Consumed by batchc, mmguns, and review-sequence to throttle wave size and cap agent dispatch. | Yes |
-| `infra-health-check.sh` | SessionStart | Checks memsearch/Milvus health and index age at session start. Always exits 0 — never blocks. Posts a Discord alert if checks fail. | Partial (Discord alerting requires `discord-webhook.conf`) |
 
 **`discord-stop-check.py`** is a helper script called by `discord-notify.sh` for the Stop event — not a hook itself. Handles two jobs: (1) flush assistant text produced after the last tool call (text-extractor only fires on tool events, so final-turn text is otherwise missed); (2) safety-net post if no Discord reply tool was used during the turn. Reads `DISCORD_BOT_TOKEN` from `discord-webhook.conf`.
 
@@ -62,17 +57,6 @@ Both sends are **backgrounded** (`curl` is forked and the hook exits immediately
 **`state/<session_id>.txt`** — one file per session, contains the last-read JSONL line number. Created automatically; safe to delete (resets to line 0, may re-post old content once).
 
 To create webhooks: Discord Server Settings → Integrations → Webhooks → New Webhook. Set the target channel, copy the URL, paste into `discord-webhook.conf`.
-
----
-
-## resource-pressure.py — State Schema
-
-State is written to `~/.claude/hooks/state/session-pressure.json` and read by batchc, mmguns, and review-sequence to adjust dispatch behavior.
-
-- `pressure`: `"normal"` | `"elevated"` | `"high"` — 50%+ fill = elevated, 75%+ = high
-- `fill_pct`: float 0–1 derived from token usage in the session JSONL (primary); tool-call count is the fallback when token data is unavailable
-- `checkpoint_due`: `true` when `fill_pct >= 0.65`
-- `manual_override`: `true` when set via `/pressure` command; the PostToolUse hook will not overwrite the state while an override is active
 
 ---
 

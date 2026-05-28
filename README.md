@@ -18,8 +18,6 @@ My Claude Code configuration — skills, commands, hooks, and settings. A behavi
 
 **`skills/`** — Claude-invoked tools triggered automatically by context, not explicit user commands. `critic` runs adversarial review before you commit to a plan. `gog` gives Claude access to Gmail, Calendar, Drive, and Sheets through a locally-authenticated CLI. Several skills require the OpenClaw companion system — they're included as examples of the delegation pattern, not portable tools. See [`skills/README.md`](skills/README.md).
 
-**Memory & MCP tools** — Three distinct layers handle memory and knowledge retrieval. The auto-memory system uses a four-type taxonomy: **user** (role and preferences), **feedback** (behavioral corrections and confirmed approaches — both what to stop and what to keep doing), **project** (active work state and decisions), and **reference** (pointers to external systems). Each type is a separate `.md` file with YAML frontmatter, indexed in `MEMORY.md`, which is loaded into every session. **memsearch** (third-party, from Zilliz) provides semantic search over session transcripts via local ONNX embeddings (bge-m3, ~558 MB, on-device), with per-project isolation in `.memsearch/` directories. A custom **MCP memory server** (`mcp-memory-server.py`, ~160 LOC) provides grep-based wiki-style access to the playbook library via 3 tools: `list_memory` (compact index, ~500 tokens), `get_memory` (full file), `search_memory` (keyword grep). ~50ms per query. Preferred over memsearch for structured knowledge retrieval — faster, no auth issues, token-efficient.
-
 ---
 
 ## Playbooks
@@ -30,7 +28,7 @@ The format is consistent: what happened, why it happened, and how to apply the l
 
 **`selected-playbooks/`** contains a representative subset with no personal information or customer-specific context. Excluded from this folder: playbooks that reference specific systems, personal accounts, internal tooling, or project-specific operational details. What's here: technical gotchas and behavioral patterns that are broadly reusable.
 
-The full library is ~240 playbooks across these categories:
+The full library is ~220 playbooks across these categories:
 
 - **Agent behavior** — prompt execution model quirks, third-person language artifacts, confirmation/contradiction loops, model selection tradeoffs
 - **Betaflight / FC tooling** — serial reconnect, MSP framing, blackbox parsing, OSD coordinate validation, CLI gotchas
@@ -86,7 +84,7 @@ The config reflects genuine use over time, not a designed showcase. Some parts a
 
 Some of what's here has since been productized — Anthropic and OpenAI have shipped features in the past month that cover patterns I was building manually. That's not a surprise. Building it first is how you know the problem was real.
 
-The companion system runs 8 named agent types simultaneously on different models. Whether that's thorough or overkill probably depends on your perspective.
+The companion system runs 6 named agents simultaneously on different models. Whether that's thorough or overkill probably depends on your perspective.
 
 ---
 

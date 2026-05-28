@@ -4,16 +4,6 @@ When invoked, read the current task or artifact being discussed, then use this p
 
 ---
 
-## Resource pressure check (run first)
-
-Before selecting reviewers, read `~/.claude/hooks/state/session-pressure.json`:
-
-- **normal**: run the full reviewer set as determined by the decision tree.
-- **elevated**: run only the single highest-priority reviewer for this work type (consult the quick reference table — pick the first listed). Skip the rest and note what was skipped.
-- **high**: tell the user the pressure level and ask whether to proceed before spawning any reviewer.
-
----
-
 ## The four reviewer roles
 
 | Role | Invoked via | Question it answers | Posture |

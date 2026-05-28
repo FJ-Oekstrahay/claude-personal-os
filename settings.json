@@ -72,15 +72,6 @@
             "command": "bash ~/.claude/hooks/discord-seed-chatid.sh"
           }
         ]
-      },
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/hooks/resource-pressure.py --reset"
-          }
-        ]
       }
     ],
     "PreToolUse": [
@@ -120,15 +111,6 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/discord-notify.sh"
-          }
-        ]
-      },
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/hooks/resource-pressure.py"
           }
         ]
       }

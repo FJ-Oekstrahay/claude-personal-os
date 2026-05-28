@@ -16,27 +16,6 @@ If the session was trivial (a quick question, a single file edit, a lookup), ski
 
 ---
 
-**Step 0.5 — Check resource pressure.**
-
-Read `~/.claude/hooks/state/session-pressure.json`.
-
-- If pressure is `high`: write the **minimal handoff format** (see below) instead of the full template. Skip spawning Seymour — note it for the next session.
-- If a `CHECKPOINT-latest.md` exists at `~/.openclaw/workspace/CHECKPOINT-latest.md` and was modified within the last 2 hours: its contents can serve as the Accomplished section — verify it reflects current state, then merge it in rather than reconstructing from scratch.
-
-**Minimal handoff format** (used only when pressure is high):
-```
-## Summary
-<3–5 lines: what was done, what's pending, anything to watch out for>
-
-## Next action
-<one concrete step>
-
-## Note
-Written under high resource pressure — Seymour playbook promotion deferred to next session.
-```
-
----
-
 Ask the user for a short name for this handoff (e.g. "sales-automation", "infra-cleanup"). Then write the session handoff note to `~/.openclaw/workspace/HANDOFF-{name}-{YYYY-MM-DD-HHMM}.md` where `{YYYY-MM-DD-HHMM}` is the current date and time (e.g. `HANDOFF-sales-automation-2026-03-19-1432.md`). This file is the canonical handoff between Claude Code sessions.
 
 Structure it as follows:
