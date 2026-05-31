@@ -9,6 +9,7 @@ User-invoked slash commands. Type `/batchc`, `/review-sequence`, etc. at the Cla
 | `load-handoff` | List recent session handoff files and load one for context at the start of a new session | Partial (references OpenClaw handoff format) |
 | `mmguns` | Research-to-integration loop — find SOTA for a capability area, gap-analyze against current project, produce ranked 3-item brief, then dispatch | Yes |
 | `new-discord-session` | Bind a Claude Code project directory to a Discord channel — adds the channel to `access.json` and sets `DISCORD_STATE_DIR` in project settings | No (requires OpenClaw Discord bot) |
+| `pressure` | Manually set the session context pressure level (`normal`, `elevated`, `high`) — overrides the automatic PostToolUse tracking for the rest of the session | Yes |
 | `review-sequence` | Run one or more adversarial reviewer roles (Critic, Gadfly, Architect, CTO) in the correct order for the work at hand | Yes |
 | `session-handoff` | Write a structured handoff file summarizing what was done, what's pending, and lessons to capture | Partial (the Seymour-spawn step requires OpenClaw; rest is portable) |
 
@@ -58,6 +59,12 @@ Binds a Claude Code project directory to a Discord channel. It adds the channel 
 Also writes `DISCORD_CHAT_ID` to the project env so the `discord-notify` hook can identify which channel a session is talking in — useful when the hook posts activity to a centralized log channel.
 
 Included here as an example of a project-binding workflow pattern, even though the infrastructure it targets is OpenClaw-specific.
+
+## pressure
+
+Manually overrides the session pressure level tracked by `resource-pressure.py`. Takes one argument: `normal`, `elevated`, or `high`. Writes to `~/.claude/hooks/state/session-pressure.json` with `manual_override: true` so the PostToolUse hook won't overwrite it. Run `/pressure normal` to clear the override and return to automatic tracking.
+
+Pressure level affects rate-limit-aware commands (`batchc`, `mmguns`, `review-sequence`) — they throttle wave sizing and subagent dispatch at `elevated` and `high`.
 
 ## review-sequence
 
