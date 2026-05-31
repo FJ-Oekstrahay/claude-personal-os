@@ -1,5 +1,9 @@
 # claude-personal-os
 
+**[→ fj-oekstrahay.github.io/claude-personal-os](https://fj-oekstrahay.github.io/claude-personal-os)** — start here for a friendlier introduction.
+
+---
+
 My Claude Code configuration — skills, commands, hooks, and settings. A behavioral and operational configuration layer: what the model is allowed to do, what it does automatically, how context moves between sessions, and how every tool call streams to Discord in real time.
 
 **New here?** The patterns that transfer to any Claude Code setup: [`commands/review-sequence.md`](commands/review-sequence.md) (adversarial review sequencing — why Gadfly must run before CTO), [`commands/batchc.md`](commands/batchc.md) (parallel subagent dispatch with wave sizing), [`commands/mmguns.md`](commands/mmguns.md) (research-to-integration loop — find SOTA for any capability area and dispatch to implementation), [`skills/critic`](skills/critic/) (harsh pre-commit review), and [`LESSONS.md`](LESSONS.md) (hook exit codes, matcher scope gotchas, and what broke in production). Everything else requires the OpenClaw companion system, covered in the sections below.
