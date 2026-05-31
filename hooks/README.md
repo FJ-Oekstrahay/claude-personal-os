@@ -42,6 +42,24 @@ Both sends are **backgrounded** (`curl` is forked and the hook exits immediately
 
 **Per-channel log routing** — When a session originates from a Discord channel listed in `discord-routing.json`, log messages are sent to that channel's dedicated log webhook instead of the default LOGS webhook. The active channel is detected from the session transcript by `discord-text-extract.py` and persisted in `state/<session_id>.chatid`. Channels not in the routing map fall back to `LOGS_WEBHOOK_URL`.
 
+## resource-pressure.py
+
+Tracks how full the context window is during a session and exposes a pressure level (`normal` / `elevated` / `high`) that rate-limit-aware commands can read.
+
+**Primary path** — reads token usage from `~/.claude/projects/<encoded-path>/<session_id>.jsonl` and computes fill percentage against the 200,000-token context window. Sets `elevated` at ≥50% fill, `high` at ≥75%.
+
+**Fallback** — if the JSONL isn't found or has no usage data, falls back to counting tool calls (Agent/Task count double). Sets `elevated` at ≥25 calls, `high` at ≥40.
+
+State is written to `~/.claude/hooks/state/session-pressure.json`. The `/pressure` command sets `manual_override: true` to prevent this hook from overwriting a manual setting. The SessionStart invocation (with `--reset`) clears state and starts fresh.
+
+## infra-health-check.sh
+
+Runs at session start to verify that background infrastructure (memsearch, Milvus) is healthy and the search index is reasonably fresh. Always exits 0 — failure here should never block a session, only alert. Posts to the Discord log channel via bot API if a check fails.
+
+## discord-seed-chatid.sh
+
+Solves an edge case in per-channel log routing: if a session is opened from a Discord channel (with `DISCORD_CHAT_ID` set in the project env), but the first thing Claude does is a tool call before any Discord message arrives, the `.chatid` file doesn't exist yet and routing falls back to the default `LOGS_WEBHOOK_URL`. This hook writes the file at session start so the first tool call routes correctly. Guards: only writes if `DISCORD_CHAT_ID` is set, only writes if the file doesn't already exist (the `UserPromptSubmit` hook owns runtime updates).
+
 ---
 
 ## Config
