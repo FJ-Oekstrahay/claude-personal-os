@@ -20,7 +20,7 @@ My Claude Code configuration — skills, commands, hooks, and settings. A behavi
 
 **`LESSONS.md`** — the hard-won knowledge extracted from production use, standalone as a reference. Covers hook exit codes and matcher scope, git permission gotchas, file staging risks, and skill design constraints. This is the content that moved from notes and incident post-mortems into durable documentation.
 
-> **Native:** Claude Code's auto-memory system captures behavioral feedback across sessions. **Still worth reading:** LESSONS.md is a hand-curated list of production failures — a different artifact than session memory. The value is in the curation: root cause, constraint, and how to apply going forward. That format doesn't emerge automatically.
+> **Native:** Claude Code's auto-memory system saves structured facts — preferences, behavioral corrections, project context — across sessions. **Still worth reading:** LESSONS.md is a different artifact: hand-curated production failures with explicit root cause, constraint, and "how to apply" framing. The auto-memory system records what to remember; LESSONS.md records why something broke and what constraint it implies. That format doesn't emerge from auto-save.
 
 **`hooks/`** — shell scripts that fire at specific lifecycle points. `protect-sensitive-files.sh` blocks writes to live config and credentials on every `Write`, `Edit`, or `Bash` call. `discord-notify.sh` streams Claude's session to Discord in real time: narrative text blocks (what Claude is about to do, in its own words) followed by a one-line tool call summary for every tool use. For Agent (subagent) calls, it posts the subagent type, description, and the full prompt (capped at ~1500 chars) — every dispatch is visible in Discord. Also posts to an alerts channel when approval is needed. The companion `discord-text-extract.py` handles the JSONL transcript reading. See [`hooks/README.md`](hooks/README.md) for design details.
 
@@ -116,7 +116,7 @@ Several patterns documented here have since shipped as native Claude Code featur
 - **Hooks system** — The full hook lifecycle (PreToolUse, PostToolUse, Notification, SessionStart, UserPromptSubmit, Stop, PostCompact) is native and documented. Exit code semantics and stderr-for-block-reason are official behavior.
 - **Custom slash commands** — The `.claude/commands/` convention for user-invokable slash commands is native. Any `.md` file in that directory becomes a `/command`.
 - **Named subagent types** — Agent definition files in `~/.claude/agents/` are native. Several of the named agents used here (Cob, Gadfly, CTO, Critic, The Architect, Safety Officer, Seymour) now ship as default named agents in Claude Code.
-- **Auto-memory** — Claude Code ships with a file-based memory system: `memory/*.md` files with YAML frontmatter, a `MEMORY.md` index, and built-in instructions for saving and recalling memories across sessions.
+- **Auto-memory (structured files)** — Claude Code now ships a file-based memory layer: `memory/*.md` files with YAML frontmatter, a `MEMORY.md` index, and built-in save/recall protocol. This is the structured facts layer. The memsearch plugin (semantic search over session transcripts using local ONNX embeddings) and the custom MCP memory server (`mcp-memory-server.py`, wiki-style playbook access) are not native — see below.
 - **CLAUDE.md hierarchy** — User-level, project-level, and workspace-level CLAUDE.md merging is native and documented.
 - **MCP servers** — `.mcp.json` for project-level MCP server configuration is native.
 - **Context management** — `/compact` for context compression and the PostCompact hook for re-injecting critical context are native.
@@ -136,6 +136,8 @@ What isn't native:
 - **Review sequencing discipline** — The Gadfly-before-CTO ordering rule and the reasoning behind it. If CTO runs first, its plan anchors everything; Gadfly's product objections come too late. This isn't in any Anthropic documentation.
 - **batchc protocol** — Wave sizing rules, merge-before-parallelize enforcement, and subagent output discipline (no diffs in main context) are custom protocol, not native features.
 - **Playbook library** — 38 production failure lessons written after things broke. No native equivalent for this kind of accumulated domain-specific knowledge.
+- **Semantic session search (memsearch)** — The memsearch plugin indexes session JSONL files using local ONNX embeddings (bge-m3, runs on-device). Searches the raw text of past sessions for specific decisions, debugging notes, and prior context — different from auto-memory, which searches structured saved facts. Not a Claude Code built-in; a separately installed daemon with per-project index isolation.
+- **Custom MCP memory server** — `mcp-memory-server.py` provides three tools: `list_memory()` (compact index), `get_memory(name)` (full file), `search_memory(query)` (keyword search over ~240 markdown files in ~50ms). Covers the playbook library specifically — structured domain knowledge where keyword precision beats semantic similarity. Not native.
 - **Sync pipeline** — The nightly cron that mechanically redacts and publishes `~/.claude` is a custom build.
 
 The hook errata section describes things that broke in production. Those lessons remain accurate regardless of what's been added to official documentation.
