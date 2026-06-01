@@ -34,6 +34,9 @@ teams/
 # Backups are redundant if we're doing git
 backups/
 
+# Track modified plugin files (no secrets — token loaded from env at runtime)
+!plugins/cache/claude-plugins-official/discord/0.0.4/server.ts
+
 # Conversation session files in project dirs (keep memory/ subdirs)
 *.jsonl
 **/subagents/
