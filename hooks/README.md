@@ -90,3 +90,27 @@ To create webhooks: Discord Server Settings → Integrations → Webhooks → Ne
 - **`tool_input`**: the correct key in the PreToolUse JSON payload (not `input`).
 
 Full lessons from hook development are in [`../CLAUDE.md`](../CLAUDE.md) under "Lessons Learned → Claude Code hooks".
+
+---
+
+## What Anthropic now provides natively
+
+The hook system itself is entirely native:
+
+- All hook types used here (PreToolUse, PostToolUse, Notification, SessionStart, UserPromptSubmit, Stop, PostCompact) are documented Claude Code features.
+- Exit code semantics — `exit 2` blocks and surfaces stderr to the model, `exit 0` allows, `exit 1` is non-blocking — are official documented behavior.
+- The stderr-for-block-reason requirement is documented.
+- The JSON payload structure (including the `tool_input` key in PreToolUse) is documented.
+- Hook configuration in `settings.json` (matchers, script paths) is native.
+
+---
+
+## Why these hook implementations are still worth reading
+
+The hook infrastructure is native; the specific implementations are not.
+
+- **`protect-sensitive-files.sh`** — The fail-closed design (exit 2 on parse error, `Bash` in the matcher to catch shell-based writes like `cp`, `tee`, `>>`) is not in any Anthropic documentation. Most protection hooks published elsewhere use `Write|Edit` matchers and silently miss Bash-based file operations — the most common way credentials leak.
+- **`discord-notify.sh`** — Streaming every narrative text block and tool call to Discord in real time, with per-session channel routing and approval @mentions. Anthropic doesn't ship a monitoring hook.
+- **`resource-pressure.py`** — Reading token fill from the session JSONL and exporting pressure state (`normal/elevated/high`) that other commands can consume. No native equivalent.
+- **`discord-prompt-submit.py`** — Detecting inbound Discord messages in the session JSONL and seeding per-channel log routing state at prompt submission time, eliminating routing lag on the first tool call.
+- **The hook errata** — Both the exit code asymmetry and the matcher scope issue were discovered by breaking things in production before the official docs covered them clearly. The fail-closed design exists because a broken hook that blocks everything is visible; one that silently allows everything is not. That framing isn't in the official docs.

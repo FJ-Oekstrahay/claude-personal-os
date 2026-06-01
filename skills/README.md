@@ -18,3 +18,25 @@ Invoked by Claude via the Skill tool, triggered by context rather than explicit 
 
 Skills that require the OpenClaw companion system: [`personal-infrastructure/`](personal-infrastructure/README.md).
 These are included as examples of how skills can delegate to named subagents with their own runtime context — not portable tools.
+
+---
+
+## What Anthropic now provides natively
+
+The skill and subagent infrastructure is native:
+
+- Agent definition files in `~/.claude/agents/` (specifying model, description, and behavioral instructions) are a native Claude Code feature.
+- Context-triggered dispatch via the Skill tool is native.
+- Several named agent types used here — Gadfly, CTO, Critic, The Architect, Safety Officer, Seymour, Cob — now ship as default named agents in the Claude Code fleet (available without custom definitions).
+- Subagent spawning with the Agent tool, including `subagent_type` dispatch, is fully native and documented.
+
+---
+
+## Why these skill definitions are still worth reading
+
+The agent infrastructure is native; the behavioral definitions and sequencing discipline are not.
+
+- **Review sequencing** — The Gadfly-before-CTO ordering rule is the critical transferable pattern. If CTO runs first, its plan anchors subsequent review and Gadfly's product objections come too late to change the structure. This isn't documented by Anthropic — it's derived from use.
+- **`compact-checkpoint`** and **`snapshot`** — The PostCompact hook covers part of this natively, but the skill-based checkpoint workflow gives more explicit control over what gets preserved and how it's structured for resumption.
+- **Custom persona refinements** — The skill definitions here predate the native fleet and contain behavioral refinements from production use (specific instructions for what not to do, failure modes that were corrected). Even where a native equivalent exists, the specific prompts may differ from defaults in ways that matter.
+- **`debug-agent`** and **`deploy-task`** — OpenClaw-specific, but included as examples of how skills can delegate to named subagents with their own runtime context. The delegation pattern transfers even if the specific infrastructure does not.

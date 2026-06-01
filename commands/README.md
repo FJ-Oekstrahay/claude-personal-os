@@ -82,3 +82,23 @@ The non-obvious sequencing rule: **Gadfly must run before CTO.** If CTO runs fir
 First checks whether a real handoff is needed — trivial sessions skip. If yes: asks for a short name, writes `HANDOFF-{name}-{YYYY-MM-DD-HHMM}.md` to the workspace, and updates `MEMORY.md` with lessons from the session.
 
 Handoff structure: Accomplished (with file paths and diffs for verification), Pending, Gotchas/Surprises, Lessons Captured, and next-session prompts. The handoff file is the canonical context bridge between sessions — not a summary, a resumption document.
+
+---
+
+## What Anthropic now provides natively
+
+The infrastructure for custom slash commands is native — any `.md` file in `.claude/commands/` becomes invocable as `/command-name` at the Claude Code prompt. Anthropic also ships built-in commands (`/help`, `/clear`, `/compact`, `/review`, `/memory`) that cover common operations.
+
+The compact-checkpoint pattern (preserving work context before compaction) is partially covered by the native PostCompact hook, which can re-inject context after compression.
+
+---
+
+## Why these commands are still worth reading
+
+The commands here are protocols built on top of the native commands infrastructure. None of these protocols ship with Claude Code:
+
+- **`batchc`** — Wave sizing rules, merge-before-parallelize enforcement, Cob routing, and subagent output discipline are a specific workflow protocol. Claude Code's native parallel tool support doesn't enforce any of this discipline.
+- **`review-sequence`** — The Gadfly-before-CTO ordering rule and the reasoning behind it. This is the most transferable single pattern in the repo — copy it into your own CLAUDE.md regardless of whether you use the rest.
+- **`mmguns`** — The research-to-integration loop: parallel websearch angles, gap analysis against the current project, ranked brief with a dispatch action. Not a native pattern.
+- **`session-handoff`** — The specific handoff document structure optimized for resumption (next actions, gotchas, lessons) rather than summary. Worth adapting even if you don't use the full command.
+- **`pressure`** — Manual pressure override; only useful if you're also running `resource-pressure.py`.

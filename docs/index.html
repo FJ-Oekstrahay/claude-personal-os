@@ -596,6 +596,7 @@
     <a href="#sync">Sync</a>
     <a href="#openclaw">vs OpenClaw</a>
     <a href="#usage">Usage</a>
+    <a href="#native">Now Native</a>
     <a href="https://github.com/FJ-Oekstrahay/claude-personal-os" target="_blank" rel="noopener" style="margin-left:auto;">GitHub ↗</a>
   </div>
 </nav>
@@ -977,6 +978,57 @@ flowchart TD
 
     <h4>What to keep in CLAUDE.md</h4>
     <p>The test: does this need to be true on every session, regardless of what was discussed last time? If yes, CLAUDE.md. If it's project-specific, a project-level CLAUDE.md. If it's operational knowledge that changes, a playbook.</p>
+  </section>
+
+  <div class="section-rule"></div>
+  <section id="native">
+    <span class="section-tag">09</span>
+    <h2>What's Now Native — and What Isn't</h2>
+    <p>Several patterns built here have since shipped as native Claude Code features. This section is a changelog of sorts: what Anthropic now provides, and what still requires custom implementation.</p>
+
+    <h3>What Anthropic now provides natively</h3>
+
+    <table>
+      <thead>
+        <tr><th>Feature</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Hook system</strong> — PreToolUse, PostToolUse, Notification, SessionStart, UserPromptSubmit, Stop, PostCompact</td><td>Native. Exit code semantics and stderr-for-block-reason are documented behavior.</td></tr>
+        <tr><td><strong>Custom slash commands</strong> — <code>.claude/commands/*.md</code></td><td>Native. Any <code>.md</code> file in that directory becomes <code>/command-name</code>.</td></tr>
+        <tr><td><strong>Named subagent types</strong> — agent definition files in <code>~/.claude/agents/</code></td><td>Native. Cob, Gadfly, CTO, Critic, The Architect, Safety Officer, Seymour now ship as default agent types.</td></tr>
+        <tr><td><strong>Auto-memory system</strong> — <code>memory/*.md</code> with YAML frontmatter, <code>MEMORY.md</code> index</td><td>Native. Built-in save/recall protocol ships with Claude Code.</td></tr>
+        <tr><td><strong>CLAUDE.md hierarchy</strong> — user / project / workspace merge</td><td>Native and documented.</td></tr>
+        <tr><td><strong>MCP servers</strong> — <code>.mcp.json</code> project config</td><td>Native.</td></tr>
+        <tr><td><strong>Context management</strong> — <code>/compact</code>, PostCompact hook</td><td>Native.</td></tr>
+        <tr><td><strong>Task tracking</strong> — TodoWrite / TodoRead / TodoUpdate</td><td>Native.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>What still requires custom implementation</h3>
+
+    <div class="callout">
+      <p>The hook infrastructure is native. The specific implementations — what they do and why they're designed the way they are — are not.</p>
+    </div>
+
+    <h4>Hooks</h4>
+    <ul>
+      <li><strong>Discord streaming</strong> — <code>discord-notify.sh</code> streams every narrative text block and tool call to Discord in real time, routes per-session to different channels, and handles approval @mentions. Anthropic doesn't ship a monitoring hook.</li>
+      <li><strong>File protection</strong> — The fail-closed <code>protect-sensitive-files.sh</code> pattern: <code>Bash</code> in the matcher (not just <code>Write|Edit</code>), exit 2 on parse failure. Most protection hooks published elsewhere use <code>Write|Edit</code> matchers and silently miss Bash-based writes.</li>
+      <li><strong>Resource pressure tracking</strong> — <code>resource-pressure.py</code> reads token fill from the session JSONL and exports a pressure level that commands can consume. No native equivalent.</li>
+    </ul>
+
+    <h4>Workflow protocols</h4>
+    <ul>
+      <li><strong>Review sequencing</strong> — Gadfly before CTO. If CTO runs first, its plan anchors subsequent review; Gadfly's product objections come too late. This sequencing rule isn't in any Anthropic documentation — it's derived from use.</li>
+      <li><strong>batchc</strong> — Wave sizing rules, merge-before-parallelize enforcement, and subagent output discipline (no diffs in main context). Claude Code's native parallel tool support doesn't enforce any of this.</li>
+      <li><strong>mmguns</strong> — The research-to-integration loop: parallel websearch angles, gap analysis, ranked brief, dispatch action. Not a native pattern.</li>
+    </ul>
+
+    <h4>Knowledge</h4>
+    <ul>
+      <li><strong>Playbook library</strong> — ~240 production failure lessons written after things broke. No native equivalent. The auto-memory system stores preferences and context; it doesn't generate post-mortems.</li>
+      <li><strong>Hook errata</strong> — The exit code asymmetry and matcher scope issues were discovered in production before official docs covered them clearly. The fail-closed framing (a broken hook that blocks everything is visible; one that silently allows everything is not) isn't in the official documentation.</li>
+    </ul>
   </section>
 
 </main>

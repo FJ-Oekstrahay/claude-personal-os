@@ -95,3 +95,36 @@ The companion system runs 6 named agents simultaneously on different models. Whe
 ## OpenClaw
 
 The companion system — multi-agent, Discord-connected, scheduled ops, named agents on different models — is not public yet. When it is, it'll be in a separate repo. Several skills and commands here reference it directly.
+
+---
+
+## What Anthropic now provides natively
+
+Several patterns documented here have since shipped as native Claude Code features:
+
+- **Hooks system** — The full hook lifecycle (PreToolUse, PostToolUse, Notification, SessionStart, UserPromptSubmit, Stop, PostCompact) is native and documented. Exit code semantics and stderr-for-block-reason are official behavior.
+- **Custom slash commands** — The `.claude/commands/` convention for user-invokable slash commands is native. Any `.md` file in that directory becomes a `/command`.
+- **Named subagent types** — Agent definition files in `~/.claude/agents/` are native. Several of the named agents used here (Cob, Gadfly, CTO, Critic, The Architect, Safety Officer, Seymour) now ship as default named agents in Claude Code.
+- **Auto-memory** — Claude Code ships with a file-based memory system: `memory/*.md` files with YAML frontmatter, a `MEMORY.md` index, and built-in instructions for saving and recalling memories across sessions.
+- **CLAUDE.md hierarchy** — User-level, project-level, and workspace-level CLAUDE.md merging is native and documented.
+- **MCP servers** — `.mcp.json` for project-level MCP server configuration is native.
+- **Context management** — `/compact` for context compression and the PostCompact hook for re-injecting critical context are native.
+- **Task tracking** — Todo tools (TodoWrite/TodoRead/TodoUpdate) for in-session task tracking are native.
+
+---
+
+## Why this repo is still worth reading
+
+Native Claude Code gives you the infrastructure. This repo gives you one production-tested implementation of what to build on it.
+
+What isn't native:
+
+- **Discord streaming hooks** — `discord-notify.sh` streams every narrative text block and tool call to Discord in real time, routes per-session to different channels, and handles approval @mentions. Not shipped by Anthropic.
+- **File protection hook** — The fail-closed `protect-sensitive-files.sh` pattern: `Bash` in the matcher (not just `Write|Edit`), exit 2 on parse failure. Not documented anywhere in the official hooks docs.
+- **Resource pressure tracking** — `resource-pressure.py` reads token fill from the session JSONL and exports `normal/elevated/high` state that commands can read. No native equivalent.
+- **Review sequencing discipline** — The Gadfly-before-CTO ordering rule and the reasoning behind it. If CTO runs first, its plan anchors everything; Gadfly's product objections come too late. This isn't in any Anthropic documentation.
+- **batchc protocol** — Wave sizing rules, merge-before-parallelize enforcement, and subagent output discipline (no diffs in main context) are custom protocol, not native features.
+- **Playbook library** — 38 production failure lessons written after things broke. No native equivalent for this kind of accumulated domain-specific knowledge.
+- **Sync pipeline** — The nightly cron that mechanically redacts and publishes `~/.claude` is a custom build.
+
+The hook errata section describes things that broke in production. Those lessons remain accurate regardless of what's been added to official documentation.
