@@ -15,11 +15,15 @@ User-invoked slash commands. Type `/batchc`, `/review-sequence`, etc. at the Cla
 
 ---
 
+> **On what's native vs. custom:** The `.claude/commands/` infrastructure for custom slash commands is a native Claude Code feature. The commands here are protocols built on top of that infrastructure — the content, not the container, is what's valuable. For each command below, there's a note on what Claude Code now provides natively and why looking at the implementation here is still useful.
+
 ## batchc
 
 A full dispatch protocol, not just a task grouper. When given a list of work items, `batchc` first classifies each item: is it an inline answer, a parallel task, a sequential task, or a code edit that must go to a Cob subagent? It then enforces wave sizing (max 3 concurrent tasks), requires a merge-before-parallelize analysis, and gates on wave results before proceeding to the next wave.
 
 The key constraint it enforces: **all file edits go to a Cob subagent — never inline.** This prevents large batches from burning the main context window on implementation work. Born from experience running multi-file refactors inline and hitting the context limit mid-batch.
+
+> **Native:** Claude Code's Agent tool and parallel tool calls are native — you can dispatch subagents without any custom command. **Still worth reading:** The batchc protocol enforces discipline that native tooling doesn't: wave sizing based on context pressure, merge-before-parallelize analysis, subagent output discipline (no diffs or code blocks returned to main context). The specific rules — when a dependency is "hard" vs. "soft," when throttle risk triggers a forced pause — transfer to any parallel dispatch work, even without the command.
 
 ## deploy-public
 
@@ -33,11 +37,15 @@ End-to-end public repo deployment in one command. Sequence:
 
 Uses batchc methodology throughout — classify before acting, no inline diffs returned to main context.
 
+> **Not portable:** Requires the private sync infrastructure and OpenClaw paths. Worth reading as an example of how to structure a multi-step deploy command: classify before acting, checkpoint between phases, use batchc methodology throughout.
+
 ## load-handoff
 
 Lists the 5 most recent `HANDOFF-*.md` files from the workspace, lets you pick by number, reads the chosen file, and delivers a structured summary: what was accomplished, what's pending or blocked, gotchas and surprises, and the suggested first step as a concrete action.
 
 This is the entry point for resuming work after a context clear or a break. Rather than re-reading a raw handoff file, it synthesizes it into a next-action-oriented brief.
+
+> **Native:** Claude Code's context compression summarizes prior sessions automatically. **Still worth reading:** The handoff approach here is different in intent — it's a human-authored resumption document, not an auto-summary. The format (accomplished, pending, gotchas, first step) is optimized for picking up mid-work with full context, not for compression efficiency.
 
 ## mmguns
 
@@ -50,6 +58,8 @@ Research-to-integration loop for any capability area. Steps:
 
 The output must drive action, not just summarize. If nothing actionable emerges, that's the output — but it's explicit, not a default.
 
+> **Native:** Web search via MCP and parallel tool dispatch are native. **Still worth reading:** The loop structure — four parallel search angles, gap analysis against the current project (not a survey), ranked brief with a required dispatch action — isn't a native pattern. The design principle ("a research command that stops at a report is just expensive grep") transfers to any research workflow.
+
 ## new-discord-session
 
 Not portable — requires an active OpenClaw Discord bot binding.
@@ -60,11 +70,15 @@ Also writes `DISCORD_CHAT_ID` to the project env so the `discord-notify` hook ca
 
 Included here as an example of a project-binding workflow pattern, even though the infrastructure it targets is OpenClaw-specific.
 
+> **Not portable:** Requires an active OpenClaw Discord bot. Included as an example of a project-binding workflow: two targeted writes (access list + project settings) and a confirmation report. The pattern of writing channel state into project settings so hooks route correctly is transferable.
+
 ## pressure
 
 Manually overrides the session pressure level tracked by `resource-pressure.py`. Takes one argument: `normal`, `elevated`, or `high`. Writes to `~/.claude/hooks/state/session-pressure.json` with `manual_override: true` so the PostToolUse hook won't overwrite it. Run `/pressure normal` to clear the override and return to automatic tracking.
 
 Pressure level affects rate-limit-aware commands (`batchc`, `mmguns`, `review-sequence`) — they throttle wave sizing and subagent dispatch at `elevated` and `high`.
+
+> **Native:** No direct native equivalent. **Still worth reading:** Only relevant if you're running `resource-pressure.py`. The design pattern — a manual override that sets a flag preventing the automatic tracker from overwriting it — is a simple, durable way to handle "I know better than the auto-tracker right now."
 
 ## review-sequence
 
@@ -77,28 +91,12 @@ Runs 1–4 adversarial reviewer roles against the current artifact:
 
 The non-obvious sequencing rule: **Gadfly must run before CTO.** If CTO runs first, it produces a polished coherent plan that Gadfly can't effectively challenge — the framing anchors subsequent reviewers. Works on code, plans, architecture docs, and specs.
 
+> **Native:** Claude Code now ships Gadfly, CTO, Critic, and The Architect as default named agents. **Still worth reading:** The sequencing rule — Gadfly before CTO — is the critical part, and it isn't documented by Anthropic. If CTO runs first, it produces a polished coherent plan that Gadfly can't effectively challenge. The framing anchors subsequent reviewers. Run Gadfly first, then CTO with Gadfly's findings as context. This transfers regardless of whether you use these specific skill files.
+
 ## session-handoff
 
 First checks whether a real handoff is needed — trivial sessions skip. If yes: asks for a short name, writes `HANDOFF-{name}-{YYYY-MM-DD-HHMM}.md` to the workspace, and updates `MEMORY.md` with lessons from the session.
 
 Handoff structure: Accomplished (with file paths and diffs for verification), Pending, Gotchas/Surprises, Lessons Captured, and next-session prompts. The handoff file is the canonical context bridge between sessions — not a summary, a resumption document.
 
----
-
-## What Anthropic now provides natively
-
-The infrastructure for custom slash commands is native — any `.md` file in `.claude/commands/` becomes invocable as `/command-name` at the Claude Code prompt. Anthropic also ships built-in commands (`/help`, `/clear`, `/compact`, `/review`, `/memory`) that cover common operations.
-
-The compact-checkpoint pattern (preserving work context before compaction) is partially covered by the native PostCompact hook, which can re-inject context after compression.
-
----
-
-## Why these commands are still worth reading
-
-The commands here are protocols built on top of the native commands infrastructure. None of these protocols ship with Claude Code:
-
-- **`batchc`** — Wave sizing rules, merge-before-parallelize enforcement, Cob routing, and subagent output discipline are a specific workflow protocol. Claude Code's native parallel tool support doesn't enforce any of this discipline.
-- **`review-sequence`** — The Gadfly-before-CTO ordering rule and the reasoning behind it. This is the most transferable single pattern in the repo — copy it into your own CLAUDE.md regardless of whether you use the rest.
-- **`mmguns`** — The research-to-integration loop: parallel websearch angles, gap analysis against the current project, ranked brief with a dispatch action. Not a native pattern.
-- **`session-handoff`** — The specific handoff document structure optimized for resumption (next actions, gotchas, lessons) rather than summary. Worth adapting even if you don't use the full command.
-- **`pressure`** — Manual pressure override; only useful if you're also running `resource-pressure.py`.
+> **Native:** Claude Code's auto-compression summarizes context across sessions. **Still worth reading:** A well-written handoff and an auto-summary serve different purposes. The handoff is written to answer "what do I do next?" — it's structured for action, not for completeness. The format here (with explicit "gotchas" and "lessons captured" sections) encodes institutional knowledge that auto-compression would treat as low-priority.
