@@ -155,7 +155,27 @@ Write the file back. This keeps the reference table current so future debug sess
 
 ---
 
-## Step 10 — Report
+## Step 10 — Add entry to routes.json and restart discord-router
+
+Read `~/.claude/discord-router/routes.json`. Add the entry:
+
+```json
+"<channel_id>": "discord-<name>"
+```
+
+If `channel_id` is already present, update the value. Write back with 2-space indent.
+
+Then restart the router so it picks up the new entry:
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.claude.discord-router
+```
+
+**Why this matters:** The router loads `routes.json` at startup — without this entry, messages arrive at the bot but are never forwarded to this session. This is the #1 cause of "session bound but receives nothing." Every new session binding is incomplete without it.
+
+---
+
+## Step 11 — Report
 
 Print a summary table:
 
@@ -168,9 +188,11 @@ Print a summary table:
 | State dir | `~/.claude/channels/discord-<name>/` |
 | Project dir | `<cwd>` |
 | Known channel IDs table | updated |
+| routes.json | `<channel_id>` → `discord-<name>` added |
+| discord-router | restarted via launchctl |
 | Status | what was created vs already present |
 
-Tell the user: open a Claude Code session from `<cwd>` and messages in `<channel_id>` will route to it. No gateway restart needed — `access.json` is re-read on every inbound message.
+Tell the user: open a Claude Code session from `<cwd>` and messages in `<channel_id>` will route to it. The discord-router was restarted to pick up the new routes.json entry — `access.json` is re-read on every inbound message so no further restarts are needed.
 
 ---
 
@@ -186,7 +208,18 @@ Tell the user: open a Claude Code session from `<cwd>` and messages in `<channel
 | `~/.claude/hooks/discord-log-channels.json` | channel → log channel mapping |
 | `~/.claude/hooks/discord-webhook.conf` | webhook URL variable added |
 | `<cwd>/.claude/settings.json` | DISCORD_STATE_DIR + DISCORD_CHAT_ID set |
+| `~/.claude/discord-router/routes.json` | `channel_id` → `discord-<name>` routing entry added |
 | `~/.claude/commands/new-discord-session.md` | Known channel IDs table updated |
+
+---
+
+## Common failures
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Session bound, receives nothing | **Missing routes.json entry** — router never learned about this channel | Add `"<channel_id>": "discord-<name>"` to `~/.claude/discord-router/routes.json`, then `launchctl kickstart -k gui/$(id -u)/com.claude.discord-router` |
+| MCP tools unavailable (`mcp__plugin_discord_discord__reply` missing) | `.env` not copied to per-project state dir | `cp ~/.claude/channels/discord/.env ~/.claude/channels/discord-<name>/.env` |
+| Messages route to wrong session | Stale routes.json entry pointing to old channel dir | Update the entry in routes.json and restart the router |
 
 ---
 
@@ -215,11 +248,14 @@ This table is updated automatically by Step 9 each time `/new-discord-session` r
 | claude-config | <channel-id> |
 | sales_automation | <channel-id> |
 | log-sales-automation | <channel-id> |
-| l3harris | <channel-id> |
-| log-l3harris | <channel-id> |
+| l3 | <channel-id> |
+| log-l3 | <channel-id> |
 | saic | <channel-id> |
 | log-saic | <channel-id> |
 | textron | <channel-id> |
 | log-textron | <channel-id> |
 | bambu | <channel-id> |
 | log-bambu | <channel-id> |
+| famplan | <channel-id> |
+| log-famplan | <channel-id> |
+| log-claude-config | <channel-id> |

@@ -19,12 +19,14 @@
   "<channel-id>": "log-git-public-repo",
   "<channel-id>": "sales_automation",
   "<channel-id>": "log-sales-automation",
-  "<channel-id>": "l3harris",
-  "<channel-id>": "log-l3harris",
+  "<channel-id>": "l3",
+  "<channel-id>": "log-l3",
   "<channel-id>": "saic",
   "<channel-id>": "log-saic",
   "<channel-id>": "textron",
   "<channel-id>": "log-textron",
   "<channel-id>": "bambu",
-  "<channel-id>": "log-bambu"
+  "<channel-id>": "log-bambu",
+  "<channel-id>": "famplan",
+  "<channel-id>": "log-famplan"
 }

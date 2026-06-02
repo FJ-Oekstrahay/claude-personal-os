@@ -1,7 +1,21 @@
 {
+  "_dm": "discord",
   "1510765241586417785": "discord-bambu",
   "1497752212187643914": "discord-git-public-repo",
-  "1498063965974954156": "discord-claude-config",
+  "1497227961827594450": "discord-claude-config",
   "1497223999581589625": "discord-droneteleo",
-  "1504922151675760690": "discord-sales_automation"
+  "1504922151675760690": "discord-sales_automation",
+  "1508274954972434563": "discord-sa-l3harris",
+  "1508275084652187728": "discord-sa-saic",
+  "1508275368757563513": "discord-sa-textron",
+  "1508470710513696819": "discord-famplan",
+  "1499363759779614761": "discord-droneteleo",
+  "1499364108829720576": "discord-git-public-repo",
+  "1499363606444114044": "discord-claude-config",
+  "1504922485282570501": "discord-sales_automation",
+  "1508275269230919750": "discord-sa-l3harris",
+  "1508275207075533032": "discord-sa-saic",
+  "1508275436650762322": "discord-sa-textron",
+  "1510765273551208502": "discord-bambu",
+  "1508470841544015973": "discord-famplan"
 }

@@ -50,6 +50,8 @@ interface AccessPolicy {
 interface AccessJson {
   groups?: Record<string, AccessPolicy>;
   ackReaction?: string;
+  dmPolicy?: string;
+  allowFrom?: string[];
 }
 
 function loadAccess(stateDirName: string): AccessJson | null {
@@ -217,8 +219,22 @@ async function main(): Promise<void> {
       // Skip bot messages to prevent feedback loops
       if (msg.author.bot) return;
 
-      // Skip DMs — each per-session plugin handles those directly
-      if (!msg.guild) return;
+      // Route DMs via "_dm" entry in routes.json
+      if (!msg.guild) {
+        const dmStateDirName = routes["_dm"];
+        if (!dmStateDirName) return;
+        const dmAccess = loadAccess(dmStateDirName);
+        if (!dmAccess) return;
+        if (dmAccess.dmPolicy === "allowlist") {
+          const allowed = dmAccess.allowFrom ?? [];
+          if (allowed.length > 0 && !allowed.includes(msg.author.id)) return;
+        }
+        writeInbox(dmStateDirName, msg);
+        if (dmAccess.ackReaction && dmAccess.ackReaction.trim() !== "") {
+          msg.react(dmAccess.ackReaction).catch(() => {});
+        }
+        return;
+      }
 
       // Determine effective channel ID (use parent for threads)
       let channelId: string;

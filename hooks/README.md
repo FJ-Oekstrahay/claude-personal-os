@@ -17,13 +17,9 @@ Claude Code hooks are shell scripts that run at specific points in the execution
 
 ---
 
-> **On what's native vs. custom:** The hook system itself — all hook types, exit code semantics, JSON payload structure, settings.json configuration — is native and well-documented by Anthropic. What isn't native are the specific implementations below. For each, there's a note on what the docs cover, what they don't, and why looking at the implementation here is still worth the time even if you plan to write your own.
-
 ## protect-sensitive-files.sh
 
 Blocks writes to a hardcoded list of sensitive paths: `openclaw.json`, `credentials/`, `secrets/`, any `IDENTITY.md` under `agents/`, and LaunchAgents plists. The matcher covers **Write, Edit, and Bash** — a `Write|Edit`-only matcher misses file writes that happen through shell commands (`cp`, `tee`, `>>`). The block reason is written to stderr (Claude only receives stderr when exit 2 fires). The hook **fails closed**: if python3 is unavailable or the JSON payload can't be parsed, it exits 2 and blocks. A broken hook that blocks everything is visible; a broken hook that silently allows everything is not.
-
-> **Native:** PreToolUse hooks and the exit 2 / exit 0 semantics are native. **Still worth reading:** The specific combination — `Bash` in the matcher, fail-closed on parse errors, stderr for block reasons — isn't obvious from the docs and was assembled from things that broke. Most protection hooks published elsewhere use a `Write|Edit` matcher and silently miss every Bash-based write (`cp`, `tee`, `>>`). The fail-closed design principle (visible failures over silent ones) applies to any hook that enforces a constraint.
 
 ## discord-notify.sh
 
@@ -46,8 +42,6 @@ Both sends are **backgrounded** (`curl` is forked and the hook exits immediately
 
 **Per-channel log routing** — When a session originates from a Discord channel listed in `discord-routing.json`, log messages are sent to that channel's dedicated log webhook instead of the default LOGS webhook. The active channel is detected from the session transcript by `discord-text-extract.py` and persisted in `state/<session_id>.chatid`. Channels not in the routing map fall back to `LOGS_WEBHOOK_URL`.
 
-> **Native:** PostToolUse hooks and Notification hooks are native. **Still worth reading:** There's no native monitoring hook — Anthropic doesn't ship one. The implementation detail worth studying is how the hook reads new assistant text blocks from the session JSONL between tool calls, so narrative text arrives in Discord *before* the tool runs rather than after. The backgrounded curl pattern (sub-1ms hook latency) and the routing-lag fix (`discord-seed-chatid.sh` writing state at SessionStart) are both non-obvious engineering decisions that show up as operational issues if you skip them.
-
 ## resource-pressure.py
 
 Tracks how full the context window is during a session and exposes a pressure level (`normal` / `elevated` / `high`) that rate-limit-aware commands can read.
@@ -58,19 +52,13 @@ Tracks how full the context window is during a session and exposes a pressure le
 
 State is written to `~/.claude/hooks/state/session-pressure.json`. The `/pressure` command sets `manual_override: true` to prevent this hook from overwriting a manual setting. The SessionStart invocation (with `--reset`) clears state and starts fresh.
 
-> **Native:** No direct native equivalent for per-session context fill tracking. **Still worth reading:** The implementation shows how to read token usage from the session JSONL — a technique that applies to any hook that needs to reason about session state rather than just the current tool call. The two-path fallback (token fill primary, tool call count secondary) is a practical pattern for graceful degradation when the JSONL isn't available.
-
 ## infra-health-check.sh
 
 Runs at session start to verify that background infrastructure (memsearch, Milvus) is healthy and the search index is reasonably fresh. Always exits 0 — failure here should never block a session, only alert. Posts to the Discord log channel via bot API if a check fails.
 
-> **Infrastructure-specific:** Memsearch/Milvus are not standard setup. Worth reading as an example of a non-blocking health check pattern: always exit 0, alert rather than block, keep the check cheap enough to run on every session start.
-
 ## discord-seed-chatid.sh
 
 Solves an edge case in per-channel log routing: if a session is opened from a Discord channel (with `DISCORD_CHAT_ID` set in the project env), but the first thing Claude does is a tool call before any Discord message arrives, the `.chatid` file doesn't exist yet and routing falls back to the default `LOGS_WEBHOOK_URL`. This hook writes the file at session start so the first tool call routes correctly. Guards: only writes if `DISCORD_CHAT_ID` is set, only writes if the file doesn't already exist (the `UserPromptSubmit` hook owns runtime updates).
-
-> **Native:** SessionStart hooks are native. **Still worth reading:** The routing-lag problem this solves (first tool call fires before any Discord message arrives, so the `.chatid` file doesn't exist yet) is a non-obvious edge case in any hook system that uses per-session state files. The pattern — pre-seed state at SessionStart when the project env provides enough context — applies to any hook that initializes session-scoped routing.
 
 ---
 
@@ -102,26 +90,3 @@ To create webhooks: Discord Server Settings → Integrations → Webhooks → Ne
 - **`tool_input`**: the correct key in the PreToolUse JSON payload (not `input`).
 
 Full lessons from hook development are in [`../CLAUDE.md`](../CLAUDE.md) under "Lessons Learned → Claude Code hooks".
-
-> **Native:** All of these behaviors — exit codes, stderr, matcher scope, `tool_input` key — are now documented by Anthropic. **Still worth reading:** These gotchas were discovered in production before the docs were clear. The value isn't the facts themselves (now in the docs) but the framing: why exit 1 not blocking is a footgun for constraint hooks, why `Write|Edit` as a matcher gives false confidence, why `tool_input` not `input` is the kind of thing you only discover by it silently failing.
-
-
-The hook system itself is entirely native:
-
-- All hook types used here (PreToolUse, PostToolUse, Notification, SessionStart, UserPromptSubmit, Stop, PostCompact) are documented Claude Code features.
-- Exit code semantics — `exit 2` blocks and surfaces stderr to the model, `exit 0` allows, `exit 1` is non-blocking — are official documented behavior.
-- The stderr-for-block-reason requirement is documented.
-- The JSON payload structure (including the `tool_input` key in PreToolUse) is documented.
-- Hook configuration in `settings.json` (matchers, script paths) is native.
-
----
-
-## Why these hook implementations are still worth reading
-
-The hook infrastructure is native; the specific implementations are not.
-
-- **`protect-sensitive-files.sh`** — The fail-closed design (exit 2 on parse error, `Bash` in the matcher to catch shell-based writes like `cp`, `tee`, `>>`) is not in any Anthropic documentation. Most protection hooks published elsewhere use `Write|Edit` matchers and silently miss Bash-based file operations — the most common way credentials leak.
-- **`discord-notify.sh`** — Streaming every narrative text block and tool call to Discord in real time, with per-session channel routing and approval @mentions. Anthropic doesn't ship a monitoring hook.
-- **`resource-pressure.py`** — Reading token fill from the session JSONL and exporting pressure state (`normal/elevated/high`) that other commands can consume. No native equivalent.
-- **`discord-prompt-submit.py`** — Detecting inbound Discord messages in the session JSONL and seeding per-channel log routing state at prompt submission time, eliminating routing lag on the first tool call.
-- **The hook errata** — Both the exit code asymmetry and the matcher scope issue were discovered by breaking things in production before the official docs covered them clearly. The fail-closed design exists because a broken hook that blocks everything is visible; one that silently allows everything is not. That framing isn't in the official docs.
