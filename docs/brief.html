@@ -239,63 +239,54 @@
 
   <section class="hero" id="top">
     <span class="section-tag">Brief</span>
-    <h1>What I've been doing with <span class="accent">Claude Code</span>.</h1>
+    <h1>What I've been doing with <span class="accent">Claude Code</span> — and whether Anthropic made it pointless.</h1>
     <p class="lede">The short version, for engineers. Hardware background; daily driver is Claude Code on a Mac Mini, observed from a phone via Discord.</p>
   </section>
 
   <div class="section-rule"></div>
-  <section id="the-config">
+  <section id="the-question">
     <span class="section-tag">01</span>
-    <h2>The Config Layer</h2>
-    <p>Claude Code exposes hooks, skills, and MCP as configuration primitives. I've been building a behavioral layer on top of those: rules that load on every session, hooks that enforce operational constraints, skills that encode cognitive workflows rather than generic prompts, and a memory system that spans multiple timescales.</p>
-    <p>The config is published at <a href="https://fj-oekstrahay.github.io/claude-personal-os/">fj-oekstrahay.github.io/claude-personal-os</a>. Auto-synced nightly from <code>~/.claude</code> with a redaction pass. The interesting parts aren't the mechanism — they're the content of the skills, the errata in LESSONS.md, and the decisions that went into the hook semantics.</p>
+    <h2>The Question Worth Asking First</h2>
+    <p>Anthropic shipped a lot in 2026: SKILL.md auto-loading, auto-memory, native parallel multi-agent orchestration, background agents, a SubagentStop hook. Several of those overlap with things this config was doing in bespoke form. So: does any of it still need to exist?</p>
+    <p>Nothing is being ripped out, and the reason isn't inertia. What Anthropic shipped is infrastructure — mechanisms for loading, dispatching, and remembering. What's here is opinion, operational constraint, and production-hardened pattern. Those layers don't compete; they sit on top of each other. The mechanism becoming native doesn't make the opinion generic.</p>
+    <p>The honest accounting, section by section:</p>
   </section>
 
   <div class="section-rule"></div>
   <section id="hooks">
     <span class="section-tag">02</span>
     <h2>Hooks</h2>
-    <p>Two production hooks.</p>
-    <p><strong>protect-sensitive-files.sh</strong> fires on Write, Edit, and Bash. It inspects tool input, extracts file paths, and blocks writes to protected paths — live config containing tokens, credential files, service plists. The Bash matcher is necessary because a <code>Write|Edit</code> matcher misses <code>cp</code>, <code>tee</code>, and redirects. Exit code must be <code>2</code> — exit 1 does not block. This took a production incident to learn.</p>
-    <p><strong>discord-notify.sh</strong> streams every session to Discord in real time: narrative text before each tool call, a one-line summary after. For subagent dispatches it posts the full prompt (capped at ~1500 chars). Approval requests generate @mentions in the conversation channel. Per-project channel routing — different directories bind to different webhooks. The practical effect: I can see what Claude is doing and approve things from my phone without a terminal open.</p>
+    <p>Two production hooks. Both exist for reasons Anthropic hasn't addressed.</p>
+    <p><strong>protect-sensitive-files.sh</strong> fires on Write, Edit, and Bash. It inspects tool input, extracts file paths, and blocks writes to protected paths — live config containing tokens, credential files, service plists. The Bash matcher is required because a <code>Write|Edit</code> matcher misses <code>cp</code>, <code>tee</code>, and redirects — those embed the path in a shell command string, not a top-level tool argument. Exit code must be <code>2</code>; exit 1 does not block. Native tool permissions can restrict tool types. They cannot block writes to specific file paths inside Bash commands. That's the gap this fills.</p>
+    <p><strong>discord-notify.sh</strong> streams every session to Discord in real time: narrative text before each tool call, a one-line summary after. Subagent dispatches post the full prompt (capped at ~1500 chars). Approval requests generate @mentions. Per-project channel routing — different directories bind to different webhooks. The result: I can see what Claude intends to do before it does it, and approve things, from a phone. Background agents deliver results when the session finishes. That's a different observability model than pre-call visibility, and pre-call visibility is the part that matters operationally.</p>
   </section>
 
   <div class="section-rule"></div>
   <section id="skills">
     <span class="section-tag">03</span>
     <h2>Skills</h2>
-    <p>Skills auto-load via SKILL.md — Anthropic adopted that format, which is the same one this config uses. The mechanism is now native. The content is still the work.</p>
-    <p><strong>review-sequence</strong> runs Gadfly before CTO. Gadfly is a hostile product skeptic — looks for wrong assumptions about what users actually want. CTO reviews build sequence and architectural coherence. The ordering is causal: if CTO runs first, it produces a structural plan that anchors everything; Gadfly's objections come too late to change the architecture. Native parallel dispatch runs them concurrently and loses this. The sequencing is enforced explicitly.</p>
-    <p><strong>batchc</strong> is a parallel subagent dispatch protocol. The pattern: identify independent tasks, set wave size based on context budget and rate-limit exposure, dispatch in parallel, merge before the next wave. The "merge before parallelize" constraint exists because downstream agents working on stale intermediate state produce coherent-looking results that are wrong in subtle ways.</p>
-    <p><strong>mmguns</strong> (Make More Good Use New Stuff) is a research-to-integration loop: four-angle parallel web search, project inventory, gap analysis, ranked brief of three items, dispatch action. Quick wins ask for confirm then implement; medium lifts generate a spec stub. The loop always closes — it doesn't produce a document that requires another decision about what to do with it.</p>
-    <p>There are also opinionated reviewer personas: Critic (harsh code review, no suggestions), Gadfly (product skeptic), CTO (architectural planner), debug-agent (failure-mode focused). The personas have behavioral constraints that make them actually push back rather than hedge.</p>
+    <p>SKILL.md auto-loading is now native — Anthropic adopted the format this config uses. The mechanism is theirs now. The content of the skills is still the work.</p>
+    <p><strong>review-sequence</strong> runs Gadfly before CTO. The ordering is causal, not a parallelization shortcut. Gadfly is a hostile product skeptic — looks for wrong assumptions about what users actually want. CTO reviews build sequence and architectural coherence. If CTO runs first, it produces a structural plan that anchors everything; Gadfly's objections come too late to change the architecture. Native parallel dispatch runs them concurrently, producing two independent reviews that must be synthesized. Sequential Gadfly-then-CTO produces CTO output that already incorporates Gadfly's findings as input. Those are different things. The sequencing is enforced explicitly because the platform won't enforce it for you.</p>
+    <p><strong>batchc</strong> is a parallel subagent dispatch protocol. The pattern: identify independent tasks, set wave size based on context budget and rate-limit exposure, dispatch in parallel, merge before the next wave. The merge constraint exists because downstream agents working on stale intermediate state produce coherent-looking results that are wrong in ways that are hard to catch in review. Native orchestration provides the mechanism; wave discipline and merge-before-parallelize are still judgment calls that need encoding.</p>
+    <p><strong>mmguns</strong> is a research-to-integration loop: four-angle parallel web search, project inventory, gap analysis, ranked brief of three items, dispatch action. Quick wins confirm then implement; medium lifts generate a spec stub. The loop always closes — it never produces a report that requires another decision about what to do with it. Anthropic hasn't shipped anything structurally similar.</p>
+    <p>There are also opinionated reviewer personas: Critic (harsh code review, no suggestions), Gadfly (product skeptic), CTO (architectural planner), debug-agent (failure-mode focused). The behavioral specifications matter — "ask Claude to review this from a product perspective" is not the same as Gadfly. The persona has to be persistent enough to actually push back.</p>
   </section>
 
   <div class="section-rule"></div>
   <section id="memory">
     <span class="section-tag">04</span>
     <h2>Memory</h2>
-    <p>Three layers operating at different timescales.</p>
-    <p><strong>CLAUDE.md (always loaded)</strong> — behavioral rules, tool permissions, protected paths, and LESSONS.md. The lessons section is extracted errata from production: hook exit code semantics, hook matcher scope, file staging risk (a file named <code>identity/device.json</code> contained a plaintext private key). These are in the always-loaded layer because they cause silent failures — by the time memsearch would surface them, the mistake has already happened.</p>
-    <p><strong>Playbook library (~359 files)</strong> — curated domain knowledge indexed by keyword. Betaflight serial quirks, USB HID gadget mode on macOS, Claude Code API behavior, macOS gotchas, hook semantics. Each entry records what broke, why, and how to apply the lesson. Anthropic shipped auto-memory in February 2026, which writes session observations. These are different things: auto-memory records what Claude notices during a session; the playbook library records lessons from debugging failures that someone had to diagnose and write down in transferable form.</p>
-    <p><strong>memsearch</strong> — local ONNX embeddings (bge-m3, ~558 MB, on-device) over session transcripts and the playbook library. Per-project isolation via per-git-root SQLite. Relevant playbooks surface as hints at session start based on what the session is working on.</p>
+    <p>Three layers. They do different things.</p>
+    <p><strong>CLAUDE.md (always loaded)</strong> — behavioral rules, tool permissions, protected paths, and extracted errata. The errata section is the part worth explaining: hook exit code semantics (<code>exit 2</code> blocks; <code>exit 1</code> does not), hook matcher scope (tool names, not file operations — Bash must be in the matcher), file staging risk (a file named <code>identity/device.json</code> contained a plaintext private key). These are in the always-loaded layer because they cause silent failures. By the time a retrieval system surfaces them, the mistake has already happened.</p>
+    <p><strong>Playbook library (~359 files)</strong> — curated domain knowledge indexed by keyword. Betaflight serial quirks, Claude Code API behavior, macOS gotchas, hook semantics. Each entry records what broke, why, and how to apply the lesson. Anthropic shipped auto-memory in February 2026. Auto-memory writes what Claude observes during a session. The playbook library records lessons from debugging failures that someone had to diagnose and write down in transferable form. Those are different things; one doesn't replace the other.</p>
+    <p><strong>memsearch</strong> — local ONNX embeddings (bge-m3, on-device) over session transcripts and the playbook library. Per-project isolation via per-git-root SQLite. Relevant playbooks surface as hints at session start based on what the session is working on.</p>
   </section>
 
   <div class="section-rule"></div>
-  <section id="what-anthropic-changed">
+  <section id="repo">
     <span class="section-tag">05</span>
-    <h2>What Anthropic Changed in 2026</h2>
-    <p>Several things that were bespoke here are now native: SKILL.md loading, auto-memory, parallel multi-agent orchestration, SubagentStop hook, background agents via <code>/bg</code>. That's real, and it means the platform surface has grown substantially.</p>
-    <p>The pattern: Anthropic ships mechanisms; the bespoke config provides the content and constraints that ride on top. Parallel orchestration doesn't specify when to merge before the next wave. Auto-memory doesn't produce curated domain knowledge from past debugging sessions. Skill loading doesn't determine whether Gadfly runs before or after CTO.</p>
-    <p>The Discord integration has no Anthropic equivalent. Real-time session streaming to an external chat platform with per-project channel routing and approval @mentions is not a platform feature — it's a bespoke operational requirement that happens to be fully achievable with hooks and MCP.</p>
-  </section>
-
-  <div class="section-rule"></div>
-  <section id="more">
-    <span class="section-tag">More</span>
-    <h2>If you want the full version</h2>
-    <p>The overview page covers the full architecture with diagrams: <a href="index.html">fj-oekstrahay.github.io/claude-personal-os/</a></p>
-    <p>The longer article covers the Anthropic-vs-bespoke comparison in more depth, with a component-by-component status table: <a href="why-it-still-matters.html">why-it-still-matters.html</a></p>
+    <h2>The Repo</h2>
+    <p>The config is published at <a href="https://fj-oekstrahay.github.io/claude-personal-os/">fj-oekstrahay.github.io/claude-personal-os</a>. Auto-synced nightly from <code>~/.claude</code> with a redaction pass. The interesting parts aren't the mechanism — they're the content of the skills, the errata in LESSONS.md, and the decisions that went into the hook semantics.</p>
     <p>The public repo has the actual config, selected playbooks, and the sync script: <a href="https://github.com/fj-oekstrahay/claude-personal-os">github.com/fj-oekstrahay/claude-personal-os</a></p>
   </section>
 
