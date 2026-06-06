@@ -2,6 +2,8 @@
 
 User-invoked slash commands. Type `/batchc`, `/review-sequence`, etc. at the Claude Code prompt.
 
+Anthropic added `/bg` (cloud background sessions) and parallel multi-agent orchestration in mid-2026. `batchc` is not a replacement for those — it's a dispatch discipline layer: wave sizing, sequential vs. parallel classification, merge-before-parallelize enforcement, and context-window protection by routing all file edits to subagents. The orchestration mechanism is separate from the protocol that governs how you use it.
+
 | Command | When to use | Portable? |
 |---|---|---|
 | `batchc` | Classify and dispatch a list of work items — groups parallel vs. sequential, sizes waves, routes code edits to subagents | Yes |
@@ -9,6 +11,7 @@ User-invoked slash commands. Type `/batchc`, `/review-sequence`, etc. at the Cla
 | `load-handoff` | List recent session handoff files and load one for context at the start of a new session | Partial (references OpenClaw handoff format) |
 | `mmguns` | Research-to-integration loop — find SOTA for a capability area, gap-analyze against current project, produce ranked 3-item brief, then dispatch | Yes |
 | `new-discord-session` | Bind a Claude Code project directory to a Discord channel — adds the channel to `access.json` and sets `DISCORD_STATE_DIR` in project settings | No (requires OpenClaw Discord bot) |
+| `pdf` | Anything involving PDF files — read, extract, merge, split, rotate, fill forms, create, encrypt, OCR | Yes |
 | `pressure` | Manually set the session context pressure level (`normal`, `elevated`, `high`) — overrides the automatic PostToolUse tracking for the rest of the session | Yes |
 | `review-sequence` | Run one or more adversarial reviewer roles (Critic, Gadfly, Architect, CTO) in the correct order for the work at hand | Yes |
 | `session-handoff` | Write a structured handoff file summarizing what was done, what's pending, and lessons to capture | Partial (the Seymour-spawn step requires OpenClaw; rest is portable) |

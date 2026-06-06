@@ -2,6 +2,8 @@
 
 Invoked by Claude via the Skill tool, triggered by context rather than explicit user command. Each skill has a `when to use` guard in its SKILL.md that tells Claude when to fire it automatically.
 
+As of late 2025, Anthropic loads `SKILL.md` files at session start automatically — no marketplace registration needed. That's already the format used here. The loading mechanism is now native; what's here is the content: specific cognitive workflows, sequencing rules, and dispatch protocols that don't come built-in.
+
 | Skill | What problem it solves |
 |---|---|
 | compact-checkpoint | Preserves work across `/compact` — writes a session summary before context compaction so the resumed session knows what was accomplished. |

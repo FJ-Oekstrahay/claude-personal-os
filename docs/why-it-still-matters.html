@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Why the bespoke config still matters — claude-personal-os</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-elev: #161b22;
+    --bg-elev2: #1c2128;
+    --border: #30363d;
+    --border-subtle: #21262d;
+    --fg: #e6edf3;
+    --muted: #8b949e;
+    --muted-light: #6e7681;
+    --accent: #58a6ff;
+    --accent-dim: rgba(88, 166, 255, 0.10);
+    --accent-hover: #79b8ff;
+    --green: #3fb950;
+    --green-dim: rgba(63, 185, 80, 0.10);
+    --orange: #d29922;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --radius: 6px;
+    --radius-sm: 4px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body { overflow-x: hidden; }
+
+  nav.topnav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(13, 17, 23, 0.93);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  nav.topnav .nav-inner {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 12px 24px;
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  nav.topnav .nav-inner::-webkit-scrollbar { display: none; }
+
+  nav.topnav .brand {
+    font-family: var(--mono);
+    font-size: 0.875rem;
+    color: var(--fg);
+    font-weight: 600;
+    white-space: nowrap;
+    margin-right: 8px;
+  }
+
+  nav.topnav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+    transition: color 0.15s;
+  }
+  nav.topnav a:hover { color: var(--accent); }
+
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+  }
+
+  section {
+    padding: 64px 0 0;
+  }
+
+  .section-rule {
+    height: 1px;
+    background: linear-gradient(to right, var(--border) 20%, transparent 100%);
+    margin: 52px 0 0;
+  }
+
+  section.hero {
+    padding-top: 72px;
+  }
+
+  h1 {
+    font-size: 2.125rem;
+    line-height: 1.2;
+    margin: 0 0 12px;
+    letter-spacing: -0.025em;
+    font-weight: 700;
+  }
+  h1 .accent { color: var(--accent); }
+
+  h2 {
+    font-size: 1.25rem;
+    margin: 0 0 18px;
+    letter-spacing: -0.01em;
+    font-weight: 600;
+    color: var(--fg);
+  }
+
+  section:not(.hero) h2 {
+    padding-left: 12px;
+    border-left: 2px solid var(--accent);
+    margin-left: -14px;
+  }
+
+  h3 {
+    font-size: 1rem;
+    margin: 36px 0 10px;
+    font-weight: 600;
+    color: var(--fg);
+  }
+
+  h4 {
+    font-size: 0.875rem;
+    margin: 24px 0 8px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  p { margin: 0 0 14px; color: var(--fg); }
+
+  .lede {
+    font-size: 1.0625rem;
+    color: var(--muted);
+    margin: 0 0 24px;
+    line-height: 1.65;
+    max-width: 580px;
+  }
+
+  a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  a:hover {
+    color: var(--accent-hover);
+    border-bottom-color: rgba(88,166,255,0.35);
+  }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.8em;
+    background: var(--bg-elev);
+    color: #a5d6ff;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--border-subtle);
+  }
+
+  pre {
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    background: var(--bg-elev);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    padding: 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    line-height: 1.55;
+    margin: 16px 0;
+  }
+  pre code {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    border: none;
+    font-size: inherit;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 20px;
+    font-size: 0.875rem;
+    display: block;
+    overflow-x: auto;
+  }
+
+  @media (min-width: 600px) {
+    table { display: table; }
+  }
+
+  th, td {
+    border: 1px solid var(--border);
+    padding: 9px 14px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--bg-elev);
+    font-weight: 600;
+    font-size: 0.75rem;
+    color: var(--muted-light);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  tr:hover td { background: rgba(255,255,255,0.015); }
+
+  ul, ol { margin: 0 0 16px; padding-left: 22px; }
+  li { margin-bottom: 5px; }
+
+  strong { color: var(--fg); font-weight: 600; }
+  em { color: var(--muted); font-style: italic; }
+
+  .section-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .section-tag::after {
+    content: '';
+    display: inline-block;
+    width: 24px;
+    height: 1px;
+    background: var(--accent);
+    opacity: 0.5;
+  }
+
+  .callout {
+    background: var(--accent-dim);
+    border: 1px solid rgba(88,166,255,0.2);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+    padding: 14px 18px;
+    margin: 20px 0;
+    font-size: 0.8875rem;
+    line-height: 1.6;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout code { background: rgba(88,166,255,0.08); border-color: rgba(88,166,255,0.2); }
+
+  .callout.green {
+    background: var(--green-dim);
+    border-color: rgba(63,185,80,0.2);
+    border-left-color: var(--green);
+  }
+
+  .native-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    background: var(--green-dim);
+    color: var(--green);
+    border: 1px solid rgba(63,185,80,0.3);
+    border-radius: 10px;
+    padding: 1px 7px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: middle;
+    margin-left: 4px;
+  }
+
+  .bespoke-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid rgba(88,166,255,0.3);
+    border-radius: 10px;
+    padding: 1px 7px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: middle;
+    margin-left: 4px;
+  }
+
+  .status-table td:first-child { font-family: var(--mono); font-size: 0.8rem; }
+  .status-table td:last-child { font-size: 0.8125rem; color: var(--muted); }
+
+  footer {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 28px 24px 56px;
+    color: var(--muted-light);
+    font-size: 0.75rem;
+    font-family: var(--mono);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  footer a {
+    color: var(--muted);
+    border-bottom: none;
+  }
+  footer a:hover {
+    color: var(--accent);
+    border-bottom: none;
+  }
+
+  @media (max-width: 640px) {
+    h1 { font-size: 1.625rem; }
+    h2 { font-size: 1.125rem; }
+    section:not(.hero) h2 { margin-left: -10px; }
+    main { padding: 0 16px 64px; }
+    nav.topnav .nav-inner { padding: 10px 16px; gap: 14px; }
+    footer { flex-direction: column; align-items: flex-start; gap: 6px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="topnav" aria-label="Primary">
+  <div class="nav-inner">
+    <span class="brand">claude-personal-os</span>
+    <a href="index.html">Overview</a>
+  </div>
+</nav>
+
+<main>
+
+  <section class="hero" id="top">
+    <span class="section-tag">Analysis</span>
+    <h1>What Anthropic shipped in 2026, and why the <span class="accent">bespoke config</span> is still the point.</h1>
+    <p class="lede">An honest accounting: what's native now, what was always bespoke, and why the distinction matters.</p>
+  </section>
+
+  <div class="section-rule"></div>
+  <section id="context">
+    <span class="section-tag">01</span>
+    <h2>The Starting Premise</h2>
+    <p>From late 2025 through mid-2026, Anthropic shipped a significant round of Claude Code capabilities: auto-memory, SKILL.md auto-loading, modular rules files, background agents, a SubagentStop hook, and native parallel multi-agent orchestration. Several of those things were already being done here in bespoke form. The reasonable question is whether the bespoke config still has a reason to exist.</p>
+    <p>The answer is mostly yes, for specific reasons that aren't the same for every component. Some parts of what was built here are now duplicated by native features. Some parts never were mechanisms — they were cognitive patterns that rode on top of whatever mechanism was available. Those haven't been superseded, because they weren't competing with mechanisms.</p>
+    <p>This article goes through each layer. Where Anthropic made something native that covers previously-bespoke ground, it says so. The argument doesn't claim everything here is irreplaceable.</p>
+  </section>
+
+  <div class="section-rule"></div>
+  <section id="what-anthropic-shipped">
+    <span class="section-tag">02</span>
+    <h2>What Anthropic Shipped in 2026</h2>
+
+    <table class="status-table">
+      <thead>
+        <tr><th>Feature</th><th>When</th><th>What it does</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Auto-memory</td>
+          <td>Feb 2026</td>
+          <td>Claude Code writes session observations automatically. No plugin required.</td>
+        </tr>
+        <tr>
+          <td>SKILL.md auto-loading</td>
+          <td>2025</td>
+          <td>Skills in <code>~/.claude/skills/*/SKILL.md</code> load at session start without marketplace registration. Already the format used here.</td>
+        </tr>
+        <tr>
+          <td><code>.claude/rules/</code></td>
+          <td>2026</td>
+          <td>Modular rules files with optional path-scoped loading via frontmatter. Replaces some of the monolithic CLAUDE.md use case.</td>
+        </tr>
+        <tr>
+          <td>Model switching (alt+p)</td>
+          <td>2026</td>
+          <td>UI-level model selection per session.</td>
+        </tr>
+        <tr>
+          <td>Background agents (<code>/bg</code>)</td>
+          <td>2026</td>
+          <td>Run a session in the background via cloud handoff.</td>
+        </tr>
+        <tr>
+          <td>SubagentStop hook</td>
+          <td>2026</td>
+          <td>Fires per-subagent on completion. Includes <code>agent_id</code>, <code>agent_type</code>, <code>background_tasks[]</code>, <code>session_crons[]</code>.</td>
+        </tr>
+        <tr>
+          <td>Parallel multiagent orchestration</td>
+          <td>2026</td>
+          <td>Lead agent plus specialist subagents running concurrently on a shared filesystem.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>Some of these are real overlap with what was built here. Some are additions to the platform that this config doesn't use yet. Taking them one at a time:</p>
+
+    <h3>SKILL.md auto-loading</h3>
+    <p>This is exactly the format this config uses. There's no tension here: Anthropic adopted the convention, which means skills defined here load without any adaptation. The loading mechanism is now native. Nothing about the content of those skills changed because of that.</p>
+
+    <h3>Auto-memory</h3>
+    <p>Native auto-memory writes things Claude observes in a session. It is session-level observation. The playbook library here is something different — curated knowledge from debugging failures across months, written by a human who noticed something break, diagnosed the root cause, and wrote it down in transferable form. Those two things are not competing for the same job, and the distinction matters enough to spend a whole section on it below.</p>
+
+    <h3><code>.claude/rules/</code> modular files</h3>
+    <p>A real improvement to the tooling. Path-scoped loading means rules that only apply in certain directories don't have to live in a monolithic file. This config still uses a monolithic CLAUDE.md — the rules aren't yet modularized to take advantage of this. That's a future refactor, not a reason the content is wrong.</p>
+
+    <h3>Parallel multiagent orchestration</h3>
+    <p>The platform now supports running multiple subagents concurrently on a shared filesystem. This is what <code>batchc</code> was coordinating manually: wave sizing, dependency ordering, merge enforcement before the next wave. The coordination mechanism is more capable now. The questions batchc asks — how many agents in a wave, which dependencies must be resolved before paralleling, how to merge intermediate state — those are still questions that need answers. Native parallelism doesn't answer them; it makes them possible to get wrong at scale.</p>
+
+    <h3>SubagentStop hook</h3>
+    <td>New hook point, not used yet in this config. The existing hooks here — PreToolUse for blocking and Discord streaming, PostToolUse for per-tool logging — cover the operational requirements that drove this config. SubagentStop opens up per-agent lifecycle hooks that weren't previously possible.</td>
+
+    <h3>Background agents</h3>
+    <p>Not yet in use here. The use case — run a session in the background — is real, but for the workloads this config handles, foreground sessions with Discord streaming cover the monitoring need without requiring cloud handoff.</p>
+  </section>
+
+  <div class="section-rule"></div>
+  <section id="skills">
+    <span class="section-tag">03</span>
+    <h2>Skills: The Mechanism vs. the Cognitive Patterns</h2>
+
+    <p>Anthropic now loads skills via SKILL.md. That's the mechanism. The question of what the skills actually do is entirely separate, and it's where the bespoke config does its work.</p>
+
+    <h3>review-sequence: ordered adversarial review</h3>
+    <p>This skill runs Gadfly before CTO. That ordering isn't a parallelization convenience — it's a deliberate causal constraint. If CTO runs first, it produces a structural plan that anchors everything. Gadfly's product objections, which often surface wrong assumptions about what users actually want, come too late to change the architecture. Running Gadfly first means the architect builds on a foundation that's already survived product skepticism.</p>
+    <p>Native parallel multi-agent doesn't replicate this. It runs agents concurrently. Concurrent Gadfly and CTO produce two independent reviews that the main session must synthesize. Sequential Gadfly-then-CTO produces CTO output that already incorporates Gadfly's findings as input. Those are different things. The sequencing is the point.</p>
+
+    <h3>batchc: wave-sized parallel dispatch</h3>
+    <p>The pattern: identify independent tasks, determine wave size based on context budget and rate-limit exposure, dispatch in parallel, merge before the next wave. The "merge before parallelize" rule exists because downstream agents working on stale or contradictory intermediate state produce coherent-looking results that are actually wrong.</p>
+    <p>With native parallel orchestration, the mechanism for running agents in parallel is richer. The discipline around when to parallelize, how many at once, and when to force a merge before continuing — that's still the judgment this skill encodes. Platform capability and operational discipline are not the same thing.</p>
+
+    <h3>mmguns: research-to-integration loop</h3>
+    <p>Four-angle parallel web search (SOTA, production libraries, comparison discussions, process patterns), then project inventory, then gap analysis, then a structured brief with exactly three ranked items and a dispatch action. The loop closes — it doesn't stop at a report. Quick wins ask for confirm then implement; medium lifts generate a spec stub; non-starters get ruled out with reasoning.</p>
+    <p>This is a workflow skill, not a search wrapper. Anthropic hasn't shipped anything structurally similar. The value is in the format discipline — a research process that always terminates in an action, never in a document that requires another decision about what to do with it.</p>
+
+    <h3>critic, gadfly, cto, debug-agent</h3>
+    <p>Each of these is a behavioral specification for a reviewer persona. Critic is harsh and specific, produces no suggestions, reviews code only. Gadfly is a hostile product skeptic who looks for wrong assumptions and user pain. CTO reviews build sequence and architectural coherence. Debug-agent focuses a session on a specific agent's failure mode.</p>
+    <p>These aren't templates — they're opinionated personas with specific behavioral constraints that matter for getting useful output. "Use Gadfly for product review" is not the same as "ask Claude to review this from a product perspective." The persona has to be persistent enough to actually push back, not hedge.</p>
+
+    <h3>session-handoff and load-handoff</h3>
+    <p>Handoff writes a one-page structured resumption document at the end of a session: what was accomplished, what's in progress, what's blocked, what to start with next session. Load-handoff reads the most recent one. The next session reads this document, not the transcript.</p>
+    <p>Auto-memory writes observations. A handoff document is a synthesis, written with the intent of being loaded into a new session context and acted on immediately. The synthesis has to happen somewhere, and the best time to do it is while the current session still has full context. These two things do different work.</p>
+  </section>
+
+  <div class="section-rule"></div>
+  <section id="memory">
+    <span class="section-tag">04</span>
+    <h2>Auto-Memory vs. the Playbook Library</h2>
+
+    <p>This is the comparison that matters most, because they superficially look like the same thing.</p>
+
+    <p>Native auto-memory (Feb 2026) has Claude Code write observations from sessions automatically. The model notices something — a decision made, a preference expressed, a pattern observed — and records it. This is genuinely useful for session continuity: user preferences, project-specific decisions, things that shouldn't need to be re-explained.</p>
+
+    <p>The playbook library here is ~359 files. Examples of what's in them:</p>
+
+    <ul>
+      <li><strong>Hook exit codes:</strong> <code>exit 2</code> blocks a tool call. <code>exit 1</code> does not block — it's treated as a non-blocking failure. If you're enforcing a constraint, it must be <code>exit 2</code>. This was discovered in production. It does not appear in the Claude Code documentation with that level of clarity. It's not something the model would observe from a session — you have to notice the constraint wasn't being enforced and trace it back to the exit code.</li>
+      <li><strong>Hook matcher scope:</strong> A matcher of <code>Write|Edit</code> won't catch Bash-based writes (<code>cp</code>, <code>tee</code>, <code>&gt;&gt;</code>). The matcher covers tool names, not file operations. You discover this when a hook you thought was protecting a path doesn't fire because the write came from a Bash call. You then have to add Bash to the matcher and add command string inspection.</li>
+      <li><strong>File staging risk:</strong> A file that looked like a device ID (<code>identity/device.json</code>) contained a plaintext private key. The lesson: read files before staging in git, even if they look safe based on the name.</li>
+      <li><strong>FC serial quirks:</strong> Betaflight serial initialization sequencing, USB HID gadget mode on macOS, what a flight controller looks like on the wire when the baud rate doesn't match.</li>
+    </ul>
+
+    <p>These lessons have three things in common: they require something to have broken, they require someone to have diagnosed why, and they have to be written down in a form that transfers to a future session before that session hits the same problem.</p>
+
+    <p>Auto-memory records what Claude observes. It doesn't record the diagnosis from a debugging session that happened six weeks ago, because that session ended and the observations weren't framed as transferable lessons at the time. The playbook library exists because someone (me) decided these things were worth preserving in a form that could be retrieved before the problem recurs.</p>
+
+    <p>The memsearch plugin (local ONNX embeddings via bge-m3, per-project Milvus SQLite) provides semantic search over both the playbook library and session transcripts. At session start, relevant playbooks surface as hints based on what the session is working on. Auto-memory and memsearch are both operating, serving different retrieval paths: auto-memory writes observations, memsearch indexes the curated library. Neither replaces the other.</p>
+  </section>
+
+  <div class="section-rule"></div>
+  <section id="hooks">
+    <span class="section-tag">05</span>
+    <h2>Hooks: Operational Constraints, Not Convenience</h2>
+
+    <p>The two production hooks in this config exist for specific operational reasons, not because the platform lacked a better option.</p>
+
+    <h3>protect-sensitive-files.sh</h3>
+    <p>This hook fires on every Write, Edit, and Bash tool call. It inspects the tool input, extracts file paths, and blocks any write to a set of protected paths — live config files, credentials, service plists. Exit code semantics are hardened: <code>exit 2</code> blocks and surfaces the reason to the model; anything else is non-blocking. The Bash matcher inspects the command string because a matcher of <code>Write|Edit</code> misses <code>cp</code>, <code>tee</code>, and redirect-based writes.</p>
+    <p>Why this exists: live config files contain tokens. A Claude Code session that accidentally overwrites <code>openclaw.json</code> can take down a running service and expose credentials. The hook is the last line of enforcement — not a reminder, not a permission prompt, an actual block.</p>
+    <p>Anthropic hasn't shipped an equivalent. Tool permissions can restrict tool types, not specific file paths within Bash commands. This is a real gap that the hook fills.</p>
+
+    <h3>discord-notify.sh</h3>
+    <p>PreToolUse, PostToolUse, and Notification paths. Before each tool call, the hook extracts any new narrative text from the session JSONL and posts it to the configured Discord log channel. After each tool call, a one-line summary posts: <code>**Edit** `filename`</code>, <code>**Bash** `command` → N lines</code>. For Agent (subagent) calls, the post includes the subagent type, description, and full prompt capped at ~1500 chars. When Claude Code needs an approval, the hook posts an @mention to the conversation channel, plus a dedicated alerts webhook.</p>
+    <p>Per-session channel routing: sessions started from different project directories bind to different Discord channels. Each project's output flows to its own channel rather than a shared log.</p>
+    <p>Why this exists: the primary interface for Claude Code sessions is Discord, not the terminal. Sessions run on a Mac Mini; monitoring and approval happen from a phone. The hook makes every session fully observable remotely — narrative text, tool calls, subagent dispatches, approval requests — without needing a terminal open.</p>
+    <p>Nothing Anthropic ships does this. Background agents offer remote execution, but they don't stream real-time session content to an external chat platform with per-channel routing. This is a bespoke operational requirement.</p>
+  </section>
+
+  <div class="section-rule"></div>
+  <section id="lessonbook">
+    <span class="section-tag">06</span>
+    <h2>LESSONS.md: Extracted Hard-Won Knowledge</h2>
+
+    <p>LESSONS.md is a separate artifact from the playbook library. It lives in CLAUDE.md (always loaded) rather than in the indexed library (loaded on match). The distinction: LESSONS.md contains the things important enough to be in context on every session, not just when the topic comes up.</p>
+
+    <p>Current contents include:</p>
+    <ul>
+      <li>Hook exit code behavior (exit 2 blocks; exit 1 does not)</li>
+      <li>Hook matcher scope (tool names, not file operations — Bash must be included)</li>
+      <li>Fail-closed principle for hooks (if a hook can't parse input, exit 2, not exit 0)</li>
+      <li>The <code>tool_input</code> vs <code>input</code> key distinction in PreToolUse JSON payload</li>
+      <li><code>Bash(git *)</code> auto-approving destructive operations</li>
+      <li>File staging risk (device.json containing a private key)</li>
+    </ul>
+
+    <p>These are in CLAUDE.md rather than a playbook because they're the kind of thing that causes silent failures — the hook doesn't fire, the permission isn't blocked, the file gets staged — and having them in context on every session means they're available before the problem happens, not surfaced by memsearch after the model has already made the mistake.</p>
+  </section>
+
+  <div class="section-rule"></div>
+  <section id="discord-integration">
+    <span class="section-tag">07</span>
+    <h2>Discord Integration: No Anthropic Equivalent</h2>
+
+    <p>The Discord integration in this config spans several components:</p>
+
+    <ul>
+      <li><strong>MCP plugin:</strong> Claude Code reads and replies to Discord channels directly. Inbound messages from Discord arrive in session; replies go back via bot API.</li>
+      <li><strong>Hook streaming:</strong> Every tool call, narrative text block, and subagent dispatch streams to Discord in real time via discord-notify.sh.</li>
+      <li><strong>Per-agent channel routing:</strong> Named agents in the multi-agent system each have dedicated Discord channels. OpenClaw's channel-per-agent routing table maps agent IDs to channel IDs; the hook reads session state to determine which webhook to use.</li>
+      <li><strong>Approval @mentions:</strong> When Claude Code requires approval, the hook posts an @mention to the conversation channel where the user is actually watching, plus an alerts webhook.</li>
+    </ul>
+
+    <p>The system means: a session running on a Mac Mini is fully observable and interactive from a phone via Discord. The user sees narrative text arrive before tool calls, tool summaries after, and @mentions when approval is needed. There is no terminal required.</p>
+
+    <p>Background agents (<code>/bg</code>) provide remote execution but don't stream session content to Discord in real time. The gap is in observability: knowing what the model is about to do before it does it, and seeing each tool call as it executes, rather than getting a result when the background session finishes. That's the operational requirement driving this integration.</p>
+  </section>
+
+  <div class="section-rule"></div>
+  <section id="status">
+    <span class="section-tag">08</span>
+    <h2>Component Status: Native vs. Bespoke</h2>
+
+    <table class="status-table">
+      <thead>
+        <tr><th>Component</th><th>Status</th><th>Note</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>SKILL.md format</td>
+          <td><span class="native-tag">native</span></td>
+          <td>Anthropic adopted this format. Skills load without adaptation. Content unchanged.</td>
+        </tr>
+        <tr>
+          <td>Session-level auto-memory</td>
+          <td><span class="native-tag">native</span></td>
+          <td>Auto-memory writes observations. Does not replace curated playbook library.</td>
+        </tr>
+        <tr>
+          <td>Parallel subagent dispatch (mechanism)</td>
+          <td><span class="native-tag">native</span></td>
+          <td>Platform now supports concurrent agents on shared filesystem.</td>
+        </tr>
+        <tr>
+          <td>protect-sensitive-files.sh</td>
+          <td><span class="bespoke-tag">bespoke</span></td>
+          <td>No native equivalent for path-level write blocking via Bash command inspection.</td>
+        </tr>
+        <tr>
+          <td>discord-notify.sh</td>
+          <td><span class="bespoke-tag">bespoke</span></td>
+          <td>No native equivalent for real-time session streaming to Discord with per-channel routing.</td>
+        </tr>
+        <tr>
+          <td>review-sequence (Gadfly-before-CTO ordering)</td>
+          <td><span class="bespoke-tag">bespoke</span></td>
+          <td>Native parallelism runs agents concurrently. Causal sequencing requires explicit enforcement.</td>
+        </tr>
+        <tr>
+          <td>batchc (wave sizing + merge discipline)</td>
+          <td><span class="bespoke-tag">bespoke</span></td>
+          <td>Native orchestration provides the mechanism. Wave discipline and merge-before-parallelize are still judgment calls.</td>
+        </tr>
+        <tr>
+          <td>mmguns (research-to-action loop)</td>
+          <td><span class="bespoke-tag">bespoke</span></td>
+          <td>No native equivalent for a structured research workflow that always terminates in an implementation action.</td>
+        </tr>
+        <tr>
+          <td>Playbook library (~359 entries)</td>
+          <td><span class="bespoke-tag">bespoke</span></td>
+          <td>Curated lessons from production failures. Not producible by auto-memory.</td>
+        </tr>
+        <tr>
+          <td>memsearch semantic indexing</td>
+          <td><span class="bespoke-tag">bespoke</span></td>
+          <td>Local ONNX embeddings over full session transcripts + playbook library. Different retrieval path from auto-memory.</td>
+        </tr>
+        <tr>
+          <td>LESSONS.md (always-loaded errata)</td>
+          <td><span class="bespoke-tag">bespoke</span></td>
+          <td>Extracted operational gotchas in CLAUDE.md, always in context regardless of topic match.</td>
+        </tr>
+        <tr>
+          <td>Reviewer personas (Gadfly, CTO, Critic, etc.)</td>
+          <td><span class="bespoke-tag">bespoke</span></td>
+          <td>Opinionated behavioral specifications. Not generic "review this" prompts.</td>
+        </tr>
+        <tr>
+          <td>Discord MCP integration</td>
+          <td><span class="bespoke-tag">bespoke</span></td>
+          <td>Inbound/outbound Discord from Claude Code sessions. No Anthropic equivalent.</td>
+        </tr>
+        <tr>
+          <td><code>.claude/rules/</code> modular files</td>
+          <td><span class="native-tag">native</span></td>
+          <td>Available, not yet used. Config still uses monolithic CLAUDE.md.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <p>The pattern: Anthropic has shipped the mechanisms (parallel dispatch, auto-memory, skill loading). The bespoke config provides the cognitive patterns and operational constraints that ride on top of those mechanisms. The two layers are doing different work.</p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div>claude-personal-os &mdash; synced nightly from ~/.claude</div>
+  <a href="https://github.com/fj-oekstrahay/claude-personal-os" target="_blank" rel="noopener">github.com/fj-oekstrahay/claude-personal-os</a>
+</footer>
+
+</body>
+</html>

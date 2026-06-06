@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>claude-personal-os — brief</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-elev: #161b22;
+    --bg-elev2: #1c2128;
+    --border: #30363d;
+    --border-subtle: #21262d;
+    --fg: #e6edf3;
+    --muted: #8b949e;
+    --muted-light: #6e7681;
+    --accent: #58a6ff;
+    --accent-dim: rgba(88, 166, 255, 0.10);
+    --accent-hover: #79b8ff;
+    --green: #3fb950;
+    --green-dim: rgba(63, 185, 80, 0.10);
+    --orange: #d29922;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --radius: 6px;
+    --radius-sm: 4px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body { overflow-x: hidden; }
+
+  nav.topnav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(13, 17, 23, 0.93);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  nav.topnav .nav-inner {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 12px 24px;
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  nav.topnav .nav-inner::-webkit-scrollbar { display: none; }
+
+  nav.topnav .brand {
+    font-family: var(--mono);
+    font-size: 0.875rem;
+    color: var(--fg);
+    font-weight: 600;
+    white-space: nowrap;
+    margin-right: 8px;
+  }
+
+  nav.topnav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+    transition: color 0.15s;
+  }
+  nav.topnav a:hover { color: var(--accent); }
+
+  main {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+  }
+
+  section {
+    padding: 64px 0 0;
+  }
+
+  .section-rule {
+    height: 1px;
+    background: linear-gradient(to right, var(--border) 20%, transparent 100%);
+    margin: 48px 0 0;
+  }
+
+  section.hero {
+    padding-top: 72px;
+  }
+
+  h1 {
+    font-size: 2rem;
+    line-height: 1.2;
+    margin: 0 0 12px;
+    letter-spacing: -0.025em;
+    font-weight: 700;
+  }
+  h1 .accent { color: var(--accent); }
+
+  h2 {
+    font-size: 1.125rem;
+    margin: 0 0 14px;
+    letter-spacing: -0.01em;
+    font-weight: 600;
+    color: var(--fg);
+  }
+
+  section:not(.hero) h2 {
+    padding-left: 12px;
+    border-left: 2px solid var(--accent);
+    margin-left: -14px;
+  }
+
+  p { margin: 0 0 14px; color: var(--fg); }
+
+  .lede {
+    font-size: 1.0625rem;
+    color: var(--muted);
+    margin: 0 0 24px;
+    line-height: 1.65;
+  }
+
+  a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  a:hover {
+    color: var(--accent-hover);
+    border-bottom-color: rgba(88,166,255,0.35);
+  }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.8em;
+    background: var(--bg-elev);
+    color: #a5d6ff;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--border-subtle);
+  }
+
+  ul, ol { margin: 0 0 16px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+
+  strong { color: var(--fg); font-weight: 600; }
+  em { color: var(--muted); font-style: italic; }
+
+  .section-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .section-tag::after {
+    content: '';
+    display: inline-block;
+    width: 24px;
+    height: 1px;
+    background: var(--accent);
+    opacity: 0.5;
+  }
+
+  .callout {
+    background: var(--accent-dim);
+    border: 1px solid rgba(88,166,255,0.2);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+    padding: 14px 18px;
+    margin: 20px 0;
+    font-size: 0.8875rem;
+    line-height: 1.6;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+
+  footer {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 28px 24px 56px;
+    color: var(--muted-light);
+    font-size: 0.75rem;
+    font-family: var(--mono);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  footer a {
+    color: var(--muted);
+    border-bottom: none;
+  }
+  footer a:hover {
+    color: var(--accent);
+    border-bottom: none;
+  }
+
+  @media (max-width: 640px) {
+    h1 { font-size: 1.5rem; }
+    h2 { font-size: 1rem; }
+    section:not(.hero) h2 { margin-left: -10px; }
+    main { padding: 0 16px 64px; }
+    nav.topnav .nav-inner { padding: 10px 16px; gap: 14px; }
+    footer { flex-direction: column; align-items: flex-start; gap: 6px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="topnav" aria-label="Primary">
+  <div class="nav-inner">
+    <span class="brand">claude-personal-os</span>
+    <a href="index.html">Overview</a>
+  </div>
+</nav>
+
+<main>
+
+  <section class="hero" id="top">
+    <span class="section-tag">Brief</span>
+    <h1>What I've been doing with <span class="accent">Claude Code</span>.</h1>
+    <p class="lede">The short version, for engineers. Hardware background; daily driver is Claude Code on a Mac Mini, observed from a phone via Discord.</p>
+  </section>
+
+  <div class="section-rule"></div>
+  <section id="the-config">
+    <span class="section-tag">01</span>
+    <h2>The Config Layer</h2>
+    <p>Claude Code exposes hooks, skills, and MCP as configuration primitives. I've been building a behavioral layer on top of those: rules that load on every session, hooks that enforce operational constraints, skills that encode cognitive workflows rather than generic prompts, and a memory system that spans multiple timescales.</p>
+    <p>The config is published at <a href="https://fj-oekstrahay.github.io/claude-personal-os/">fj-oekstrahay.github.io/claude-personal-os</a>. Auto-synced nightly from <code>~/.claude</code> with a redaction pass. The interesting parts aren't the mechanism — they're the content of the skills, the errata in LESSONS.md, and the decisions that went into the hook semantics.</p>
+  </section>
+
+  <div class="section-rule"></div>
+  <section id="hooks">
+    <span class="section-tag">02</span>
+    <h2>Hooks</h2>
+    <p>Two production hooks.</p>
+    <p><strong>protect-sensitive-files.sh</strong> fires on Write, Edit, and Bash. It inspects tool input, extracts file paths, and blocks writes to protected paths — live config containing tokens, credential files, service plists. The Bash matcher is necessary because a <code>Write|Edit</code> matcher misses <code>cp</code>, <code>tee</code>, and redirects. Exit code must be <code>2</code> — exit 1 does not block. This took a production incident to learn.</p>
+    <p><strong>discord-notify.sh</strong> streams every session to Discord in real time: narrative text before each tool call, a one-line summary after. For subagent dispatches it posts the full prompt (capped at ~1500 chars). Approval requests generate @mentions in the conversation channel. Per-project channel routing — different directories bind to different webhooks. The practical effect: I can see what Claude is doing and approve things from my phone without a terminal open.</p>
+  </section>
+
+  <div class="section-rule"></div>
+  <section id="skills">
+    <span class="section-tag">03</span>
+    <h2>Skills</h2>
+    <p>Skills auto-load via SKILL.md — Anthropic adopted that format, which is the same one this config uses. The mechanism is now native. The content is still the work.</p>
+    <p><strong>review-sequence</strong> runs Gadfly before CTO. Gadfly is a hostile product skeptic — looks for wrong assumptions about what users actually want. CTO reviews build sequence and architectural coherence. The ordering is causal: if CTO runs first, it produces a structural plan that anchors everything; Gadfly's objections come too late to change the architecture. Native parallel dispatch runs them concurrently and loses this. The sequencing is enforced explicitly.</p>
+    <p><strong>batchc</strong> is a parallel subagent dispatch protocol. The pattern: identify independent tasks, set wave size based on context budget and rate-limit exposure, dispatch in parallel, merge before the next wave. The "merge before parallelize" constraint exists because downstream agents working on stale intermediate state produce coherent-looking results that are wrong in subtle ways.</p>
+    <p><strong>mmguns</strong> (Make More Good Use New Stuff) is a research-to-integration loop: four-angle parallel web search, project inventory, gap analysis, ranked brief of three items, dispatch action. Quick wins ask for confirm then implement; medium lifts generate a spec stub. The loop always closes — it doesn't produce a document that requires another decision about what to do with it.</p>
+    <p>There are also opinionated reviewer personas: Critic (harsh code review, no suggestions), Gadfly (product skeptic), CTO (architectural planner), debug-agent (failure-mode focused). The personas have behavioral constraints that make them actually push back rather than hedge.</p>
+  </section>
+
+  <div class="section-rule"></div>
+  <section id="memory">
+    <span class="section-tag">04</span>
+    <h2>Memory</h2>
+    <p>Three layers operating at different timescales.</p>
+    <p><strong>CLAUDE.md (always loaded)</strong> — behavioral rules, tool permissions, protected paths, and LESSONS.md. The lessons section is extracted errata from production: hook exit code semantics, hook matcher scope, file staging risk (a file named <code>identity/device.json</code> contained a plaintext private key). These are in the always-loaded layer because they cause silent failures — by the time memsearch would surface them, the mistake has already happened.</p>
+    <p><strong>Playbook library (~359 files)</strong> — curated domain knowledge indexed by keyword. Betaflight serial quirks, USB HID gadget mode on macOS, Claude Code API behavior, macOS gotchas, hook semantics. Each entry records what broke, why, and how to apply the lesson. Anthropic shipped auto-memory in February 2026, which writes session observations. These are different things: auto-memory records what Claude notices during a session; the playbook library records lessons from debugging failures that someone had to diagnose and write down in transferable form.</p>
+    <p><strong>memsearch</strong> — local ONNX embeddings (bge-m3, ~558 MB, on-device) over session transcripts and the playbook library. Per-project isolation via per-git-root SQLite. Relevant playbooks surface as hints at session start based on what the session is working on.</p>
+  </section>
+
+  <div class="section-rule"></div>
+  <section id="what-anthropic-changed">
+    <span class="section-tag">05</span>
+    <h2>What Anthropic Changed in 2026</h2>
+    <p>Several things that were bespoke here are now native: SKILL.md loading, auto-memory, parallel multi-agent orchestration, SubagentStop hook, background agents via <code>/bg</code>. That's real, and it means the platform surface has grown substantially.</p>
+    <p>The pattern: Anthropic ships mechanisms; the bespoke config provides the content and constraints that ride on top. Parallel orchestration doesn't specify when to merge before the next wave. Auto-memory doesn't produce curated domain knowledge from past debugging sessions. Skill loading doesn't determine whether Gadfly runs before or after CTO.</p>
+    <p>The Discord integration has no Anthropic equivalent. Real-time session streaming to an external chat platform with per-project channel routing and approval @mentions is not a platform feature — it's a bespoke operational requirement that happens to be fully achievable with hooks and MCP.</p>
+  </section>
+
+  <div class="section-rule"></div>
+  <section id="more">
+    <span class="section-tag">More</span>
+    <h2>If you want the full version</h2>
+    <p>The overview page covers the full architecture with diagrams: <a href="index.html">fj-oekstrahay.github.io/claude-personal-os/</a></p>
+    <p>The longer article covers the Anthropic-vs-bespoke comparison in more depth, with a component-by-component status table: <a href="why-it-still-matters.html">why-it-still-matters.html</a></p>
+    <p>The public repo has the actual config, selected playbooks, and the sync script: <a href="https://github.com/fj-oekstrahay/claude-personal-os">github.com/fj-oekstrahay/claude-personal-os</a></p>
+  </section>
+
+</main>
+
+<footer>
+  <div>claude-personal-os &mdash; synced nightly from ~/.claude</div>
+  <a href="https://github.com/fj-oekstrahay/claude-personal-os" target="_blank" rel="noopener">github.com/fj-oekstrahay/claude-personal-os</a>
+</footer>
+
+</body>
+</html>

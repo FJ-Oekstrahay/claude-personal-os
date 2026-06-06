@@ -6,6 +6,8 @@
 
 My Claude Code configuration — skills, commands, hooks, and settings. A behavioral and operational configuration layer: what the model is allowed to do, what it does automatically, how context moves between sessions, and how every tool call streams to Discord in real time.
 
+Anthropic has shipped native auto-memory (Feb 2026), SKILL.md auto-loading, cloud background agents, and parallel multi-agent orchestration since this was built. What's here isn't redundant with those — the value is in the content, not the loading mechanism. Skill files load natively now; the cognitive patterns inside them don't come standard.
+
 **New here?** The patterns that transfer to any Claude Code setup: [`commands/review-sequence.md`](commands/review-sequence.md) (adversarial review sequencing — why Gadfly must run before CTO), [`commands/batchc.md`](commands/batchc.md) (parallel subagent dispatch with wave sizing), [`commands/mmguns.md`](commands/mmguns.md) (research-to-integration loop — find SOTA for any capability area and dispatch to implementation), [`skills/critic`](skills/critic/) (harsh pre-commit review), and [`LESSONS.md`](LESSONS.md) (hook exit codes, matcher scope gotchas, and what broke in production). Everything else requires the OpenClaw companion system, covered in the sections below.
 
 ---
@@ -26,13 +28,15 @@ My Claude Code configuration — skills, commands, hooks, and settings. A behavi
 
 ## Playbooks
 
-Playbooks are the long-term memory of the system. Each one records a specific thing that broke, or a pattern that worked, or a behavioral constraint that emerged from real use. They're stored in a separate location (outside `~/.claude/`) and loaded into context by the agent when a task matches the topic.
+Playbooks are the curated knowledge layer. Each one records a specific thing that broke, or a pattern that worked, or a behavioral constraint that emerged from real use. They're stored in a separate location (outside `~/.claude/`) and surfaced by memsearch — semantic search over the full library — when a task matches the topic.
+
+Claude Code's auto-memory (Feb 2026) records what the model observes during a session: decisions made, context accumulated, preferences expressed. That's a different thing. Playbooks are written after debugging failures: why `exit 1` doesn't block a hook, why `Write|Edit` as a matcher misses Bash-based writes, what a private key looks like inside a file that presents as a device ID. Those aren't observations — they're constraints extracted from production incidents and written to survive context clears.
 
 The format is consistent: what happened, why it happened, and how to apply the lesson going forward. They accumulate over time across different domains — firmware tooling, agent behavior patterns, API quirks, hardware interfaces, macOS gotchas.
 
 **`selected-playbooks/`** contains a representative subset with no personal information or customer-specific context. Excluded from this folder: playbooks that reference specific systems, personal accounts, internal tooling, or project-specific operational details. What's here: technical gotchas and behavioral patterns that are broadly reusable.
 
-The full library is ~220 playbooks across these categories:
+The full library is ~359 playbooks across these categories:
 
 - **Agent behavior** — prompt execution model quirks, third-person language artifacts, confirmation/contradiction loops, model selection tradeoffs
 - **Betaflight / FC tooling** — serial reconnect, MSP framing, blackbox parsing, OSD coordinate validation, CLI gotchas
@@ -86,7 +90,7 @@ MSEE from UVa Engineering, 30+ years in technical sales and marketing. I use Cla
 
 The config reflects genuine use over time, not a designed showcase. Some parts are cleaner than others. The lessons-learned section is the most honest indicator of what actually got built — those entries exist because the things they describe broke in production.
 
-Some of what's here has since been productized — Anthropic and OpenAI have shipped features in the past month that cover patterns I was building manually. That's not a surprise. Building it first is how you know the problem was real.
+A lot of what's here has since become native — Anthropic shipped auto-memory, SKILL.md loading, cloud background sessions, and parallel multi-agent orchestration between late 2025 and mid-2026. That's the expected trajectory. The skills here predate the loading mechanism that now runs them automatically; the playbook library records knowledge that auto-memory doesn't accumulate (it captures what Claude observes in a session, not what broke across months of debugging). The hooks exist because `protect-sensitive-files.sh` and `discord-notify.sh` encode operational constraints that Anthropic can't ship generically. The review-sequence ordering is causal — Gadfly before CTO is a sequencing constraint, not a role list, and parallel multi-agent dispatch doesn't replicate it.
 
 The companion system runs 6 named agents simultaneously on different models. Whether that's thorough or overkill probably depends on your perspective.
 

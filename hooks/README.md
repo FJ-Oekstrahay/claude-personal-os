@@ -1,6 +1,6 @@
 # Hooks
 
-Claude Code hooks are shell scripts that run at specific points in the execution lifecycle. **PreToolUse** hooks run before a tool call and can block it (exit 2) or allow it (exit 0). **PostToolUse** hooks run after a tool call completes and cannot block execution. **Notification** hooks fire when Claude needs user attention (e.g., waiting for approval).
+Claude Code hooks are shell scripts that run at specific points in the execution lifecycle. **PreToolUse** hooks run before a tool call and can block it (exit 2) or allow it (exit 0). **PostToolUse** hooks run after a tool call completes and cannot block execution. **Notification** hooks fire when Claude needs user attention (e.g., waiting for approval). Anthropic also added a **SubagentStop** hook (mid-2026) that fires per-subagent when a subagent session ends — not yet wired here, but worth noting if you're building per-agent telemetry.
 
 | Hook file | Type | What it does | Portable? |
 |---|---|---|---|

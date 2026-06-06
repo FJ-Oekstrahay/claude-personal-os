@@ -2,9 +2,11 @@
 
 Playbooks are persistent lessons extracted from real incidents and patterns — not documentation written in advance, but constraints written after something went wrong or a non-obvious pattern was confirmed. Each file records what happened, why it happened, and how to apply the constraint going forward.
 
+Claude Code's auto-memory (Feb 2026) accumulates observations from live sessions. Playbooks are different: they're written deliberately after debugging failures, capturing constraints that would otherwise have to be rediscovered. The full library is indexed and surfaced at session start by memsearch (semantic vector search over the library), which is a separate mechanism from auto-memory.
+
 Format: YAML frontmatter (`what`, `why`, `how` keys or equivalent) followed by prose. The frontmatter is designed to be machine-searchable; the prose is the actual lesson.
 
-This is a curated subset of a larger library (~220 entries). Excluded: project-specific playbooks for DroneTeleos, Jarface, personal financial tooling, and BMX sourcing — entries that only make sense with private context.
+This is a curated subset of a larger library (~359 entries). Excluded: project-specific playbooks for DroneTeleos, Jarface, personal financial tooling, and BMX sourcing — entries that only make sense with private context.
 
 ---
 
