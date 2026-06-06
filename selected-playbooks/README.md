@@ -2,11 +2,19 @@
 
 Playbooks are persistent lessons extracted from real incidents and patterns — not documentation written in advance, but constraints written after something went wrong or a non-obvious pattern was confirmed. Each file records what happened, why it happened, and how to apply the constraint going forward.
 
-Claude Code's auto-memory (Feb 2026) accumulates observations from live sessions. Playbooks are different: they're written deliberately after debugging failures, capturing constraints that would otherwise have to be rediscovered. The full library is indexed and surfaced at session start by memsearch (semantic vector search over the library), which is a separate mechanism from auto-memory.
+---
 
-Format: YAML frontmatter (`what`, `why`, `how` keys or equivalent) followed by prose. The frontmatter is designed to be machine-searchable; the prose is the actual lesson.
+## The memory stack
 
-This is a curated subset of a larger library (~359 entries). Excluded: project-specific playbooks for DroneTeleos, Jarface, personal financial tooling, and BMX sourcing — entries that only make sense with private context.
+Three distinct retrieval mechanisms coexist, each solving a different problem:
+
+**Playbook library (~359 entries)** — Structured domain knowledge written deliberately after debugging failures. Covers FC/Betaflight serial quirks, USB HID gadget mode, macOS scripting gotchas, hook exit code semantics, agent behavior patterns, build/CI patterns, and more. Not session observations — constraints extracted from real failures. Format: YAML frontmatter (`what`, `why`, `how` keys) followed by prose. The frontmatter is machine-searchable; the prose is the actual incident.
+
+**memsearch (Claude Code plugin v0.4.4)** — Semantic vector search over prior session transcripts. Uses ONNX bge-m3 embeddings (~558 MB model, runs entirely on-device, no API call). Vector store: Milvus-lite 2.5 at `~/.memsearch/milvus.db`. A Stop hook auto-captures session transcripts and queues them for indexing. Collections are per-project (per git root). At session start, memsearch injects semantic search hints from prior sessions into the context. Best for "have I seen this error before" and "what did I decide about X" queries — open-ended recall where keyword precision loses to semantic similarity.
+
+**Custom MCP memory server (`mcp-memory-server.py`, ~160 LOC)** — Local stdio MCP server exposing the playbook library directly to Claude Code as tools. Three tools: `list_memory()` (compact index, ~500 tokens), `get_memory(name)` (full file by filename), `search_memory(query)` (keyword grep over ~240 markdown files, ~50ms). Preferred over memsearch for playbook lookup because playbooks are structured domain knowledge where keyword precision beats semantic similarity — "betaflight save" finds the right file; embedding similarity might not.
+
+**Auto-memory (Anthropic, Feb 2026)** — Writes session observations automatically. Different job from the other two: it captures what Claude noticed during a session, not structured domain knowledge or full transcripts. All three coexist without conflict.
 
 ---
 

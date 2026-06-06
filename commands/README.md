@@ -22,6 +22,18 @@ Anthropic added `/bg` (cloud background sessions) and parallel multi-agent orche
 
 A full dispatch protocol, not just a task grouper. When given a list of work items, `batchc` first classifies each item: is it an inline answer, a parallel task, a sequential task, or a code edit that must go to a Cob subagent? It then enforces wave sizing (max 3 concurrent tasks), requires a merge-before-parallelize analysis, and gates on wave results before proceeding to the next wave.
 
+**Wave sizing** — max 3 concurrent tool-heavy tasks per wave. A single Cob subagent may internally trigger dozens of file reads, edits, and shell commands — it counts as one wave slot, not one tool call per tool. Wave size is an orchestrator-level headcount, not a tool-call budget.
+
+**Throttle-risk tracking** — after two consecutive heavy waves (3 tasks each), batchc caps the next wave at 1–2 tasks and enforces a turn boundary before continuing. No API signal triggers this — it's a conservative heuristic to avoid hitting rate limits mid-batch when a long run is underway.
+
+**Merge-before-parallelize** — before dispatching 3+ tasks, batchc checks whether any items target the same file or resource. Items that do are merged into a single task before dispatch. Two simultaneous writes to the same file are never issued as separate wave slots — they produce conflicts or last-write-wins clobbers.
+
+**Model routing** — Haiku for fully enumerated specs (exact field, exact value, no inference needed, change is localized, wrong output is immediately visible on inspection). Sonnet for anything requiring judgment, cross-file consistency, ambiguous scope, or output that feeds downstream reasoning. The distinction is consequential: Haiku on a judgment task produces plausible but wrong output that passes casual review.
+
+**Discord-bound session handling** — in sessions that originate from a Discord channel, inline answers must be sent via the Discord reply tool in the same turn as subagent dispatch. Text written to the Claude Code transcript never reaches the Discord user. batchc encodes this as a hard rule: if the session is Discord-bound, answer inline via tool or don't answer at all until dispatch completes.
+
+**Distinction from Anthropic's native parallel multi-agent** — Anthropic's orchestration runs tasks concurrently using the underlying agent infrastructure. batchc is the layer that decides *when* to parallelize, *how many* to run at once, *when to stop*, and *how to route results* back without bloating the main context. The two are complementary, not competing.
+
 The key constraint it enforces: **all file edits go to a Cob subagent — never inline.** This prevents large batches from burning the main context window on implementation work. Born from experience running multi-file refactors inline and hitting the context limit mid-batch.
 
 ## deploy-public
