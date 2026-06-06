@@ -259,3 +259,5 @@ This table is updated automatically by Step 9 each time `/new-discord-session` r
 | famplan | <channel-id> |
 | log-famplan | <channel-id> |
 | log-claude-config | <channel-id> |
+| health | <channel-id> |
+| log-health | <channel-id> |

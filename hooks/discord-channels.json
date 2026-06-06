@@ -28,5 +28,7 @@
   "<channel-id>": "bambu",
   "<channel-id>": "log-bambu",
   "<channel-id>": "famplan",
-  "<channel-id>": "log-famplan"
+  "<channel-id>": "log-famplan",
+  "<channel-id>": "health",
+  "<channel-id>": "log-health"
 }

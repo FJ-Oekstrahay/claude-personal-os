@@ -94,6 +94,22 @@ Smartbatch execution protocol. Read the full prompt before touching anything, th
    - Treat any Cob task as **tool-heavy** when assessing wave size and throttle risk — even if it appears as one item
    - Do not undercount exposure by treating Cob tasks as lightweight
 
+7b. **Subagent model routing — pick before dispatch**
+   - Default to **Haiku** (`model: "haiku"`) when ALL of these are true:
+     - Spec is fully enumerated: exact field, exact value, no inference needed
+     - Changes are localized: single file or independent files, no cross-file reasoning
+     - Failure is immediately visible in review (wrong field is obvious on inspection)
+     - You'd hand this to a checklist executor with no judgment required
+   - Default to **Sonnet** when ANY of these are true:
+     - Spec is ambiguous or requires judgment to resolve
+     - Cross-file consistency is required
+     - Silent errors are dangerous (output looks plausible even if wrong)
+     - Task involves governance text, playbooks, or output that feeds downstream reasoning
+     - Structural traps exist (repeated field names, nested sections where context determines which instance to edit)
+   - Never dispatch Cob at Sonnet for a task that is purely "apply this enumerated spec"
+   - When in doubt: Sonnet. The cost of a silent Haiku error exceeds the cost of Sonnet overspend.
+   - No routine spot-check required after Haiku dispatch on genuinely mechanical tasks — the catch layer is the user's review
+
 8. **Context discipline**
    - Send only the incremental context needed for the next wave — no full-prompt recaps
    - Prefer concise summaries over restating unchanged context
