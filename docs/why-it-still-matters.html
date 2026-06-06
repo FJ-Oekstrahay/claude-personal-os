@@ -475,7 +475,8 @@
 
     <p>Auto-memory records what Claude observes during a session. It doesn't record the diagnosis from a debugging session that happened six weeks ago, because that session ended and the observations weren't framed as transferable lessons at the time. The playbook library exists because someone decided these things were worth preserving in a form that could be retrieved before the problem recurs. That decision can't be automated away — it's editorial.</p>
 
-    <p>The memsearch plugin (local ONNX embeddings via bge-m3, per-project Milvus SQLite) provides semantic search over both the playbook library and session transcripts. At session start, relevant playbooks surface as hints based on what the session is working on. Auto-memory and memsearch are both operating, serving different retrieval paths. Neither replaces the other.</p>
+    <p>The memsearch plugin (v0.4.4) provides semantic search over both the playbook library and session transcripts. It uses a local ONNX bge-m3 embedding model — no external API call, embeddings run fully on-device — backed by a Milvus-lite 2.5 vector store at <code>~/.memsearch/milvus.db</code>. A stop hook auto-captures session transcripts for indexing after each session ends. At session start, relevant playbooks surface as hints based on what the session is working on. Auto-memory and memsearch are both operating, serving different retrieval paths. Neither replaces the other.</p>
+    <p>Separately, OpenClaw agents have their own vector memory via the memory-lancedb plugin, which uses SQLite internally despite the name. That's per-agent memory within the multi-agent system — a different scope and purpose from memsearch's cross-session semantic search for Claude Code sessions.</p>
   </section>
 
   <div class="section-rule"></div>
@@ -527,6 +528,7 @@
     <p>The Discord integration spans several components:</p>
 
     <ul>
+      <li><strong>Discord router:</strong> A custom Node.js/TypeScript bot (<code>~/.claude/discord-router/router.ts</code>) that connects to Discord's Gateway via discord.js and routes incoming messages to the appropriate Claude Code session based on a <code>routes.json</code> channel-to-session map. Handles DMs, guild channels, and threads. Enforces per-channel access policies via <code>access.json</code>. One bot process routes to all Claude Code sessions — no separate bot per session. This is the infrastructure layer that makes multi-session Discord access work at all.</li>
       <li><strong>MCP plugin:</strong> Claude Code reads and replies to Discord channels directly. Inbound messages from Discord arrive in session; replies go back via bot API.</li>
       <li><strong>Hook streaming:</strong> Every tool call, narrative text block, and subagent dispatch streams to Discord in real time via discord-notify.sh.</li>
       <li><strong>Per-agent channel routing:</strong> Named agents in the multi-agent system each have dedicated Discord channels. The hook reads session state to determine which webhook to use.</li>
@@ -596,7 +598,7 @@
         <tr>
           <td>memsearch semantic indexing</td>
           <td><span class="bespoke-tag">bespoke</span></td>
-          <td>Local ONNX embeddings over full session transcripts + playbook library. Different retrieval path from auto-memory.</td>
+          <td>Local ONNX bge-m3 embeddings (no API dependency), Milvus-lite 2.5 vector store, stop hook auto-indexing of session transcripts. Different retrieval path from auto-memory.</td>
         </tr>
         <tr>
           <td>LESSONS.md (always-loaded errata)</td>
@@ -607,6 +609,11 @@
           <td>Reviewer personas (Gadfly, CTO, Critic, etc.)</td>
           <td><span class="bespoke-tag">bespoke</span></td>
           <td>Opinionated behavioral specifications. Not generic "review this" prompts.</td>
+        </tr>
+        <tr>
+          <td>Discord router</td>
+          <td><span class="bespoke-tag">bespoke</span></td>
+          <td>Node.js/TypeScript bot that routes Discord messages to the correct Claude Code session via <code>routes.json</code>. One process handles all sessions; access enforced via <code>access.json</code>.</td>
         </tr>
         <tr>
           <td>Discord MCP integration</td>
