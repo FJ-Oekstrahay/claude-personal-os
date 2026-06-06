@@ -596,7 +596,6 @@
     <a href="#sync">Sync</a>
     <a href="#openclaw">vs OpenClaw</a>
     <a href="#usage">Usage</a>
-    <a href="https://github.com/FJ-Oekstrahay/claude-personal-os" target="_blank" rel="noopener" style="margin-left:auto;">GitHub ↗</a>
   </div>
 </nav>
 
@@ -610,7 +609,7 @@
         <p class="lede">Hooks, memory, Discord routing, and the operational knowledge that accumulates from running real sessions over time.</p>
 
         <div class="hero-badges">
-          <span class="badge"><span class="dot"></span>hooks: PreToolUse · PostToolUse · Stop · SessionStart · UserPromptSubmit</span>
+          <span class="badge"><span class="dot"></span>hooks: PreToolUse · PostToolUse · Stop · PostCompact</span>
           <span class="badge"><span class="dot"></span>memory: 3-layer</span>
           <span class="badge"><span class="dot"></span>agents: 8 named types</span>
           <span class="badge"><span class="dot"></span>Discord-native</span>
@@ -644,11 +643,9 @@ flowchart LR
     <span class="section-tag">01</span>
     <h2>What This Is</h2>
     <p>A behavioral and operational configuration layer for Claude Code: the rules, automation, and connective tissue that run under every session. Not a framework, not a product — a configuration system where the interesting parts are the constraints, the failure history, and the accumulated operational knowledge.</p>
-    <p>What makes this config worth looking at: it's the result of real use over time, not a designed showcase. The hook errata section exists because those things broke in production. The playbook library (~240 entries) exists because the same problems kept coming back.</p>
+    <p>What makes this config worth looking at: it's the result of real use over time, not a designed showcase. The hook errata section exists because those things broke in production. The playbook library (~359 entries) exists because the same problems kept coming back.</p>
+    <p>Anthropic has shipped a lot into Claude Code through 2026: auto-memory that writes session observations, SKILL.md auto-loading (already the format used here), modular <code>.claude/rules/</code> files, background agents via <code>/bg</code>, and native parallel multi-agent orchestration. Several things this config built independently are now native. That's accurate and worth saying. The things that remain bespoke — the cognitive patterns inside the skills, the curated playbook library, the hooks encoding operational constraints, the Discord streaming — aren't replaced by those additions, because they were never just mechanisms.</p>
     <p>The system started with a companion multi-agent platform (OpenClaw) handling autonomous background tasks — named agents running on different models, Discord-connected, scheduled. That layer is still running but largely idle for now. Claude Code's built-in capabilities — hooks, MCP, native multi-agent dispatch — have grown to cover most of what I needed from it, and cron jobs handle the rest. The story of how that happened is in the billing section.</p>
-    <div class="callout">
-      <p><strong>On what's native vs. custom:</strong> Several patterns in this config have since shipped as native Claude Code features — the hooks system, custom commands, named subagent types, auto-memory, context management. Throughout the sections below, each feature has a note on what Anthropic now provides natively, what still requires custom implementation, and why the implementation here is worth reading even for the native parts. Official docs describe the API surface; this config reflects what was discovered by using it in production, including the failure modes that don't appear in documentation.</p>
-    </div>
   </section>
 
   <div class="section-rule"></div>
@@ -668,17 +665,12 @@ flowchart LR
         <tr><td><code>PostToolUse</code></td><td>After any tool call</td><td>Post per-tool summary line to Discord log channel</td></tr>
         <tr><td><code>Stop</code></td><td>When a response ends</td><td>Safety net: check if a Discord message arrived without a reply</td></tr>
         <tr><td><code>PostCompact</code></td><td>After context compression</td><td>Re-inject critical context that would otherwise be lost</td></tr>
-        <tr><td><code>SessionStart</code></td><td>At session start</td><td>(1) Infra health check (memsearch/Milvus — alert on failure, never block); (2) reset context pressure state for new session; (3) pre-seed Discord chat ID for correct log routing from the first tool call</td></tr>
       </tbody>
     </table>
 
     <div class="callout">
       <p><strong>Exit codes are asymmetric.</strong> <code>exit 2</code> blocks the tool call and surfaces your stderr message to the model. <code>exit 1</code> does not block — it's treated as a non-blocking failure. If you're enforcing a constraint, it must be <code>exit 2</code>.</p>
       <p><strong>Hook matchers cover tool names, not file operations.</strong> A matcher of <code>Write|Edit</code> won't catch <code>Bash</code> calls that write files (<code>cp</code>, <code>tee</code>, <code>&gt;&gt;</code>). The <code>protect-sensitive-files.sh</code> hook includes <code>Bash</code> in its matcher and inspects the command string.</p>
-    </div>
-    <div class="callout">
-      <p><strong>Native:</strong> The full hook lifecycle — all hook types, exit code semantics, JSON payload structure, <code>settings.json</code> configuration — is native and documented by Anthropic.</p>
-      <p><strong>Still worth reading:</strong> The specific hook implementations here (file protection, Discord streaming, resource pressure tracking) aren't shipped. More importantly, the design reasoning: why <code>Bash</code> must be in the matcher, why the hook exits 2 on parse errors rather than silently allowing, why Discord curl calls are backgrounded for sub-1ms latency. These choices came from breaking the alternatives — neither is documented by Anthropic.</p>
     </div>
 
     <div class="mermaid">
@@ -705,19 +697,14 @@ flowchart TD
     <h3>MCP Integration</h3>
     <p>Claude Code supports MCP natively. This config runs:</p>
     <ul>
-      <li><strong>Discord MCP plugin</strong> — Claude reads and replies to Discord channels directly. This is distinct from the hook-based Discord streaming (which sends session output <em>to</em> Discord); the MCP plugin is how Claude reads messages and sends replies. Both run simultaneously — hooks stream, plugin receives and responds.</li>
+      <li><strong>Discord MCP plugin</strong> — Claude Code reads and replies to Discord channels directly. The same Discord server also receives hook-streamed session output.</li>
       <li><strong>Playwright MCP</strong> — Browser automation inside Claude Code sessions. Runs on a node@22 wrapper due to a simdjson mismatch with the system node.</li>
-      <li><strong>Google Workspace</strong> — Email, Calendar, Drive, Sheets via the <code>gog</code> CLI. Not MCP, but available in any session the same way: no OAuth flow at runtime.</li>
-      <li><strong>memsearch</strong> (Zilliz, open-source) — Semantic memory plugin. Captures session transcripts and indexes them via local ONNX embeddings (bge-m3, ~558 MB, runs entirely on-device). Per-project isolation — each git root gets its own <code>.memsearch/</code> collection. Semantic search against prior sessions is injected as context at session start. Installed via the memsearch Claude Code plugin.</li>
-      <li><strong>Custom MCP memory server</strong> (<code>mcp-memory-server.py</code>, ~160 LOC) — A local stdio MCP server that exposes the playbook library as a queryable wiki. Three tools: <code>list_memory()</code> returns a compact index (~500 tokens), <code>get_memory(name)</code> returns a full file, <code>search_memory(query)</code> does keyword grep. ~50ms per query. Preferred over memsearch for structured knowledge retrieval: faster, no auth issues, token-efficient (returns only what's needed rather than auto-loading everything at session start).</li>
+      <li><strong>Google Workspace</strong> — Email, Calendar, Drive, Sheets via the <code>gog</code> CLI. Not MCP, but used the same way: available in any session, no separate setup.</li>
     </ul>
-    <div class="callout">
-      <p><strong>Native:</strong> MCP server configuration via <code>.mcp.json</code> is native. The memsearch plugin is available as a Claude Code plugin.</p>
-      <p><strong>Still worth reading:</strong> The custom MCP memory server (~160 LOC) is not native — it's a purpose-built server that exposes the playbook library with three specific tools. The design choice (grep over markdown files instead of semantic search) is intentional: structured knowledge retrieval benefits from keyword precision more than semantic similarity. Worth reading if you want to expose a local knowledge base to Claude via MCP without standing up a full vector store.</p>
-    </div>
+    <p>The memsearch plugin (v0.4.2) runs local vector embeddings via ONNX and stores session transcripts in a per-project Milvus SQLite database. Semantic search against prior sessions is available at session start.</p>
 
     <h3>Multi-Agent Architecture</h3>
-    <p>Named agent types are defined as <code>.md</code> files in <code>~/.claude/agents/</code>. Each specifies a model, description, and behavioral persona. The Agent tool dispatches to them by <code>subagent_type</code>.</p>
+    <p>Named agent types are defined as <code>.md</code> files in <code>~/.claude/agents/</code>. Each specifies a model, description, and behavioral persona. The Agent tool dispatches to them by <code>subagent_type</code>. Anthropic now supports parallel multi-agent orchestration natively — lead agent plus specialists on a shared filesystem. That handles the coordination layer. The agent definitions here — Gadfly's adversarial product persona, CTO's architectural review posture, Cob's output discipline — are what actually run inside that coordination layer.</p>
 
     <div class="agent-tiers" role="img" aria-label="Agent roster by model tier">
       <div class="agent-tier tier-sonnet">
@@ -764,12 +751,8 @@ flowchart TD
     </div>
     <p class="diagram-caption">8 named agent types grouped by model tier. Dispatched via the Agent tool by <code>subagent_type</code>.</p>
 
-    <p>Sequencing rule: <strong>Gadfly before CTO</strong>. If CTO runs first, its plan anchors everything; Gadfly's product objections come too late to change the structure. Run Gadfly first, then CTO with Gadfly's findings as input.</p>
+    <p>Sequencing rule: <strong>Gadfly before CTO</strong>. If CTO runs first, its plan anchors everything; Gadfly's product objections come too late to change the structure. Run Gadfly first, then CTO with Gadfly's findings as input. Native parallel dispatch doesn't enforce this — it runs agents concurrently. The sequencing is a deliberate constraint, not a performance optimization.</p>
     <p>Agent identities persist via their config files — the same way OpenClaw's SOUL.md approach works, applied per-agent rather than globally.</p>
-    <div class="callout">
-      <p><strong>Native:</strong> Agent definition files in <code>~/.claude/agents/</code> are native. Several named agents here — Gadfly, CTO, Critic, The Architect, Seymour, Cob — now ship as defaults in the Claude Code fleet.</p>
-      <p><strong>Still worth reading:</strong> The Gadfly-before-CTO sequencing rule is the most transferable pattern in this config and isn't documented by Anthropic. The agent persona designs also show what to explicitly prohibit in a behavioral definition — not just what you want the agent to do, but what failure modes to close off. Default agents won't have this; you'd observe the failure first.</p>
-    </div>
   </section>
 
   <div class="section-rule"></div>
@@ -796,7 +779,7 @@ flowchart TD
           L2<strong>Playbooks</strong>
         </div>
         <div class="mem-layer-body">
-          <p>~240 entries indexed by keyword in <code>memory/00_index.md</code>. Each records what broke, why, and how to apply the lesson. Read on demand when the topic matches.</p>
+          <p>~150 entries indexed by keyword in <code>memory/00_index.md</code>. Each records what broke, why, and how to apply the lesson. Read on demand when the topic matches.</p>
         </div>
         <div class="mem-layer-trigger">
           <span class="trigger-pill">keyword match</span>
@@ -807,7 +790,7 @@ flowchart TD
           L3<strong>Auto-memory</strong>
         </div>
         <div class="mem-layer-body">
-          <p>Two retrieval mechanisms: <strong>memsearch</strong> (semantic search via local ONNX/bge-m3 over session transcripts) and a <strong>custom MCP server</strong> (grep-based wiki access to the playbook library via <code>list_memory</code> / <code>get_memory</code> / <code>search_memory</code>). Structured <code>memory/*.md</code> files for decisions and project state — four types: user, feedback, project, reference.</p>
+          <p>memsearch indexes session transcripts via local ONNX embeddings (bge-m3, on-device). Per-project isolation. Structured <code>memory/*.md</code> files for decisions and project state.</p>
         </div>
         <div class="mem-layer-trigger">
           <span class="trigger-pill">semantic / session start</span>
@@ -821,10 +804,6 @@ flowchart TD
     <p>There are three CLAUDE.md files in this setup: user-level (<code>~/.claude/CLAUDE.md</code>), project-level (per repo), and workspace-level. Claude Code merges them, with project files taking precedence. The user-level file is the one published here.</p>
     <p>What goes in CLAUDE.md: things that need to be true on every session, regardless of what was discussed last time. Communication style. Tool permission policy. Protected paths. Session-start behavior. Key architectural facts. The lessons-learned section.</p>
     <p>What doesn't go in CLAUDE.md: anything that changes frequently, project-specific operational detail, or anything that belongs in a playbook.</p>
-    <div class="callout">
-      <p><strong>Native:</strong> The CLAUDE.md hierarchy (user / project / workspace merge) is native and documented.</p>
-      <p><strong>Still worth reading:</strong> The specific decisions encoded here — what belongs in CLAUDE.md vs. a playbook vs. a project-level file, what session expectations to state explicitly vs. leave implicit — come from extended use. The lessons-learned section in the published CLAUDE.md documents production failures before official docs covered them. The "what goes here vs. not" framing transfers to any Claude Code setup.</p>
-    </div>
 
     <h3>Layer 2: Playbooks — Operational Knowledge</h3>
     <p>Playbooks are the long-term memory of the system. Each one records a specific thing that broke, or a pattern that worked, or a behavioral constraint that emerged from real use.</p>
@@ -837,21 +816,11 @@ flowchart TD
       <li>A workaround was required that a reader wouldn't discover naturally</li>
       <li>A behavioral constraint emerged that doesn't appear in any docs</li>
     </ul>
-    <div class="callout">
-      <p><strong>Native:</strong> No direct native equivalent for a structured playbook library. Claude Code's auto-memory can capture feedback across sessions, but it records preferences and context — not post-mortem format (what broke, root cause, how to apply going forward).</p>
-      <p><strong>Still worth reading:</strong> The playbook format itself — <code>what</code>, <code>why</code>, <code>how to apply</code> in YAML frontmatter — is optimized for loading into model context efficiently. The selected-playbooks directory in the repo shows the format and density. The value is in building your own library using this format; the specific content here is a side effect of one person's production use.</p>
-    </div>
 
     <h3>Layer 3: Auto-Memory — Session Continuity</h3>
-    <p>The memsearch plugin (installed 2026-05-09) captures session transcripts automatically and indexes them via local ONNX embeddings (bge-m3, ~558 MB, runs entirely on-device). Per-project isolation — each git root gets its own <code>.memsearch/</code> collection. Semantic search against prior sessions is injected as hints at session start.</p>
-    <p>Alongside memsearch, a custom MCP memory server (<code>mcp-memory-server.py</code>) provides structured wiki-style access to the playbook library. Three tools: <code>list_memory()</code> (compact name+description index, ~500 tokens), <code>get_memory(name)</code> (full file), <code>search_memory(query)</code> (grep-based keyword search). Grep over ~240 markdown files runs in ~50ms. This is preferred over memsearch for the playbook library specifically — the playbooks are structured knowledge, not conversational context, so semantic similarity adds less value than keyword precision.</p>
+    <p>Anthropic shipped native auto-memory in February 2026: Claude Code writes session observations automatically without any plugin. This is real, and it covers what it covers — things Claude notices and records during a session. The memsearch plugin here does something different: it captures session transcripts and indexes them via local ONNX embeddings (bge-m3, ~558 MB, runs entirely on-device), enabling semantic search over the full transcript history, not just observation summaries. Per-project isolation — each git root gets its own <code>.memsearch/</code> collection.</p>
     <p>Separately, structured memory files (<code>memory/*.md</code>) record decisions, project state, and non-obvious facts that need to survive across sessions. A <code>MEMORY.md</code> index (200-line limit, one-line entries per file) makes retrieval fast without loading everything into context.</p>
-    <p>Structured memory files follow a four-type taxonomy, each as a separate <code>.md</code> file with YAML frontmatter: <strong>user</strong> (role, preferences, expertise — tailors how Claude collaborates), <strong>feedback</strong> (behavioral corrections and confirmed non-obvious approaches — prevents the same guidance from needing to be given twice), <strong>project</strong> (active work state, decisions, deadlines — decays over time), and <strong>reference</strong> (pointers to external systems like Linear, Grafana, Slack channels). Each type has a <code>name</code>, <code>description</code>, and <code>type</code> field in frontmatter. A 200-line <code>MEMORY.md</code> index keeps retrieval fast without loading everything into context.</p>
     <p>The design intent: Claude Code should be able to answer "what did we decide about X" or "why did we do Y" from memory — not from re-reading the transcript.</p>
-    <div class="callout">
-      <p><strong>Native:</strong> The structured file layer (<code>memory/*.md</code>, <code>MEMORY.md</code> index, save/recall protocol) is now native in Claude Code — that's the bottom layer described above. The memsearch plugin is not a Claude Code built-in: it's a separately installed daemon that indexes session JSONL transcripts via local ONNX embeddings and searches what was <em>said</em> in past sessions, not what was saved as a structured fact. The custom MCP memory server (<code>mcp-memory-server.py</code>) is not native at all.</p>
-      <p><strong>Still worth reading:</strong> Three distinct retrieval problems, three tools: structured memory for facts and preferences (what to remember), memsearch for "what did we decide about X" (what was said), and the custom MCP server for the playbook library (structured domain knowledge where keyword precision beats semantic similarity). That design — matching the retrieval tool to the retrieval problem — doesn't ship with Claude Code. Neither does memsearch in any configured form, nor the custom MCP server.</p>
-    </div>
   </section>
 
   <div class="section-rule"></div>
@@ -872,11 +841,11 @@ flowchart TD
       <li>Posts to the per-session log webhook</li>
     </ul>
 
-    <p><strong>UserPromptSubmit (session binding):</strong> When a message arrives from a Discord channel, the hook detects it and writes <code>state/{session_id}.chatid</code> immediately — eliminating routing lag that previously caused the first tool call of a session to use the wrong log channel. Also posts a one-liner to the log webhook for every prompt submission so the Discord log reflects when a new turn starts.</p>
-
     <p><strong>Per-session channel routing:</strong> Sessions started from different project directories are bound to different Discord channels. The hook reads session state files to determine which log webhook to use, so each project's output flows to its own channel rather than a shared log.</p>
 
     <p>The result: a session running on a Mac Mini is fully observable from a phone. Narrative text arrives before tool calls; tool summaries arrive after. Approvals generate @mentions. No terminal needed to know what's happening.</p>
+
+    <p>Routing inbound messages to the right session requires a separate piece: a custom Node.js/TypeScript bot (<code>~/.claude/discord-router/router.ts</code>) that connects to Discord's Gateway via discord.js and routes incoming messages to the appropriate Claude Code session based on a <code>routes.json</code> channel-to-session map. It handles DMs, guild channels, and threads. Per-channel access policies are enforced via <code>access.json</code>. One bot process routes to all Claude Code sessions — no separate bot per session. The MCP plugin and the hook both assume it's running; it's the infrastructure layer that makes multi-session Discord access work at all.</p>
 
     <p>Hardware: Termius for mobile terminal access when needed. Ghostty for desktop terminal (same machine or remote). In practice, Discord handles almost all interaction.</p>
   </section>
@@ -888,6 +857,7 @@ flowchart TD
 
     <h3>review-sequence</h3>
     <p>Adversarial review, in the correct order.</p>
+    <p>Skills auto-load now via SKILL.md files in <code>~/.claude/skills/*/</code> — that's how this config has always structured them, and Anthropic adopted the same format. The loading mechanism is native. The content — who runs first and why — is the actual work.</p>
     <p>The sequencing matters: Gadfly runs before CTO. If CTO runs first, it produces a plan that anchors subsequent review. Gadfly's product objections — which often reveal wrong assumptions about what users want — come too late to change the structure. Run Gadfly first, then CTO with Gadfly's findings as context.</p>
     <p>The four reviewers and when to use each:</p>
 
@@ -904,43 +874,23 @@ flowchart TD
     </table>
 
     <p>Not every task needs all four. A bug fix needs Critic, not Gadfly. A new feature spec needs Gadfly before CTO. An architectural decision needs The Architect.</p>
-    <div class="callout">
-      <p><strong>Native:</strong> Gadfly, CTO, Critic, and The Architect now ship as default named agents in Claude Code.</p>
-      <p><strong>Still worth reading:</strong> The sequencing rule — Gadfly before CTO — isn't documented by Anthropic. It exists because CTO's coherent plan anchors subsequent review, making Gadfly's product objections (wrong assumptions, what makes users quit) arrive too late to change the structure. That failure mode was observed in production. The rule transfers regardless of whether you use these specific agent definitions.</p>
-    </div>
 
     <h3>batchc</h3>
     <p>Parallel subagent dispatch with wave sizing and merge enforcement.</p>
     <p>The pattern: identify independent tasks, determine wave size based on context budget, dispatch in parallel, merge before the next wave. The "merge before parallelize" rule prevents downstream agents from working on stale or contradictory intermediate state.</p>
     <p>Wave sizing is explicit, not inferred. Three waves of three agents each is different from nine agents at once — both in rate limit exposure and in context coherence at merge.</p>
     <p>The command also enforces: don't dispatch a consumer before its dependency. If Agent B needs Agent A's output, they don't run in the same wave.</p>
-    <div class="callout">
-      <p><strong>Native:</strong> Parallel tool calls and Agent dispatch are native Claude Code features.</p>
-      <p><strong>Still worth reading:</strong> The batchc protocol enforces discipline that native tooling doesn't: wave sizing based on context pressure, merge-before-parallelize analysis, subagent output discipline (no diffs or code blocks returned to main context). The specific rules — when a dependency is "hard" vs. "soft," when throttle risk triggers a forced pause — are the result of running large parallel batches and observing what breaks. The protocol transfers to any parallel dispatch work even without the command file.</p>
-    </div>
 
     <h3>mmguns</h3>
     <p>Research-to-integration loop. <code>/mmguns &lt;topic&gt;</code> finds the current best approaches for a capability area — tools, libraries, processes, and methodologies — compares them against what exists in the current project, and produces a ranked 3-item brief with a dispatch action. It is intended to be an extremely simple and efficient way to add newly available capabilities to the system. mmguns stands for Make More Good Use New Stuff.</p>
     <p>The workflow: websearch in 4 parallel angles (SOTA, production libraries, comparison discussions, process/methodology patterns), inventory the current project (CLAUDE.md, specs, memory, packages, source), gap analysis (quick win / medium lift / non-starter), and a structured brief that always has the same format. Then it dispatches: quick wins ask for confirm then implement, medium lifts generate a spec stub, non-starters get ruled out with reasoning.</p>
     <p>Flags: <code>--global</code> scans across all projects; <code>--implement</code> skips the confirm step; <code>--spec</code> forces a spec even if #1 is a quick win.</p>
     <p>The point is closing the loop. A research command that stops at a report is just expensive grep.</p>
-    <div class="callout">
-      <p><strong>Native:</strong> Web search via MCP and parallel tool dispatch are native.</p>
-      <p><strong>Still worth reading:</strong> The loop structure — four parallel search angles (SOTA, production libraries, comparison discussions, process patterns), gap analysis against the current project rather than a survey, ranked brief with a required dispatch action — isn't native. The design principle (a research command that stops at a report is just expensive grep) and the parallel angle structure transfer to any research workflow.</p>
-    </div>
 
     <h3>session-handoff</h3>
     <p>Structured resumption document, written at the end of a session.</p>
     <p>Covers: what was accomplished, what's in progress, what's blocked, what the next session should start with. Stored in <code>workspace/HANDOFF.md</code>. The next session reads it, not the transcript.</p>
     <p>A well-written one-page handoff is worth more for continuity than the raw conversation history. The transcript has everything but requires synthesis at read time. The handoff has the synthesis already done.</p>
-
-    <h3>session pressure</h3>
-    <p>Context fill is tracked automatically per session. The <code>resource-pressure.py</code> hook reads token usage from the session JSONL after each tool call and computes fill percentage against the 200k-token context window. When fill crosses thresholds — 50% (elevated) or 75% (high) — commands like <code>batchc</code>, <code>mmguns</code>, and <code>review-sequence</code> automatically throttle: smaller wave sizes, mandatory pauses between waves, and a checkpoint prompt at high pressure.</p>
-    <p>The <code>/pressure</code> command lets you override manually (<code>normal</code>/<code>elevated</code>/<code>high</code>) when the auto-tracker misreads context fill. The override persists for the session; the PostToolUse hook won't overwrite it while active.</p>
-    <div class="callout">
-      <p><strong>Native:</strong> No direct native equivalent for per-session context fill tracking exposed as a readable state variable.</p>
-      <p><strong>Still worth reading:</strong> The implementation shows how to read token usage from the session JSONL — a technique that applies to any hook that needs to reason about session state rather than just the current tool call. The manual override pattern (a flag that prevents the auto-tracker from overwriting a manual setting) is a simple, durable design for "I know better than the tracker right now."</p>
-    </div>
   </section>
 
   <div class="section-rule"></div>
