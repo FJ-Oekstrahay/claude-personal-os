@@ -110,6 +110,12 @@ Smartbatch execution protocol. Read the full prompt before touching anything, th
    - When in doubt: Sonnet. The cost of a silent Haiku error exceeds the cost of Sonnet overspend.
    - No routine spot-check required after Haiku dispatch on genuinely mechanical tasks — the catch layer is the user's review
 
+7c. **Tool/reasoning boundary — apply when writing subagent prompts**
+   - The agent decides *which* tool to invoke and *when*. The tool owns *how* — implementation details, parameters, pacing, defaults.
+   - If a subagent prompt requires you to supply low-level implementation details (wordlists, retry counts, exact encoding schemes, pacing intervals), that's a design smell. Those belong inside the tool, not in the agent's prompt.
+   - Rule of thumb: if a parameter answers "what to do," the agent supplies it. If it answers "how to do it," the tool owns it.
+   - When you spot this pattern, flag it: "This is a tool/reasoning boundary issue — the agent shouldn't need to know X, the tool should own that."
+
 8. **Context discipline**
    - Send only the incremental context needed for the next wave — no full-prompt recaps
    - Prefer concise summaries over restating unchanged context

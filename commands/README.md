@@ -94,6 +94,6 @@ The non-obvious sequencing rule: **Gadfly must run before CTO.** If CTO runs fir
 
 ## session-handoff
 
-First checks whether a real handoff is needed — trivial sessions skip. If yes: asks for a short name, writes `HANDOFF-{name}-{YYYY-MM-DD-HHMM}.md` to the workspace, and updates `MEMORY.md` with lessons from the session.
+First checks whether a real handoff is needed — trivial sessions skip. If yes: picks a short name from the session topic automatically, writes `HANDOFF-{name}-{YYYY-MM-DD-HHMM}.md` to the workspace, and updates `MEMORY.md` with lessons from the session.
 
 Handoff structure: Accomplished (with file paths and diffs for verification), Pending, Gotchas/Surprises, Lessons Captured, and next-session prompts. The handoff file is the canonical context bridge between sessions — not a summary, a resumption document.

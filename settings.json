@@ -51,7 +51,7 @@
       "Bash(wget * | sh*)",
       "Bash(wget *|sh*)"
     ],
-    "_comment_openclaw": "The launchctl, openclaw, and pa-restart allow rules below require the OpenClaw companion system (not public yet \u2014 separate repo). They're here to show the real config; remove or adapt for your own setup."
+    "_comment_openclaw": "The launchctl, openclaw, and pa-restart allow rules below require the OpenClaw companion system (not public yet — separate repo). They're here to show the real config; remove or adapt for your own setup."
   },
   "hooks": {
     "SessionStart": [
@@ -168,5 +168,6 @@
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "teammateMode": "tmux",
-  "voiceEnabled": false
+  "voiceEnabled": false,
+  "model": "opus"
 }

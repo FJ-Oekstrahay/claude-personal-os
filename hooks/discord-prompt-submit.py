@@ -74,6 +74,27 @@ def load_log_channels():
         return {}
 
 
+def load_channel_context(context_json_path):
+    try:
+        with open(context_json_path) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def get_channel_hint(chat_id, channel_context, channels_map):
+    if chat_id in channel_context:
+        entry = channel_context[chat_id]
+        name = entry.get('name', 'unknown')
+        hint = entry.get('context_hint', '')
+        return f"This session is from Discord channel: **{name}**. {hint}"
+    elif chat_id in channels_map:
+        name = channels_map.get(chat_id, 'unknown')
+        return f"This session is from Discord channel: **{name}**."
+    else:
+        return f"This session is from Discord channel ID: {chat_id} (unknown channel — ask Geoff for a name if relevant)."
+
+
 def get_parent_channel_id(chat_id, bot_token, session_id):
     """Return parent channel ID for a thread channel, with per-session caching."""
     cache_file = os.path.join(STATE_DIR, f'{session_id}.parentchatid')
@@ -433,6 +454,11 @@ def main():
             if parent_id and parent_id in routing:
                 set_mapped_thread(parent_id, user_id, chat_id)
 
+    # Load channel context and build hint
+    context_json_path = os.path.expanduser('~/.claude/hooks/discord-channel-context.json')
+    channel_context = load_channel_context(context_json_path)
+    channel_hint = get_channel_hint(effective_chat_id, channel_context, channels)
+
     route_id = resolve_route_chat_id(effective_chat_id, routing, bot_token, session_id)
 
     if session_id:
@@ -499,7 +525,7 @@ def main():
         ' — they cannot see your terminal output. You MUST reply using the'
         ' mcp__plugin_discord_discord__reply tool. Do not respond only in the terminal.'
     )
-    additional_context = f'{thread_redirect} {base_reminder}'.strip() if thread_redirect else base_reminder
+    additional_context = f'{channel_hint}\n\n{thread_redirect} {base_reminder}'.strip() if thread_redirect else f'{channel_hint}\n\n{base_reminder}'.strip()
 
     print(json.dumps({
         'hookSpecificOutput': {

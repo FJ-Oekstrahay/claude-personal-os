@@ -1,0 +1,130 @@
+{
+  "<channel-id>": {
+    "name": "moltyjoe",
+    "context_hint": "Orchestrator agent — delegates tasks, no direct shell execution."
+  },
+  "<channel-id>": {
+    "name": "bob",
+    "context_hint": "Developer agent — file editing, shell execution, implementation work."
+  },
+  "<channel-id>": {
+    "name": "gerbilcheeks",
+    "context_hint": "Ops/research agent."
+  },
+  "<channel-id>": {
+    "name": "lumpy",
+    "context_hint": "Web search only agent."
+  },
+  "<channel-id>": {
+    "name": "moltyjoe-sec",
+    "context_hint": "Security review agent (GPT-4.1)."
+  },
+  "<channel-id>": {
+    "name": "bridgernelson",
+    "context_hint": "Bridge tasks agent."
+  },
+  "<channel-id>": {
+    "name": "moltyjoe-public",
+    "context_hint": "Public-facing agent — restricted permissions."
+  },
+  "<channel-id>": {
+    "name": "moltyjoe-casual",
+    "context_hint": "Casual interface agent."
+  },
+  "<channel-id>": {
+    "name": "discord-hook",
+    "context_hint": "Discord hook development thread inside claude-config."
+  },
+  "<channel-id>": {
+    "name": "claude-config",
+    "context_hint": "Claude Code config and tooling development."
+  },
+  "<channel-id>": {
+    "name": "droneteleo",
+    "context_hint": "Droneteleo project — FC serial communication and drone telemetry."
+  },
+  "<channel-id>": {
+    "name": "prior-auth-bot",
+    "context_hint": "Project work."
+  },
+  "<channel-id>": {
+    "name": "publishing",
+    "context_hint": "Publishing and content release work."
+  },
+  "<channel-id>": {
+    "name": "git-public-repo",
+    "context_hint": "Public git repo sync and release management."
+  },
+  "<channel-id>": {
+    "name": "openclaw-config",
+    "context_hint": "OpenClaw system configuration and infrastructure."
+  },
+  "<channel-id>": {
+    "name": "log",
+    "context_hint": "Receives activity logs only — read-only context."
+  },
+  "<channel-id>": {
+    "name": "log-droneteleo",
+    "context_hint": "Receives activity logs only — read-only context."
+  },
+  "<channel-id>": {
+    "name": "log-git-public-repo",
+    "context_hint": "Receives activity logs only — read-only context."
+  },
+  "<channel-id>": {
+    "name": "sales_automation",
+    "context_hint": "Sales automation project work."
+  },
+  "<channel-id>": {
+    "name": "log-sales-automation",
+    "context_hint": "Receives activity logs only — read-only context."
+  },
+  "<channel-id>": {
+    "name": "l3",
+    "context_hint": "L3Harris sales account work."
+  },
+  "<channel-id>": {
+    "name": "log-l3",
+    "context_hint": "Receives activity logs only — read-only context."
+  },
+  "<channel-id>": {
+    "name": "saic",
+    "context_hint": "SAIC sales account work."
+  },
+  "<channel-id>": {
+    "name": "log-saic",
+    "context_hint": "Receives activity logs only — read-only context."
+  },
+  "<channel-id>": {
+    "name": "textron",
+    "context_hint": "Textron sales account work."
+  },
+  "<channel-id>": {
+    "name": "log-textron",
+    "context_hint": "Receives activity logs only — read-only context."
+  },
+  "<channel-id>": {
+    "name": "bambu",
+    "context_hint": "Bambu project work."
+  },
+  "<channel-id>": {
+    "name": "log-bambu",
+    "context_hint": "Receives activity logs only — read-only context."
+  },
+  "<channel-id>": {
+    "name": "famplan",
+    "context_hint": "Family planning project work."
+  },
+  "<channel-id>": {
+    "name": "log-famplan",
+    "context_hint": "Receives activity logs only — read-only context."
+  },
+  "<channel-id>": {
+    "name": "health",
+    "context_hint": "Health tracking and wellness project work."
+  },
+  "<channel-id>": {
+    "name": "log-health",
+    "context_hint": "Receives activity logs only — read-only context."
+  }
+}

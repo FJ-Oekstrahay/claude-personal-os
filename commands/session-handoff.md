@@ -16,7 +16,7 @@ If the session was trivial (a quick question, a single file edit, a lookup), ski
 
 ---
 
-Ask the user for a short name for this handoff (e.g. "sales-automation", "infra-cleanup"). Then write the session handoff note to `~/.openclaw/workspace/HANDOFF-{name}-{YYYY-MM-DD-HHMM}.md` where `{YYYY-MM-DD-HHMM}` is the current date and time (e.g. `HANDOFF-sales-automation-2026-03-19-1432.md`). This file is the canonical handoff between Claude Code sessions.
+Pick a short name for this handoff yourself — derive it from the main topic of the session (e.g. "sales-automation", "infra-cleanup", "discord-router-fix"). Do not ask the user for the name. Then write the session handoff note to `~/.openclaw/workspace/HANDOFF-{name}-{YYYY-MM-DD-HHMM}.md` where `{YYYY-MM-DD-HHMM}` is the current date and time (e.g. `HANDOFF-sales-automation-2026-03-19-1432.md`). This file is the canonical handoff between Claude Code sessions.
 
 Structure it as follows:
 
