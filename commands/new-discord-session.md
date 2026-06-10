@@ -261,3 +261,5 @@ This table is updated automatically by Step 9 each time `/new-discord-session` r
 | log-claude-config | <channel-id> |
 | health | <channel-id> |
 | log-health | <channel-id> |
+| financial | <channel-id> |
+| log-financial | <channel-id> |

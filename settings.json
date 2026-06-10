@@ -144,6 +144,7 @@
       }
     ]
   },
+  "enableWorkflows": true,
   "enabledPlugins": {
     "discord@claude-plugins-official": true,
     "slack@claude-plugins-official": true,

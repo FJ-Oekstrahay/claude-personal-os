@@ -10,5 +10,6 @@
   "<channel-id>": "LOG_TEXTRON_WEBHOOK_URL",
   "<channel-id>": "LOG_FAMPLAN_WEBHOOK_URL",
   "<channel-id>": "LOG_BAMBU_WEBHOOK_URL",
-  "<channel-id>": "LOG_HEALTH_WEBHOOK_URL"
+  "<channel-id>": "LOG_HEALTH_WEBHOOK_URL",
+  "<channel-id>": "LOG_FINANCIAL_WEBHOOK_URL"
 }

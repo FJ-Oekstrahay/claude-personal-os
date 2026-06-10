@@ -30,5 +30,7 @@
   "<channel-id>": "famplan",
   "<channel-id>": "log-famplan",
   "<channel-id>": "health",
-  "<channel-id>": "log-health"
+  "<channel-id>": "log-health",
+  "<channel-id>": "financial",
+  "<channel-id>": "log-financial"
 }
