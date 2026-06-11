@@ -229,6 +229,50 @@ def main():
                     last_text = t
 
     if replied:
+        # Find the index (within post-discord entries) of the last reply tool_use block.
+        post_discord_entries = entries[last_discord_idx + 1:]
+        last_reply_entry_idx = -1
+        for i, entry in enumerate(post_discord_entries):
+            if entry.get('type') != 'assistant':
+                continue
+            content = entry.get('message', {}).get('content', [])
+            if not isinstance(content, list):
+                continue
+            for block in content:
+                if (isinstance(block, dict)
+                        and block.get('type') == 'tool_use'
+                        and block.get('name') == 'mcp__plugin_discord_discord__reply'):
+                    last_reply_entry_idx = i
+
+        # Collect any assistant text blocks from entries strictly after the last reply.
+        post_reply_texts = []
+        if last_reply_entry_idx >= 0:
+            for entry in post_discord_entries[last_reply_entry_idx + 1:]:
+                if entry.get('type') != 'assistant':
+                    continue
+                content = entry.get('message', {}).get('content', [])
+                if not isinstance(content, list):
+                    continue
+                for block in content:
+                    if isinstance(block, dict) and block.get('type') == 'text':
+                        t = block.get('text', '').strip()
+                        if t:
+                            post_reply_texts.append(t)
+
+        # Post any trailing text to the discussion channel before the done ping.
+        for text in post_reply_texts:
+            if len(text) > 1900:
+                text = text[:1897] + '...'
+            subprocess.run(
+                ['/usr/bin/curl', '-s', '-o', '/dev/null', '--max-time', '10',
+                 '-X', 'POST',
+                 f'https://discord.com/api/v10/channels/{last_discord_chat_id}/messages',
+                 '-H', f'Authorization: Bot {bot_token}',
+                 '-H', 'Content-Type: application/json',
+                 '-d', json.dumps({'content': text})],
+                check=False
+            )
+
         # Wait briefly for any in-flight background webhook posts (text extractor) to land
         # before sending the "done" ping — prevents ordering inversion in Discord.
         import time

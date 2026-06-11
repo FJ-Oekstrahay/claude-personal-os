@@ -20,6 +20,9 @@ _MESSAGE_ID_RE = re.compile(
 _USER_ID_RE = re.compile(
     r'<channel[^>]+source="plugin:discord:discord"[^>]+user_id="(\d+)"'
 )
+_ATTACHMENT_COUNT_RE = re.compile(
+    r'<channel[^>]+attachment_count="(\d+)"'
+)
 _COMMAND_NAME_RE = re.compile(r'<command-name>(.*?)</command-name>', re.DOTALL)
 _COMMAND_ARGS_RE = re.compile(r'<command-args>(.*?)</command-args>', re.DOTALL)
 
@@ -34,6 +37,13 @@ ACTIVITY_LOG_MAX_BYTES = 500 * 1024  # 500 KB
 ACTIVITY_LOG_TAIL_LINES = 200
 DEFAULT_MODEL = 'claude-sonnet-4-6'
 MODEL_STATE_SUFFIX = '.model'
+VOICE_CACHE_DIR = os.path.expanduser('~/.claude/hooks/voice-cache')
+VOICE_CACHE_TTL_SECONDS = 7 * 24 * 3600
+AUDIO_CONTENT_TYPES = frozenset({
+    'audio/ogg', 'audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/opus',
+    'audio/x-m4a', 'audio/aac',
+})
+AUDIO_EXTENSIONS = frozenset({'.ogg', '.m4a', '.mp3', '.wav', '.opus', '.aac'})
 
 
 def load_conf():
@@ -382,6 +392,88 @@ def write_activity_log(entry):
         pass
 
 
+def cleanup_voice_cache():
+    """Delete cached audio files older than VOICE_CACHE_TTL_SECONDS."""
+    import time
+    try:
+        if not os.path.isdir(VOICE_CACHE_DIR):
+            return
+        now = time.time()
+        for fname in os.listdir(VOICE_CACHE_DIR):
+            fpath = os.path.join(VOICE_CACHE_DIR, fname)
+            try:
+                if now - os.path.getmtime(fpath) > VOICE_CACHE_TTL_SECONDS:
+                    os.remove(fpath)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
+def fetch_audio_attachments(chat_id, message_id, bot_token):
+    """Return list of (url, filename) for audio attachments in a Discord message."""
+    if not bot_token or not message_id:
+        return []
+    try:
+        result = subprocess.run(
+            ['/usr/bin/curl', '-s', '--max-time', '5',
+             f'https://discord.com/api/v10/channels/{chat_id}/messages/{message_id}',
+             '-H', f'Authorization: Bot {bot_token}'],
+            capture_output=True, text=True
+        )
+        data = json.loads(result.stdout)
+        attachments = []
+        for att in data.get('attachments', []):
+            ct = att.get('content_type', '').split(';')[0].strip().lower()
+            fname = att.get('filename', '')
+            ext = os.path.splitext(fname)[1].lower()
+            if ct in AUDIO_CONTENT_TYPES or ext in AUDIO_EXTENSIONS:
+                attachments.append((att.get('url', ''), fname))
+        return attachments
+    except Exception:
+        return []
+
+
+def download_audio(url, message_id, filename):
+    """Download audio from Discord CDN to voice cache. Returns local file path or empty string."""
+    try:
+        os.makedirs(VOICE_CACHE_DIR, exist_ok=True)
+        safe_name = re.sub(r'[^\w.\-]', '_', filename)
+        dest = os.path.join(VOICE_CACHE_DIR, f'{message_id}_{safe_name}')
+        result = subprocess.run(
+            ['/usr/bin/curl', '-s', '--max-time', '30', '-L', '-o', dest, url],
+            capture_output=True
+        )
+        if result.returncode == 0 and os.path.exists(dest) and os.path.getsize(dest) > 0:
+            return dest
+        try:
+            os.remove(dest)
+        except Exception:
+            pass
+        return ''
+    except Exception:
+        return ''
+
+
+def transcribe_audio(file_path, api_key):
+    """POST audio file to ElevenLabs Scribe. Returns transcript text or empty string."""
+    if not api_key or not file_path:
+        return ''
+    try:
+        result = subprocess.run(
+            ['/usr/bin/curl', '-s', '--max-time', '60',
+             '-X', 'POST', 'https://api.elevenlabs.io/v1/speech-to-text',
+             '-H', f'xi-api-key: {api_key}',
+             '-F', f'file=@{file_path}',
+             '-F', 'model_id=scribe_v1'],
+            capture_output=True, text=True
+        )
+        data = json.loads(result.stdout)
+        return data.get('text', '').strip()
+    except Exception:
+        return ''
+
+
 def main():
     try:
         data = json.load(sys.stdin)
@@ -421,6 +513,20 @@ def main():
     message_id = msg_m.group(1) if msg_m else ''
     uid_m = _USER_ID_RE.search(prompt)
     user_id = uid_m.group(1) if uid_m else ''
+
+    # --- Voice message transcription ---
+    transcripts = []
+    att_m = _ATTACHMENT_COUNT_RE.search(prompt)
+    if att_m and int(att_m.group(1)) > 0 and bot_token:
+        elevenlabs_key = conf.get('ELEVENLABS_API_KEY', '')
+        if elevenlabs_key:
+            cleanup_voice_cache()
+            for url, fname in fetch_audio_attachments(chat_id, message_id, bot_token):
+                local = download_audio(url, message_id, fname)
+                if local:
+                    text = transcribe_audio(local, elevenlabs_key)
+                    if text:
+                        transcripts.append(text)
 
     # Thread redirect: the Discord plugin sometimes delivers thread messages with the
     # parent channel's chat_id instead of the thread's channel ID.
@@ -525,7 +631,14 @@ def main():
         ' — they cannot see your terminal output. You MUST reply using the'
         ' mcp__plugin_discord_discord__reply tool. Do not respond only in the terminal.'
     )
-    additional_context = f'{channel_hint}\n\n{thread_redirect} {base_reminder}'.strip() if thread_redirect else f'{channel_hint}\n\n{base_reminder}'.strip()
+    transcript_block = ''
+    if transcripts:
+        joined = ' / '.join(transcripts)
+        transcript_block = f'Voice message transcribed: "{joined}"\n\nTreat the transcript above as the user\'s message. The original message was a voice recording.\n\n'
+    if thread_redirect:
+        additional_context = f'{transcript_block}{channel_hint}\n\n{thread_redirect} {base_reminder}'.strip()
+    else:
+        additional_context = f'{transcript_block}{channel_hint}\n\n{base_reminder}'.strip()
 
     print(json.dumps({
         'hookSpecificOutput': {

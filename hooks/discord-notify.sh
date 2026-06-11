@@ -252,7 +252,7 @@ elif [ -z "$TOOL_NAME" ] && echo "$INPUT" | /usr/bin/jq -e 'has("transcript_path
     STOP_LOG_WEBHOOK=$(resolve_log_webhook "$SESSION_ID")
     if [ -n "$STOP_LOG_WEBHOOK" ]; then
       python3 "$HOME/.claude/hooks/discord-text-extract.py" \
-        "$SESSION_ID" "$TRANSCRIPT_PATH" "$STOP_LOG_WEBHOOK" 2>/dev/null &
+        "$SESSION_ID" "$TRANSCRIPT_PATH" "$STOP_LOG_WEBHOOK" 2>/dev/null
     fi
     python3 "$HOME/.claude/hooks/discord-stop-check.py" \
       "$SESSION_ID" "$TRANSCRIPT_PATH" 2>/dev/null &
@@ -340,17 +340,6 @@ try:
     tool = d.get('tool_name', '')
     ti = d.get('tool_input', {})
 
-    if tool == 'Skill':
-        skill_name = ti.get('skill', '?')
-        args_val = ti.get('args', '')
-        if args_val:
-            args_short = safe_backtick(str(args_val), 80)
-            print(f'✅ **Skill done:** \`{safe_backtick(skill_name)}\` — args={args_short}')
-        else:
-            print(f'✅ **Skill done:** \`{safe_backtick(skill_name)}\`')
-    elif tool == 'Agent':
-        desc = ti.get('description', '') or ti.get('subagent_type', '?')
-        print(f'✅ **Agent done:** \`{safe_backtick(desc, 80)}\`')
 except Exception:
     pass
 " 2>/dev/null)
