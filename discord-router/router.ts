@@ -13,15 +13,23 @@ import {
   rmSync,
 } from "fs";
 import { join } from "path";
+import { homedir } from "os";
 
 // --- Config paths ---
-const ENV_PATH = "/Users/moltyjoe/.claude/channels/discord/.env";
-const ROUTES_PATH = "/Users/moltyjoe/.claude/discord-router/routes.json";
-const PID_PATH = "/Users/moltyjoe/.claude/discord-router/router.pid";
-const CHANNELS_BASE = "/Users/moltyjoe/.claude/channels";
+const HOME = homedir();
+const ENV_PATH = join(HOME, ".claude/channels/discord/.env");
+const ROUTES_PATH = join(HOME, ".claude/discord-router/routes.json");
+const PID_PATH = join(HOME, ".claude/discord-router/router.pid");
+const CHANNELS_BASE = join(HOME, ".claude/channels");
 
 // --- Load token from .env ---
 function loadToken(): string {
+  if (!existsSync(ENV_PATH)) {
+    process.stderr.write(
+      `discord-router: .env file not found at ${ENV_PATH}. Copy .env.example if available.\n`
+    );
+    process.exit(1);
+  }
   const raw = readFileSync(ENV_PATH, "utf8");
   for (const line of raw.split("\n")) {
     const trimmed = line.trim();

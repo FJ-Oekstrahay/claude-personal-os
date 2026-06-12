@@ -144,11 +144,11 @@ After all work items are committed and done:
 - Check whether auto-memory files or project MEMORY.md need updating based on what was learned this batch. Update them now, not later.
 - Flag any playbook that should be created or updated from patterns discovered this batch — name it explicitly. If it can be written in under 5 minutes, write it. Do not let session learnings go unwritten while context is still fresh.
 - Write any next-session prompts now while context is fresh, even if the session is not ending yet.
-- **Always** close every batch with one of these explicit statements — no exceptions:
+- **Handoff is automatic, not advisory.** If the batch involved substantial work or learnings and no handoff has been written yet, run `/session-handoff` NOW — pick a descriptive name yourself (format: `HANDOFF-<topic>-<YYYY-MM-DD>-<HHMM>.md`). Never tell the user a handoff is "recommended" or ask whether to run one — recommending is a protocol failure. The only reason to skip is that the work was genuinely minor.
+- **Always** close every batch with one of these two explicit statements — no exceptions, no third option:
   - **"Context safe to clear — no handoff needed."** (minor work, nothing worth capturing)
-  - **"Handoff written — context can now be cleared."** (handoff was completed in this batch — use this when /session-handoff was already run)
-  - **"Full /session-handoff recommended before clearing context."** (substantial work or learnings, handoff NOT yet done)
-  Do not omit this even if the session feels small. The user cannot tell from Discord whether the terminal is done or just quiet. Do not say "recommended" when the handoff is already done — that's contradictory.
+  - **"Handoff written — context can now be cleared."** (handoff was run this batch — either earlier or via the automatic step above)
+  Do not omit this even if the session feels small. The user cannot tell from Discord whether the terminal is done or just quiet.
 - **Discord-bound sessions — REQUIRED BLOCKER:** If any message in this session arrived via Discord (i.e., a `<channel source="plugin:discord:discord" chat_id="...">` tag was present), you MUST send the closing statement via `mcp__plugin_discord_discord__reply` using the `chat_id` from the most recent inbound Discord message. Use the `text` parameter (not `content`). This step is NON-OPTIONAL — skipping it is a failure of the batch protocol. Do not rely on terminal output alone — the user is watching Discord, not the terminal. This is the FINAL action of the batch; nothing comes after it.
 
 When $ARGUMENTS is empty, apply this protocol to the items in the current user message.

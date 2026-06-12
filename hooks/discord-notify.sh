@@ -8,10 +8,22 @@
 # Exit 0 always — never block Claude.
 
 CONF="$HOME/.claude/hooks/discord-webhook.conf"
-[ -f "$CONF" ] || exit 0
+ERROR_LOG="$HOME/.claude/hooks/state/hook-errors.log"
+
+_log_error() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] discord-notify: $1" >> "$ERROR_LOG" 2>/dev/null
+}
+
+if [ ! -f "$CONF" ] || [ ! -r "$CONF" ]; then
+  _log_error "webhook conf missing or unreadable at $CONF"
+  exit 0
+fi
 
 # shellcheck disable=SC1090
-source "$CONF" 2>/dev/null || exit 0
+if ! source "$CONF" 2>/dev/null; then
+  _log_error "failed to source webhook conf at $CONF"
+  exit 0
+fi
 
 resolve_log_webhook() {
   local session_id="$1"
@@ -108,9 +120,18 @@ except Exception:
     if [ -z "$ACTIVE_LOG_WEBHOOK" ]; then
       ACTIVE_LOG_WEBHOOK=$(resolve_log_webhook "$SESSION_ID")
     fi
-    /usr/bin/curl -s -o /dev/null --max-time 5 -X POST "$ACTIVE_LOG_WEBHOOK" \
-      -H "Content-Type: application/json" \
-      -d "{\"content\": $(echo "$PRE_MSG" | /usr/bin/jq -Rs .)}" &
+    if [ -z "$ACTIVE_LOG_WEBHOOK" ]; then
+      _log_error "PreToolUse: ACTIVE_LOG_WEBHOOK is empty, cannot post PRE_MSG"
+    else
+      {
+        HTTP_CODE=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 5 -X POST "$ACTIVE_LOG_WEBHOOK" \
+          -H "Content-Type: application/json" \
+          -d "{\"content\": $(echo "$PRE_MSG" | /usr/bin/jq -Rs .)}")
+        if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ] 2>/dev/null; then
+          _log_error "PreToolUse: webhook POST failed with HTTP $HTTP_CODE (url=${ACTIVE_LOG_WEBHOOK:0:60}...)"
+        fi
+      } &
+    fi
   fi
 
   exit 0
@@ -180,17 +201,17 @@ try:
         subagent = ti.get('subagent_type', '?')
         desc = ti.get('description', '')
         prompt = ti.get('prompt', '')
-        header = f'**Agent** → `{safe_backtick(subagent, 40)}`'
+        header = f'**Agent** → \`{safe_backtick(subagent, 40)}\`'
         if desc:
             header += f' — {safe_backtick(desc, 80)}'
         if prompt:
             prompt_str = str(prompt)
             cap = 1500
             if len(prompt_str) > cap:
-                prompt_body = prompt_str[:cap] + '…'
+                prompt_body = prompt_str[:cap] + '...'
             else:
                 prompt_body = prompt_str
-            print(f'{header}\n```\n{prompt_body}\n```')
+            print(f'{header}\n\`\`\`\n{prompt_body}\n\`\`\`')
         else:
             print(header)
     elif tool.startswith('mcp__'):
@@ -252,7 +273,7 @@ elif [ -z "$TOOL_NAME" ] && echo "$INPUT" | /usr/bin/jq -e 'has("transcript_path
     STOP_LOG_WEBHOOK=$(resolve_log_webhook "$SESSION_ID")
     if [ -n "$STOP_LOG_WEBHOOK" ]; then
       python3 "$HOME/.claude/hooks/discord-text-extract.py" \
-        "$SESSION_ID" "$TRANSCRIPT_PATH" "$STOP_LOG_WEBHOOK" 2>/dev/null
+        "$SESSION_ID" "$TRANSCRIPT_PATH" "$STOP_LOG_WEBHOOK" 2>/dev/null &
     fi
     python3 "$HOME/.claude/hooks/discord-stop-check.py" \
       "$SESSION_ID" "$TRANSCRIPT_PATH" 2>/dev/null &
@@ -291,11 +312,16 @@ for path in ['~/.claude/hooks/discord-webhook.conf', '~/.claude/channels/discord
       DIRECT_MSG=":bell: **Claude Code needs approval** — check terminal"
       DIRECT_PAYLOAD=$(echo "$DIRECT_MSG" | /usr/bin/jq -Rs '{"content": .}')
     fi
-    /usr/bin/curl -s -o /dev/null --max-time 5 \
-      -X POST "https://discord.com/api/v10/channels/$CHAT_ID/messages" \
-      -H "Authorization: Bot $BOT_TOKEN" \
-      -H "Content-Type: application/json" \
-      -d "$DIRECT_PAYLOAD" &
+    {
+      HTTP_CODE=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 5 \
+        -X POST "https://discord.com/api/v10/channels/$CHAT_ID/messages" \
+        -H "Authorization: Bot $BOT_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "$DIRECT_PAYLOAD")
+      if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ] 2>/dev/null; then
+        _log_error "Notification: bot API POST failed with HTTP $HTTP_CODE (channel=$CHAT_ID)"
+      fi
+    } &
   fi
 
   # Also post to log webhook and ALERTS webhook as secondary channels
@@ -303,16 +329,26 @@ for path in ['~/.claude/hooks/discord-webhook.conf', '~/.claude/channels/discord
   [ -z "$ACTIVE_LOG_WEBHOOK" ] && ACTIVE_LOG_WEBHOOK="$LOGS_WEBHOOK_URL"
   if [ -n "$ACTIVE_LOG_WEBHOOK" ]; then
     LOG_MSG=":bell: **Needs input** — session \`${SESSION_SHORT}\` in \`${CWD_SHORT}\`"
-    /usr/bin/curl -s -o /dev/null --max-time 5 -X POST "$ACTIVE_LOG_WEBHOOK" \
-      -H "Content-Type: application/json" \
-      -d "{\"content\": $(echo "$LOG_MSG" | /usr/bin/jq -Rs .)}" &
+    {
+      HTTP_CODE=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 5 -X POST "$ACTIVE_LOG_WEBHOOK" \
+        -H "Content-Type: application/json" \
+        -d "{\"content\": $(echo "$LOG_MSG" | /usr/bin/jq -Rs .)}")
+      if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ] 2>/dev/null; then
+        _log_error "Notification: log webhook POST failed with HTTP $HTTP_CODE (url=${ACTIVE_LOG_WEBHOOK:0:60}...)"
+      fi
+    } &
   fi
   if [ -n "$ALERTS_WEBHOOK_URL" ]; then
     ALERTS_MSG=":rotating_light: **Claude Code needs input**
 Session: \`${SESSION_SHORT}\`  CWD: \`${CWD_SHORT}\`"
-    /usr/bin/curl -s -o /dev/null --max-time 5 -X POST "$ALERTS_WEBHOOK_URL" \
-      -H "Content-Type: application/json" \
-      -d "{\"content\": $(echo "$ALERTS_MSG" | /usr/bin/jq -Rs .)}" &
+    {
+      HTTP_CODE=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 5 -X POST "$ALERTS_WEBHOOK_URL" \
+        -H "Content-Type: application/json" \
+        -d "{\"content\": $(echo "$ALERTS_MSG" | /usr/bin/jq -Rs .)}")
+      if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ] 2>/dev/null; then
+        _log_error "Notification: alerts webhook POST failed with HTTP $HTTP_CODE (url=${ALERTS_WEBHOOK_URL:0:60}...)"
+      fi
+    } &
   fi
 
   exit 0
@@ -320,9 +356,19 @@ fi
 
 [ -z "$MSG" ] && exit 0
 
-/usr/bin/curl -s -o /dev/null --max-time 5 -X POST "$WEBHOOK_URL" \
-  -H "Content-Type: application/json" \
-  -d "{\"content\": $(echo "$MSG" | /usr/bin/jq -Rs .)}" &
+if [ -z "$WEBHOOK_URL" ]; then
+  _log_error "PostToolUse: WEBHOOK_URL is empty, cannot post MSG"
+  exit 0
+fi
+
+{
+  HTTP_CODE=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 5 -X POST "$WEBHOOK_URL" \
+    -H "Content-Type: application/json" \
+    -d "{\"content\": $(echo "$MSG" | /usr/bin/jq -Rs .)}")
+  if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ] 2>/dev/null; then
+    _log_error "PostToolUse: webhook POST failed with HTTP $HTTP_CODE (url=${WEBHOOK_URL:0:60}...)"
+  fi
+} &
 
 # PostToolUse completion announcements for Skill and Agent tools
 DONE_MSG=$(echo "$INPUT" | python3 -c "
@@ -339,15 +385,29 @@ try:
     d = json.load(sys.stdin)
     tool = d.get('tool_name', '')
     ti = d.get('tool_input', {})
-
+    if tool == 'Agent':
+        desc = ti.get('description', ti.get('prompt', '')[:80])
+        print(f'[agent done] {safe_backtick(desc)}')
+    elif tool == 'Skill':
+        skill_name = ti.get('skill', ti.get('name', ''))
+        print(f'[skill done] {safe_backtick(skill_name)}')
 except Exception:
     pass
 " 2>/dev/null)
 
 if [ -n "$DONE_MSG" ]; then
-  /usr/bin/curl -s -o /dev/null --max-time 5 -X POST "$WEBHOOK_URL" \
-    -H "Content-Type: application/json" \
-    -d "{\"content\": $(echo "$DONE_MSG" | /usr/bin/jq -Rs .)}" &
+  if [ -z "$WEBHOOK_URL" ]; then
+    _log_error "PostToolUse DONE_MSG: WEBHOOK_URL is empty, cannot post DONE_MSG"
+  else
+    {
+      HTTP_CODE=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 5 -X POST "$WEBHOOK_URL" \
+        -H "Content-Type: application/json" \
+        -d "{\"content\": $(echo "$DONE_MSG" | /usr/bin/jq -Rs .)}")
+      if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ] 2>/dev/null; then
+        _log_error "PostToolUse DONE_MSG: webhook POST failed with HTTP $HTTP_CODE (url=${WEBHOOK_URL:0:60}...)"
+      fi
+    } &
+  fi
 fi
 
 exit 0

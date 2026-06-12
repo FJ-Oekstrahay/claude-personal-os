@@ -1,7 +1,7 @@
 {
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
-    "DISCORD_LOG_CHANNEL_ID": "1499363606444114044"
+    "DISCORD_LOG_CHANNEL_ID": "<channel-id>"
   },
   "permissions": {
     "allow": [
@@ -72,6 +72,15 @@
             "command": "bash ~/.claude/hooks/discord-seed-chatid.sh"
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/resource-pressure.py --reset"
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -111,6 +120,15 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/discord-notify.sh"
+          }
+        ]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/resource-pressure.py"
           }
         ]
       }
@@ -169,5 +187,6 @@
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "teammateMode": "tmux",
-  "voiceEnabled": false
+  "voiceEnabled": false,
+  "model": "claude-fable-5[1m]"
 }
