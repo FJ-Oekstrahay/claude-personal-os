@@ -15,6 +15,28 @@ import {
 import { join } from "path";
 import { homedir } from "os";
 
+const THREAD_MAP_PATH = join(homedir(), ".claude/hooks/discord-thread-map.json");
+
+// --- Upsert thread map atomically ---
+function upsertThreadMap(parentId: string, userId: string, threadId: string): void {
+  try {
+    let map: Record<string, { thread: string; ts: number }> = {};
+    if (existsSync(THREAD_MAP_PATH)) {
+      try {
+        map = JSON.parse(readFileSync(THREAD_MAP_PATH, "utf8"));
+      } catch {
+        // corrupt or missing — start fresh
+      }
+    }
+    map[`${parentId}:${userId}`] = { thread: threadId, ts: Math.floor(Date.now() / 1000) };
+    const tmp = `${THREAD_MAP_PATH}.tmp`;
+    writeFileSync(tmp, JSON.stringify(map), { mode: 0o600 });
+    renameSync(tmp, THREAD_MAP_PATH);
+  } catch {
+    // best-effort; never crash the router over a map write
+  }
+}
+
 // --- Config paths ---
 const HOME = homedir();
 const ENV_PATH = join(HOME, ".claude/channels/discord/.env");
@@ -267,6 +289,16 @@ async function main(): Promise<void> {
 
       // Write inbox
       writeInbox(stateDirName, msg);
+
+      // Keep thread map fresh: whenever the actual message channel is a thread,
+      // immediately record parentId → userId → threadId so future hook lookups
+      // see the current thread and not a stale one.
+      if (msg.channel.isThread()) {
+        const parentId = msg.channel.parentId;
+        if (parentId) {
+          upsertThreadMap(parentId, msg.author.id, msg.channelId);
+        }
+      }
 
       // Ack reaction
       if (access.ackReaction && access.ackReaction.trim() !== "") {

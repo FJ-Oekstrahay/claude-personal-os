@@ -285,8 +285,35 @@ def resolve_thread_id(chat_id, message_id, user_id, bot_token, session_id):
         return api_thread, 'api_detection'
 
     # 3. Cross-session map (fallback when API yields nothing)
+    # Only trust a map entry if it is fresh (written within the last 30 minutes).
+    # Fix 1 in router.ts upserts this map on every inbound thread message, so a
+    # legitimate active thread will always have a recent ts.  An entry older than
+    # 1800 seconds means no message has arrived on that thread for 30 minutes —
+    # high risk of mis-routing into a stale (yesterday's) thread.
+    THREAD_MAP_FRESHNESS = 1800  # seconds
     if user_id:
-        mapped = get_mapped_thread(chat_id, user_id)
+        try:
+            import time
+            raw_mapping = {}
+            try:
+                raw_mapping = json.load(open(THREAD_MAP_PATH))
+            except Exception:
+                pass
+            raw_value = raw_mapping.get(f'{chat_id}:{user_id}', '')
+            if raw_value:
+                if isinstance(raw_value, dict):
+                    entry_ts = raw_value.get('ts', 0)
+                    if time.time() - entry_ts <= THREAD_MAP_FRESHNESS:
+                        mapped = raw_value.get('thread', '')
+                    else:
+                        mapped = ''  # stale — skip, do not return
+                else:
+                    # Old plain-string format has no timestamp — skip (cannot verify freshness)
+                    mapped = ''
+            else:
+                mapped = ''
+        except Exception:
+            mapped = ''
         if mapped:
             # Write to session cache so future messages this session skip steps 2+3
             try:
