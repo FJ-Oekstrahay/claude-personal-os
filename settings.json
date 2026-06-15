@@ -187,6 +187,5 @@
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "teammateMode": "tmux",
-  "voiceEnabled": false,
-  "model": "opus"
+  "voiceEnabled": false
 }
