@@ -438,7 +438,13 @@
 
     <h3>batchc: wave-sized parallel dispatch</h3>
     <p>The pattern: identify independent tasks, determine wave size based on context budget and rate-limit exposure, dispatch in parallel, merge before the next wave. The merge-before-parallelize constraint exists because downstream agents working on stale or contradictory intermediate state produce coherent-looking results that are wrong in subtle ways — the kind of wrong that's hard to catch in review because each piece looks locally correct.</p>
-    <p>With native parallel orchestration, the mechanism for running agents in parallel is richer. The discipline around when to parallelize, how many at once, and when to force a merge before continuing — that's still the judgment this skill encodes. Platform capability and operational discipline are not the same thing.</p>
+    <p>With native parallel orchestration, the mechanism for running agents in parallel is richer. The discipline around when to parallelize, how many at once, and when to force a merge before continuing — that's still the judgment this skill encodes. Platform capability and operational discipline are not the same thing. Two parts of it have since hardened past prose: wave sizing now reads live context-fill pressure and tool-call burst rate to size and pace itself, and the completion rule is hook-enforced — a batch that touched more than one file isn't done until a separate context runs <code>/verify</code> or <code>/code-review</code>, and a Stop hook blocks the session from ending if that pass was skipped. The protocol no longer depends on the model remembering to honor it.</p>
+
+    <h3>plan-session: plan first, dispatch never</h3>
+    <p>plan-session is batchc with the dispatch removed. It reads the latest handoff and open topics, produces a proposed wave plan — task decomposition, model routing, wave sizing — and then stops. Nothing runs until the plan is approved. batchc plans and dispatches in one motion, which is right for most work and wrong when the wave structure itself is worth agreeing on before any subagent spends tokens. This is the review checkpoint for those sessions, and it's a different posture from anything the platform offers by default: the platform makes dispatch easy, which is exactly why a deliberate stop-before-dispatch step has to be added on purpose.</p>
+
+    <h3>deep-research: a capped, verify-before-synthesis harness</h3>
+    <p>deep-research is a deterministic multi-agent harness run through Claude Code's Workflow tool — control flow is code, not model judgment. It decomposes a question into search angles, fans out parallel web searches, fetches and dedupes the top sources, then adversarially verifies each extracted claim with a multi-vote panel before synthesizing a cited report. Two design choices carry it. The first is the cap: a naive fan-out spawns enough agents to hit subscription rate limits mid-run, so the agent count is bounded by two tunable constants, and depth comes from running it twice on narrower sub-questions rather than raising the cap. The second is adversarial verification before synthesis — a claim that no panel can defend doesn't make it into the report. Native parallel dispatch provides the fan-out; it doesn't provide the rate-limit discipline or the verification gate.</p>
 
     <h3>mmguns: research-to-integration loop</h3>
     <p>Four-angle parallel web search (SOTA, production libraries, comparison discussions, process patterns), then project inventory, then gap analysis, then a structured brief with exactly three ranked items and a dispatch action. The loop closes — it doesn't stop at a report. Quick wins ask for confirm then implement; medium lifts generate a spec stub; non-starters get ruled out with reasoning.</p>
@@ -462,7 +468,7 @@
 
     <p>Native auto-memory (Feb 2026) has Claude Code write observations from sessions automatically. The model notices something — a decision made, a preference expressed, a pattern observed — and records it. This is genuinely useful for session continuity.</p>
 
-    <p>The playbook library here is ~359 files. Examples of what's in them:</p>
+    <p>The playbook library here is ~370 files. Examples of what's in them:</p>
 
     <ul>
       <li><strong>Hook exit codes:</strong> <code>exit 2</code> blocks a tool call. <code>exit 1</code> does not — it's treated as a non-blocking failure. If you're enforcing a constraint, it must be <code>exit 2</code>. This was discovered in production when a hook that was supposed to block writes wasn't blocking them. It does not appear in the Claude Code documentation with that level of clarity. It's not something the model would observe from a session — you have to notice the constraint wasn't being enforced and trace it back to the exit code.</li>
@@ -475,8 +481,8 @@
 
     <p>Auto-memory records what Claude observes during a session. It doesn't record the diagnosis from a debugging session that happened six weeks ago, because that session ended and the observations weren't framed as transferable lessons at the time. The playbook library exists because someone decided these things were worth preserving in a form that could be retrieved before the problem recurs. That decision can't be automated away — it's editorial.</p>
 
-    <p>The memsearch plugin (v0.4.4) provides semantic search over both the playbook library and session transcripts. It uses a local ONNX bge-m3 embedding model — no external API call, embeddings run fully on-device — backed by a Milvus-lite 2.5 vector store at <code>~/.memsearch/milvus.db</code>. A stop hook auto-captures session transcripts for indexing after each session ends. At session start, relevant playbooks surface as hints based on what the session is working on. Auto-memory and memsearch are both operating, serving different retrieval paths. Neither replaces the other.</p>
-    <p>A separate component serves the playbook library directly: a custom local stdio MCP server (<code>mcp-memory-server.py</code>, ~160 lines) that exposes the full playbook library as a queryable wiki via three tools: <code>list_memory()</code> returns a compact index (~500 tokens); <code>get_memory(name)</code> returns a full file; <code>search_memory(query)</code> runs keyword grep over ~240 markdown files in ~50ms. It's not part of Claude Code — it's an MCP server registered in the session config. For playbook retrieval specifically, it's preferred over memsearch: playbooks are structured domain knowledge where keyword precision beats semantic similarity. The two tools operate on the same library through different access paths for different query types.</p>
+    <p>The memsearch plugin (v0.4.2) provides semantic search over both the playbook library and session transcripts. It uses a local ONNX bge-m3 embedding model — no external API call, embeddings run fully on-device — backed by a Milvus-lite 2.5 vector store at <code>~/.memsearch/milvus.db</code>. A stop hook auto-captures session transcripts for indexing after each session ends. At session start, relevant playbooks surface as hints based on what the session is working on. Auto-memory and memsearch are both operating, serving different retrieval paths. Neither replaces the other.</p>
+    <p>A separate component serves the playbook library directly: a custom local stdio MCP server (<code>mcp-memory-server.py</code>, ~160 lines) that exposes the full playbook library as a queryable wiki via three tools: <code>list_memory()</code> returns a compact index (~500 tokens); <code>get_memory(name)</code> returns a full file; <code>search_memory(query)</code> runs keyword grep over ~370 markdown files in ~50ms. It's not part of Claude Code — it's an MCP server registered in the session config. For playbook retrieval specifically, it's preferred over memsearch: playbooks are structured domain knowledge where keyword precision beats semantic similarity. The two tools operate on the same library through different access paths for different query types.</p>
     <p>Separately, OpenClaw agents have their own vector memory via the memory-lancedb plugin, which uses SQLite internally despite the name. That's per-agent memory within the multi-agent system — a different scope and purpose from memsearch's cross-session semantic search for Claude Code sessions.</p>
   </section>
 
@@ -485,7 +491,7 @@
     <span class="section-tag">05</span>
     <h2>Hooks: Operational Constraints, Not Convenience</h2>
 
-    <p>The two production hooks in this config exist for specific operational reasons. Neither is a workaround for a missing platform feature that Anthropic has since shipped.</p>
+    <p>Hooks here do two jobs. The first pair — protection and observability — exists for specific operational reasons, and neither is a workaround for a platform feature Anthropic has since shipped. A second tier, added more recently, enforces the operating protocols themselves: it turns rules that used to live in prose into things the platform makes hold whether or not the model cooperates.</p>
 
     <h3>protect-sensitive-files.sh</h3>
     <p>This hook fires on every Write, Edit, and Bash tool call. It inspects the tool input, extracts file paths, and blocks any write to a set of protected paths — live config files containing tokens, credential files, service plists. Exit code semantics are hardened: <code>exit 2</code> blocks and surfaces the reason to the model; anything else is non-blocking. The Bash matcher inspects the command string because a matcher of <code>Write|Edit</code> misses <code>cp</code>, <code>tee</code>, and redirect-based writes.</p>
@@ -497,6 +503,12 @@
     <p>Per-session channel routing: sessions started from different project directories bind to different Discord channels. Each project's output flows to its own channel rather than a shared log.</p>
     <p>Why this exists: the primary interface for these sessions is Discord, not the terminal. Sessions run on a Mac Mini; monitoring and approval happen from a phone. The hook makes every session fully observable remotely — narrative text before each tool call, tool summaries after, subagent dispatches with full prompts, approval @mentions — without a terminal open.</p>
     <p>Background agents (<code>/bg</code>) provide remote execution but deliver results when the session finishes, not a real-time stream of what's happening before each tool call. The observability model is different, and pre-call visibility — seeing what the model intends to do before it does it — is the part that matters operationally.</p>
+
+    <h3>Protocol-enforcement hooks</h3>
+    <p>A protocol written into a command file is a request. The model can drop it under context pressure, and usually does at exactly the moment it matters most. The more recent hook work moves the load-bearing rules out of prose and into hooks so they hold regardless of what the model remembers. This is a different category from the two hooks above — not protection, not observability, but enforcement of the operating discipline itself.</p>
+    <p><strong>batchc-stop-gate.py</strong> is a Stop hook. When a turn ends, it scans the transcript; if a multi-file batch shipped without an independent verifier pass (<code>/verify</code> or <code>/code-review</code>) or a written handoff, it exits <code>2</code> to block the stop and lists the missing steps. It fires once per session, so it nudges rather than traps. The rule it enforces — the agent that wrote a change does not get to declare it correct — is exactly the kind of constraint a prompt can state but can't guarantee.</p>
+    <p><strong>resource-pressure.py</strong> and <strong>wave-counter.py</strong> close the loop on batch pacing. One tracks context-window fill, the other tracks tool-call burst rate. The batch protocol reads both before each wave: it shrinks wave size as the window fills and pauses dispatch when the burst rate signals an impending rate-limit throttle. It adapts before the limit is hit, not after. <strong>batchc-nudge.py</strong> flags prompts that look like multi-step work and suggests the protocol; <strong>audit-trail.py</strong> writes one forensic record per tool call to a daily log, independent of the Discord stream — a durable record of what each session actually did.</p>
+    <p>None of this is covered by anything Anthropic shipped. Native orchestration makes parallel work possible; it doesn't enforce that a multi-file change gets reviewed by a second context before it's called done, or that a batch backs off before it trips a rate limit. That enforcement is the bespoke layer, and it's the part that holds up under pressure precisely because it doesn't depend on the model choosing to honor it.</p>
   </section>
 
   <div class="section-rule"></div>
@@ -587,12 +599,27 @@
           <td>Native orchestration provides the mechanism. Wave discipline and merge-before-parallelize are still judgment calls.</td>
         </tr>
         <tr>
+          <td>Protocol-enforcement hooks (stop-gate, pressure/burst pacing, audit)</td>
+          <td><span class="bespoke-tag">bespoke</span></td>
+          <td>Stop hook blocks an unverified multi-file batch or missing handoff; wave pacing reads context-fill and burst rate. Native orchestration doesn't enforce review or back-off.</td>
+        </tr>
+        <tr>
+          <td>plan-session (plan-before-dispatch checkpoint)</td>
+          <td><span class="bespoke-tag">bespoke</span></td>
+          <td>Proposes a wave plan and stops for approval before any subagent spends tokens.</td>
+        </tr>
+        <tr>
+          <td>deep-research (capped, verify-before-synthesis)</td>
+          <td><span class="bespoke-tag">bespoke</span></td>
+          <td>Workflow-tool harness: agent count bounded against rate limits, claims adversarially verified before synthesis.</td>
+        </tr>
+        <tr>
           <td>mmguns (research-to-action loop)</td>
           <td><span class="bespoke-tag">bespoke</span></td>
           <td>No native equivalent for a structured research workflow that always terminates in an implementation action.</td>
         </tr>
         <tr>
-          <td>Playbook library (~359 entries)</td>
+          <td>Playbook library (~370 entries)</td>
           <td><span class="bespoke-tag">bespoke</span></td>
           <td>Curated lessons from production failures. Not producible by auto-memory.</td>
         </tr>
