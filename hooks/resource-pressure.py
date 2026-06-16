@@ -14,13 +14,14 @@ Modes:
 State file: ~/.claude/hooks/state/session-pressure.json
 
 Schema:
-  session_id        — matches current Claude Code session
-  tool_calls        — running total (fallback path; Agent/Task count double)
-  fill_pct          — float 0–1, context window fill from token usage (primary path)
-  jsonl_path        — cached path to session JSONL, or null
-  pressure          — "normal" | "elevated" | "high"
-  checkpoint_due    — true when fill_pct >= 0.65 (or tool_calls >= 40 in fallback)
-  last_updated      — ISO timestamp
+  session_id              — matches current Claude Code session
+  tool_calls              — running total (fallback path; Agent/Task count double)
+  cumulative_tool_calls   — running total of ALL PostToolUse calls (both paths); used by stop gate
+  fill_pct                — float 0–1, context window fill from token usage (primary path)
+  jsonl_path              — cached path to session JSONL, or null
+  pressure                — "normal" | "elevated" | "high"
+  checkpoint_due          — true when fill_pct >= 0.65 (or tool_calls >= 40 in fallback)
+  last_updated            — ISO timestamp
 """
 
 import glob
@@ -28,10 +29,12 @@ import json
 import os
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 
 STATE_DIR = os.path.expanduser("~/.claude/hooks/state")
 STATE_FILE = os.path.join(STATE_DIR, "session-pressure.json")
+WAVE_LOG = os.path.join(STATE_DIR, "wave-log.jsonl")
 PROJECTS_DIR = os.path.expanduser("~/.claude/projects")
 
 CONTEXT_WINDOW = 200_000
@@ -86,6 +89,29 @@ def find_jsonl(session_id: str) -> str | None:
     return None
 
 
+def read_wave_density() -> int:
+    """Count tool calls in wave-log.jsonl within the last 60 seconds."""
+    cutoff = time.time() - 60
+    count = 0
+    try:
+        with open(WAVE_LOG) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                    if entry.get("ts", 0) >= cutoff:
+                        count += 1
+                except Exception:
+                    pass
+    except FileNotFoundError:
+        pass
+    except Exception:
+        pass
+    return count
+
+
 def read_fill_pct(jsonl_path: str) -> float | None:
     """Scan JSONL for last assistant message with usage data; return fill fraction."""
     try:
@@ -128,6 +154,7 @@ def reset_mode():
     state = {
         "session_id": session_id,
         "tool_calls": 0,
+        "cumulative_tool_calls": 0,
         "fill_pct": 0.0,
         "jsonl_path": None,
         "pressure": "normal",
@@ -153,10 +180,14 @@ def post_tool_mode():
         state = {
             "session_id": session_id,
             "tool_calls": 0,
+            "cumulative_tool_calls": 0,
             "fill_pct": 0.0,
             "jsonl_path": None,
             "checkpoint_due": False,
         }
+
+    # --- Always increment cumulative counter on every PostToolUse call ---
+    state["cumulative_tool_calls"] = state.get("cumulative_tool_calls", 0) + 1
 
     # --- Always update: tool_calls, fill_pct, jsonl_path ---
     jsonl_path = state.get("jsonl_path")
@@ -174,15 +205,18 @@ def post_tool_mode():
         increment = 2 if tool_name in HEAVY_TOOLS else 1
         state["tool_calls"] = state.get("tool_calls", 0) + increment
 
+    # --- Wave density: read from objective log (wave-counter.py writes it) ---
+    wave_density = read_wave_density()
+    state["wave_density"] = wave_density
+
     # --- Respect manual_override: skip pressure/checkpoint_due if set ---
     if not state.get("manual_override"):
         if fill_pct is not None:
             state["pressure"] = pressure_level_from_fill(fill_pct)
             state["checkpoint_due"] = fill_pct >= 0.65
         else:
-            tc = state["tool_calls"]
-            state["pressure"] = pressure_level_from_calls(tc)
-            state["checkpoint_due"] = tc >= 40
+            state["pressure"] = pressure_level_from_calls(wave_density)
+            state["checkpoint_due"] = wave_density >= 40
 
     save_state(state)
 

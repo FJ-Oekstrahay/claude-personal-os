@@ -32,18 +32,19 @@ Smartbatch execution protocol. Read the full prompt before touching anything, th
 1c. **Wave gating and pacing**
    - Do not start the next wave until the current wave has produced useful results
    - For tool-heavy waves: enforce a turn boundary before dispatching the next wave — do not fire the next wave in the same turn as receiving results
-   - Urgency to immediately fire the next wave is a throttle-risk signal; treat it as a forced pause, not a reason to accelerate
+   - Check `wave_density` from `~/.claude/hooks/state/session-pressure.json` before dispatching: if `wave_density` ≥ 30, treat rapid-fire urge as a confirmed throttle signal — pause, do not accelerate. If the field is missing, treat as 0 (normal).
    - Lightweight waves (inline answers, single fast lookups) do not require a pacing pause
 
 1d. **Throttle-risk heuristic**
-   - Declare **HIGH throttle risk** if any of the following apply:
-     - Two or more consecutive waves were tool-heavy
-     - Prior wave involved large context or many tool calls
-     - Multiple waves dispatched in quick succession (pattern of rapid firing)
-   - Under HIGH throttle risk: cap wave at 1–2 tasks; enforce turn boundary between waves; do not skip this check
+   - Read `wave_density` from the state file (tool calls in the last 60 seconds, written by `wave-counter.py`):
+     - **wave_density < 30** — normal; no special constraint
+     - **wave_density 30–59** — elevated burst; reduce wave to 1–2 tasks, enforce turn boundary
+     - **wave_density ≥ 60** — HIGH; cap wave at 1 task, enforce turn boundary, do not skip this check
+   - If state file is missing or unreadable, fall back to the subjective heuristics below as a conservative default:
+     - Two or more consecutive tool-heavy waves, OR prior wave involved large context, OR rapid firing pattern
 
 1e. **Hard stop condition**
-   - If 3 or more consecutive tool-heavy waves have executed, OR throttle risk has been HIGH for 2+ consecutive waves:
+   - If `wave_density` ≥ 60 for two consecutive waves, OR 3 or more consecutive tool-heavy waves have executed:
      - Stop. State what was completed and what remains.
      - Ask the user whether to continue before dispatching another wave.
    - Do not continue autonomously past this checkpoint.
@@ -138,6 +139,14 @@ Smartbatch execution protocol. Read the full prompt before touching anything, th
 11. **Define completion**
     - A task is "done" only when all dependencies are resolved and outputs are produced
     - Do not mark dependent tasks as done prematurely
+    - **Independent verifier gate (generator→critic):** When a task touched more than one file, it is NOT done until a separate agent context has reviewed it. The agent that wrote the code does not verify its own work.
+      - **Feature/behavior changes** → run `/verify` (behavioral, drives the app)
+      - **Structural/spec changes** → run `/code-review` (diff-level analysis)
+      - Run the verifier in a fresh agent context — never in the same Cob instance that did the writing.
+      - Token tradeoff: this adds ~1 agent per multi-file task. That cost is load-bearing; absorb it.
+      - Skip for single-file Haiku-routed mechanical edits (per §7b): the change is immediately visible on inspection and the gate adds no value there.
+      - **This gate is hook-enforced.** `batchc-stop-gate.py` scans the session transcript at Stop time. If it finds >1 distinct file written/edited with no subsequent `/verify` or `/code-review` call, it blocks the stop and appends a verifier reminder to the §12 checklist message. The block fires at most once per session (one-shot marker).
+    - **Threshold note for the user:** The ">1 file" line will underfire as tasks grow in scope. For anything touching live config or shipped code, consider tightening to ">0 files" — every change to production surfaces deserves a second context regardless of file count.
 
 12. **Post-batch completion checklist**
 After all work items are committed and done:

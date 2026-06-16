@@ -10,6 +10,10 @@ Claude Code hooks are shell scripts that run at specific points in the execution
 | `resource-pressure.py` | PostToolUse + SessionStart | Tracks context token fill pressure per session. Primary path reads token usage from the session JSONL and computes fill % against the 200k-token context window. Fallback counts tool calls. Writes `session-pressure.json` with fields: `pressure` (normal/elevated/high), `fill_pct`, `checkpoint_due`. Respects `manual_override` flag set by `/pressure` command. | Yes |
 | `infra-health-check.sh` | SessionStart | Checks memsearch/Milvus health and index age. Always exits 0 — never blocks a session. Posts a Discord alert to the log channel if checks fail. | Partial (requires Discord bot token in `discord-webhook.conf`) |
 | `discord-seed-chatid.sh` | SessionStart | Pre-seeds `state/<session_id>.chatid` from the `DISCORD_CHAT_ID` project env var at session start. Eliminates log routing failures on the first tool call of a session (before the first Discord message arrives). No-ops if `DISCORD_CHAT_ID` is unset or `.chatid` already exists. | Yes |
+| `batchc-nudge.py` | UserPromptSubmit | Scores the incoming prompt for multi-step-work signals (length, imperative verbs, list structure, keywords) and prints a suggestion to run the `batchc` protocol when it looks like a batch. Never blocks. | Yes (protocol-agnostic; references `batchc`) |
+| `wave-counter.py` | PostToolUse | Appends each tool call to a rolling 60-second log so `resource-pressure.py` can compute `wave_density` — the tool-call burst rate used as a throttle-risk signal during batch dispatch. | Yes |
+| `audit-trail.py` | PostToolUse | Appends one JSONL record per tool call to a daily audit log (`state/audit-<date>.jsonl`) — a forensic trail of every tool the session invoked. Never blocks. | Yes |
+| `batchc-stop-gate.py` | Stop | Enforces the batch protocol's completion rules. Scans the session transcript at stop time; if a substantial batch edited more than one file with no subsequent `/verify` or `/code-review`, or finished without a written handoff, it blocks the stop (exit 2) and injects the missing-step checklist to stderr. Fires at most once per session. | Yes (references `batchc` protocol) |
 
 **`discord-stop-check.py`** is a helper script called by `discord-notify.sh` for the Stop event — not a hook itself. Handles two jobs: (1) flush assistant text produced after the last tool call (text-extractor only fires on tool events, so final-turn text is otherwise missed); (2) safety-net post if no Discord reply tool was used during the turn. Reads `DISCORD_BOT_TOKEN` from `discord-webhook.conf`.
 
@@ -59,6 +63,28 @@ Runs at session start to verify that background infrastructure (memsearch, Milvu
 ## discord-seed-chatid.sh
 
 Solves an edge case in per-channel log routing: if a session is opened from a Discord channel (with `DISCORD_CHAT_ID` set in the project env), but the first thing Claude does is a tool call before any Discord message arrives, the `.chatid` file doesn't exist yet and routing falls back to the default `LOGS_WEBHOOK_URL`. This hook writes the file at session start so the first tool call routes correctly. Guards: only writes if `DISCORD_CHAT_ID` is set, only writes if the file doesn't already exist (the `UserPromptSubmit` hook owns runtime updates).
+
+---
+
+## Protocol enforcement and telemetry
+
+These hooks exist because a protocol written into a command file is a request, not a guarantee — the model can forget it under context pressure. Moving the enforcement into hooks makes the constraint hold regardless of what the model remembers.
+
+## batchc-stop-gate.py
+
+A `Stop` hook that gates session completion on the batch protocol's own rules. When a turn ends, it scans the session transcript for the work that was done. If a substantial batch edited **more than one file** with no subsequent `/verify` or `/code-review` call (the independent generator→critic gate), or finished without a written handoff, it exits 2 to block the stop and writes the missing-step checklist to stderr so the model sees exactly what's outstanding. A one-shot marker ensures it fires at most once per session, so it nudges rather than traps. This is the enforcement backstop for the rule that the agent which wrote the code does not get to be the one that declares it correct.
+
+## wave-counter.py + resource-pressure.py
+
+Together these turn batch dispatch into a closed loop. `resource-pressure.py` reads token usage from the session JSONL and computes context fill against the 200k window (`normal` / `elevated` / `high`); `wave-counter.py` logs every tool call to a rolling 60-second window from which `wave_density` (burst rate) is derived. The batch protocol reads both before each wave: it shrinks wave size as the context fills and pauses dispatch when the burst rate signals an impending rate-limit throttle — adapting before the limit is hit, not after.
+
+## batchc-nudge.py
+
+A `UserPromptSubmit` hook that scores the incoming prompt for multi-step-work signals — length, imperative verbs, list structure, batch keywords — and suggests running the batch protocol when the prompt looks like one. It only prints a suggestion; it never blocks or rewrites the prompt.
+
+## audit-trail.py
+
+A `PostToolUse` hook that appends one JSONL record per tool call to a daily audit log. Cheap, non-blocking, and independent of the Discord stream — a durable forensic trail of what every session actually did.
 
 ---
 

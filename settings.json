@@ -111,6 +111,14 @@
             "command": "python3 ~/.claude/hooks/discord-prompt-submit.py"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/batchc-nudge.py"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -128,7 +136,25 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python3 ~/.claude/hooks/wave-counter.py"
+          }
+        ]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
             "command": "python3 ~/.claude/hooks/resource-pressure.py"
+          }
+        ]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/audit-trail.py"
           }
         ]
       }
@@ -139,6 +165,10 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/discord-notify.sh"
+          },
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/batchc-stop-gate.py"
           }
         ]
       }
@@ -187,5 +217,6 @@
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "teammateMode": "tmux",
-  "voiceEnabled": false
+  "voiceEnabled": false,
+  "model": "opus"
 }

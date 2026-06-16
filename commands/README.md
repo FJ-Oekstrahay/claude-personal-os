@@ -12,6 +12,7 @@ Anthropic added `/bg` (cloud background sessions) and parallel multi-agent orche
 | `mmguns` | Research-to-integration loop — find SOTA for a capability area, gap-analyze against current project, produce ranked 3-item brief, then dispatch | Yes |
 | `new-discord-session` | Bind a Claude Code project directory to a Discord channel — adds the channel to `access.json` and sets `DISCORD_STATE_DIR` in project settings | No (requires OpenClaw Discord bot) |
 | `pdf` | Anything involving PDF files — read, extract, merge, split, rotate, fill forms, create, encrypt, OCR | Yes |
+| `plan-session` | Propose a `batchc` wave plan for the session — task decomposition, model routing, wave sizing — and stop for approval before dispatching anything | Yes |
 | `pressure` | Manually set the session context pressure level (`normal`, `elevated`, `high`) — overrides the automatic PostToolUse tracking for the rest of the session | Yes |
 | `review-sequence` | Run one or more adversarial reviewer roles (Critic, Gadfly, Architect, CTO) in the correct order for the work at hand | Yes |
 | `session-handoff` | Write a structured handoff file summarizing what was done, what's pending, and lessons to capture | Partial (the Seymour-spawn step requires OpenClaw; rest is portable) |
@@ -27,6 +28,10 @@ A full dispatch protocol, not just a task grouper. When given a list of work ite
 **Throttle-risk tracking** — after two consecutive heavy waves (3 tasks each), batchc caps the next wave at 1–2 tasks and enforces a turn boundary before continuing. No API signal triggers this — it's a conservative heuristic to avoid hitting rate limits mid-batch when a long run is underway.
 
 **Merge-before-parallelize** — before dispatching 3+ tasks, batchc checks whether any items target the same file or resource. Items that do are merged into a single task before dispatch. Two simultaneous writes to the same file are never issued as separate wave slots — they produce conflicts or last-write-wins clobbers.
+
+**Verifier gate (generator→critic)** — a task that touched more than one file isn't done until a *separate* agent context has reviewed it: `/verify` for behavioral changes, `/code-review` for structural ones. The agent that wrote the code never signs off on its own work. This is backed by a `Stop` hook (`batchc-stop-gate.py`) that blocks the session from ending if the gate was skipped — the protocol holds even when the model forgets it.
+
+**Pressure-aware wave sizing** — batchc reads the live context-fill pressure (`resource-pressure.py`) before each wave and shrinks wave size as the window fills: capped at 2 tasks when `elevated`, 1 when `high`. Combined with `wave_density` throttling, dispatch adapts to both context budget and rate-limit risk in real time.
 
 **Model routing** — Haiku for fully enumerated specs (exact field, exact value, no inference needed, change is localized, wrong output is immediately visible on inspection). Sonnet for anything requiring judgment, cross-file consistency, ambiguous scope, or output that feeds downstream reasoning. The distinction is consequential: Haiku on a judgment task produces plausible but wrong output that passes casual review.
 
@@ -74,6 +79,12 @@ Binds a Claude Code project directory to a Discord channel. It adds the channel 
 Also writes `DISCORD_CHAT_ID` to the project env so the `discord-notify` hook can identify which channel a session is talking in — useful when the hook posts activity to a centralized log channel.
 
 Included here as an example of a project-binding workflow pattern, even though the infrastructure it targets is OpenClaw-specific.
+
+## plan-session
+
+Produces a proposed `batchc` wave plan for the current session and then **stops** — it dispatches nothing. It reads the most recent handoff and any open-topics/board files for context, decomposes the work into waves, assigns each task a model (Haiku vs. Sonnet per the `batchc` routing rules), and presents the plan for approval.
+
+The point is to separate planning from execution. `batchc` will plan and dispatch in one motion; `plan-session` forces a review checkpoint first, for sessions where the wave structure is worth agreeing on before any subagent spends tokens.
 
 ## pressure
 
