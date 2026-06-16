@@ -609,7 +609,8 @@
         <p class="lede">Hooks, memory, Discord routing, and the operational knowledge that accumulates from running real sessions over time.</p>
 
         <div class="hero-badges">
-          <span class="badge"><span class="dot"></span>hooks: PreToolUse · PostToolUse · Stop · PostCompact</span>
+          <span class="badge"><span class="dot"></span>hooks: 6 lifecycle points</span>
+          <span class="badge"><span class="dot"></span>protocol-enforcing</span>
           <span class="badge"><span class="dot"></span>memory: 3-layer</span>
           <span class="badge"><span class="dot"></span>agents: 8 named types</span>
           <span class="badge"><span class="dot"></span>Discord-native</span>
@@ -643,7 +644,7 @@ flowchart LR
     <span class="section-tag">01</span>
     <h2>What This Is</h2>
     <p>A behavioral and operational configuration layer for Claude Code: the rules, automation, and connective tissue that run under every session. Not a framework, not a product — a configuration system where the interesting parts are the constraints, the failure history, and the accumulated operational knowledge.</p>
-    <p>What makes this config worth looking at: it's the result of real use over time, not a designed showcase. The hook errata section exists because those things broke in production. The playbook library (~359 entries) exists because the same problems kept coming back.</p>
+    <p>What makes this config worth looking at: it's the result of real use over time, not a designed showcase. The hook errata section exists because those things broke in production. The playbook library (~370 entries) exists because the same problems kept coming back.</p>
     <p>Anthropic has shipped a lot into Claude Code through 2026: auto-memory that writes session observations, SKILL.md auto-loading (already the format used here), modular <code>.claude/rules/</code> files, background agents via <code>/bg</code>, and native parallel multi-agent orchestration. Several things this config built independently are now native. That's accurate and worth saying. The things that remain bespoke — the cognitive patterns inside the skills, the curated playbook library, the hooks encoding operational constraints, the Discord streaming — aren't replaced by those additions, because they were never just mechanisms.</p>
     <p>The system started with a companion multi-agent platform (OpenClaw) handling autonomous background tasks — named agents running on different models, Discord-connected, scheduled. That layer is still running but largely idle for now. Claude Code's built-in capabilities — hooks, MCP, native multi-agent dispatch — have grown to cover most of what I needed from it, and cron jobs handle the rest. The story of how that happened is in the billing section.</p>
   </section>
@@ -654,17 +655,19 @@ flowchart LR
     <h2>Architecture</h2>
 
     <h3>Hook Lifecycle</h3>
-    <p>Claude Code exposes hook points that fire shell scripts with structured JSON on stdin. This config uses four:</p>
+    <p>Claude Code exposes hook points that fire shell scripts with structured JSON on stdin. This config wires six:</p>
 
     <table>
       <thead>
         <tr><th>Hook</th><th>When it fires</th><th>What this config uses it for</th></tr>
       </thead>
       <tbody>
-        <tr><td><code>PreToolUse</code></td><td>Before any tool call</td><td>(1) Block writes to protected paths; (2) flush narrative text to Discord before the tool runs</td></tr>
-        <tr><td><code>PostToolUse</code></td><td>After any tool call</td><td>Post per-tool summary line to Discord log channel</td></tr>
-        <tr><td><code>Stop</code></td><td>When a response ends</td><td>Safety net: check if a Discord message arrived without a reply</td></tr>
-        <tr><td><code>PostCompact</code></td><td>After context compression</td><td>Re-inject critical context that would otherwise be lost</td></tr>
+        <tr><td><code>SessionStart</code></td><td>At session start</td><td>Reset context-pressure tracking; infra/memsearch health check; seed Discord log routing</td></tr>
+        <tr><td><code>UserPromptSubmit</code></td><td>When a prompt is submitted</td><td>Flag Discord-origin messages for reply; nudge toward the batch protocol on multi-step prompts</td></tr>
+        <tr><td><code>PreToolUse</code></td><td>Before any tool call</td><td>(1) Block writes to protected paths (<code>exit 2</code>); (2) flush narrative text to Discord before the tool runs</td></tr>
+        <tr><td><code>PostToolUse</code></td><td>After any tool call</td><td>Discord tool-summary line; context-fill and burst-rate telemetry; per-call audit log</td></tr>
+        <tr><td><code>Stop</code></td><td>When a response ends</td><td>Discord turn-end safety net; verifier/handoff gate that blocks an incomplete batch from ending</td></tr>
+        <tr><td><code>Notification</code></td><td>When approval is needed</td><td>Desktop ping plus Discord @mention to the alerts channel</td></tr>
       </tbody>
     </table>
 
@@ -693,6 +696,15 @@ flowchart TD
     style N2 fill:#1a2a1a,stroke:#2a5a2a
     </div>
     <p class="diagram-caption">Hook lifecycle — approval alerts branch from PostToolUse, not a separate flow.</p>
+
+    <h3>Protocol Enforcement</h3>
+    <p>A protocol written into a command file is a request. The model can drop it under context pressure, and usually does at exactly the moment it matters most. The more recent work here moves the load-bearing rules out of prose and into hooks, so they hold regardless of what the model remembers.</p>
+    <ul>
+      <li><strong>Verifier gate</strong> — the rule is that the agent which wrote a multi-file change does not get to declare it correct; a separate context must run <code>/verify</code> or <code>/code-review</code> first. A <code>Stop</code> hook (<code>batchc-stop-gate.py</code>) scans the transcript when a turn ends and, if a substantial batch shipped without that independent pass — or without a written handoff — exits 2 to block the stop and lists the missing steps. It fires once per session, so it nudges rather than traps.</li>
+      <li><strong>Closed-loop batch pacing</strong> — <code>resource-pressure.py</code> tracks context-window fill and <code>wave-counter.py</code> tracks tool-call burst rate. The batch protocol reads both before each wave and shrinks wave size as the window fills and pauses dispatch when the burst rate signals an impending rate-limit throttle. It adapts before the limit is hit, not after.</li>
+      <li><strong>Forensic trail</strong> — <code>audit-trail.py</code> writes one record per tool call to a daily log, independent of the Discord stream — a durable record of what each session actually did.</li>
+    </ul>
+    <p>This is the throughline of the whole config: the interesting part isn't that Claude can run a protocol, it's that the protocol runs whether or not Claude cooperates.</p>
 
     <h3>MCP Integration</h3>
     <p>Claude Code supports MCP natively. This config runs:</p>
@@ -779,7 +791,7 @@ flowchart TD
           L2<strong>Playbooks</strong>
         </div>
         <div class="mem-layer-body">
-          <p>~150 entries indexed by keyword in <code>memory/00_index.md</code>. Each records what broke, why, and how to apply the lesson. Read on demand when the topic matches.</p>
+          <p>~370 entries indexed by keyword in <code>memory/00_index.md</code>. Each records what broke, why, and how to apply the lesson. Read on demand when the topic matches.</p>
         </div>
         <div class="mem-layer-trigger">
           <span class="trigger-pill">keyword match</span>
@@ -880,6 +892,15 @@ flowchart TD
     <p>The pattern: identify independent tasks, determine wave size based on context budget, dispatch in parallel, merge before the next wave. The "merge before parallelize" rule prevents downstream agents from working on stale or contradictory intermediate state.</p>
     <p>Wave sizing is explicit, not inferred. Three waves of three agents each is different from nine agents at once — both in rate limit exposure and in context coherence at merge.</p>
     <p>The command also enforces: don't dispatch a consumer before its dependency. If Agent B needs Agent A's output, they don't run in the same wave.</p>
+    <p>Two things have hardened since the first version. Wave sizing now reads live context-fill pressure — it caps at two tasks when the window is half full, one when it's three-quarters full — and reads tool-call burst rate to back off before a rate-limit throttle. And the completion rule is hook-enforced: a batch that touched more than one file isn't done until a separate context has run <code>/verify</code> or <code>/code-review</code>, and the <code>Stop</code> gate blocks the session from ending if that pass was skipped. The protocol no longer depends on the model remembering to honor it.</p>
+
+    <h3>plan-session</h3>
+    <p>Plan first, dispatch never — at least not yet. <code>plan-session</code> produces a proposed batch wave plan for the session (task decomposition, model routing, wave sizing) reading the latest handoff and open-topics for context, and then stops. Nothing runs until the plan is approved.</p>
+    <p>It exists because <code>batchc</code> plans and dispatches in one motion, which is right for most work and wrong when the wave structure itself is worth agreeing on before any subagent spends tokens. This is the review checkpoint for those sessions.</p>
+
+    <h3>deep-research</h3>
+    <p>A deterministic multi-agent research harness, run through Claude Code's Workflow tool — control flow is code, not model judgment. It decomposes a question into search angles, fans out parallel web searches, fetches and dedupes the top sources, then adversarially verifies each extracted claim with a multi-vote panel before synthesizing a cited report.</p>
+    <p>The non-obvious part is the cap. A naive fan-out spawns enough agents to hit subscription rate limits mid-run; this one bounds the agent count by two tunable constants and, when a question needs more depth, the answer is to run it twice on narrower sub-questions rather than raise the cap. Adversarial verification before synthesis is the quality lever — a claim that no panel can defend doesn't make it into the report.</p>
 
     <h3>mmguns</h3>
     <p>Research-to-integration loop. <code>/mmguns &lt;topic&gt;</code> finds the current best approaches for a capability area — tools, libraries, processes, and methodologies — compares them against what exists in the current project, and produces a ranked 3-item brief with a dispatch action. It is intended to be an extremely simple and efficient way to add newly available capabilities to the system. mmguns stands for Make More Good Use New Stuff.</p>
@@ -889,7 +910,7 @@ flowchart TD
 
     <h3>session-handoff</h3>
     <p>Structured resumption document, written at the end of a session.</p>
-    <p>Covers: what was accomplished, what's in progress, what's blocked, what the next session should start with. Stored in <code>workspace/HANDOFF.md</code>. The next session reads it, not the transcript.</p>
+    <p>Covers: what was accomplished, what's in progress, what's blocked, what the next session should start with. Written to a dated, named file (<code>HANDOFF-&lt;topic&gt;-&lt;date&gt;.md</code>) scoped to the working directory; the companion <code>load-handoff</code> command finds the most recent one and synthesizes it into a next-action brief. The next session reads that, not the transcript.</p>
     <p>A well-written one-page handoff is worth more for continuity than the raw conversation history. The transcript has everything but requires synthesis at read time. The handoff has the synthesis already done.</p>
   </section>
 
@@ -897,11 +918,11 @@ flowchart TD
   <section id="sync">
     <span class="section-tag">06</span>
     <h2>The Sync Pipeline</h2>
-    <p>The public repo is auto-synced from <code>~/.claude</code> on a nightly cron. The sync script (<code>sync-to-public.sh</code>) is in the repo.</p>
+    <p>The public repo is auto-synced from <code>~/.claude</code> on a nightly cron. The sync script (<code>sync-claude-to-public.sh</code>) is in the repo.</p>
     <p>Steps:</p>
     <ol>
       <li>Pull latest from remote</li>
-      <li>Wipe working directory (preserve <code>.git</code>)</li>
+      <li>Wipe working directory (preserve <code>.git</code> and <code>docs/</code>, so the landing page survives every sync)</li>
       <li><code>rsync</code> from <code>~/.claude</code>, excluding: sessions, memory, credentials, caches, agent data</li>
       <li>Redaction pass — personal identifiers and secret tokens replaced mechanically</li>
       <li>Copy selected playbooks from workspace memory library (explicit allowlist, no grep heuristics)</li>
