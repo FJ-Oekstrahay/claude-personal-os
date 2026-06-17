@@ -1,3 +1,4 @@
+If the user invokes as 'load-handoff latest' then just load the most recent HANDOFF file in the project directory (no need to show a list)
 Run: `ls -t "$(pwd)"/HANDOFF-*.md 2>/dev/null || ls -t ~/.openclaw/workspace/HANDOFF-*.md 2>/dev/null`
 
 This lists only top-level handoff files (not archived ones), sorted newest first.
