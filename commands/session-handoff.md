@@ -16,7 +16,7 @@ If the session was trivial (a quick question, a single file edit, a lookup), ski
 
 ---
 
-Pick a short name for this handoff yourself — derive it from the main topic of the session (e.g. "sales-automation", "infra-cleanup", "discord-router-fix"). Do not ask the user for the name. Then write the session handoff note to `$(pwd)/HANDOFF-{name}-{YYYY-MM-DD-HHMM}.md` where `{YYYY-MM-DD-HHMM}` is the current date and time (e.g. `HANDOFF-sales-automation-2026-03-19-1432.md`). This file is the canonical handoff between Claude Code sessions.
+Pick a short name for this handoff yourself — derive it from the main topic of the session (e.g. "sales-automation", "infra-cleanup", "discord-router-fix"). Do not ask the user for the name. Then write the session handoff note to `$(pwd)/handoffs/HANDOFF-{name}-{YYYY-MM-DD-HHMM}.md` where `{YYYY-MM-DD-HHMM}` is the current date and time (e.g. `HANDOFF-sales-automation-2026-03-19-1432.md`). Run `mkdir -p $(pwd)/handoffs` first if it doesn't exist. This file is the canonical handoff between Claude Code sessions.
 
 Structure it as follows:
 
@@ -50,7 +50,6 @@ Rules:
 - Keep it under ~60 lines. If it's longer, you're putting too much in the handoff instead of the board.
 - Use Obsidian wiki-links (`[[filename]]`) when referencing workspace .md files — playbooks, BOARD, AGENTS, GOVERNANCE, etc. Use the filename without extension and without path (e.g. `[[launchd_git_backup_cron]]` not the full path). This makes the handoff navigable in Obsidian.
 
-After writing the handoff, auto-archive old ones:
-- Run: `find ~/.openclaw/workspace -maxdepth 1 -name 'HANDOFF-*.md' -mtime +3 -exec mv {} ~/.openclaw/workspace/handoffs/archive/ \;`
-- mkdir -p the archive dir first if needed.
+After writing the handoff, auto-archive old ones from the project handoffs dir:
+- Run: `mkdir -p $(pwd)/handoffs/archive && find $(pwd)/handoffs -maxdepth 1 -name 'HANDOFF-*.md' -mtime +3 -exec mv {} $(pwd)/handoffs/archive/ \;`
 - Report how many were archived (if any). Don't ask for confirmation — this is routine cleanup.
