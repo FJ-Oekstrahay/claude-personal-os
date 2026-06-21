@@ -119,6 +119,14 @@
             "command": "python3 ~/.claude/hooks/batchc-nudge.py"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/discord-keyword-dispatch.py"
+          }
+        ]
       }
     ],
     "PostToolUse": [
