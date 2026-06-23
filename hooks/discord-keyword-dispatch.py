@@ -16,15 +16,38 @@ _CHANNEL_TAG_RE = re.compile(
     r'<channel[^>]+source="plugin:discord:discord"[^>]*>'
 )
 
-# Map keyword -> (local path relative to cwd, global path under ~/.claude)
+# Map keyword -> command file path (relative to .claude/ dir).
+# Includes both hyphenated and space-separated forms so dictation works naturally.
 KEYWORD_MAP = {
-    'batchc':           'commands/batchc.md',
-    'load-handoff':     'commands/load-handoff.md',
-    'memory-health':    'commands/memory-health.md',
-    'mmguns':           'commands/mmguns.md',
-    'session-handoff':  'commands/session-handoff.md',
-    'become-expert':    'commands/become-expert.md',
-    'discussion-starter': 'commands/discussion-starter.md',
+    'batchc':               'commands/batchc.md',
+    'batch c':              'commands/batchc.md',
+    'batch-c':              'commands/batchc.md',
+    'batch sea':            'commands/batchc.md',
+    'batch see':            'commands/batchc.md',
+    'batch si':             'commands/batchc.md',
+    'batchsy':              'commands/batchc.md',
+    'load-handoff':         'commands/load-handoff.md',
+    'load handoff':         'commands/load-handoff.md',
+    'memory-health':        'commands/memory-health.md',
+    'memory health':        'commands/memory-health.md',
+    'mmguns':               'commands/mmguns.md',
+    'mm guns':              'commands/mmguns.md',
+    'emm guns':             'commands/mmguns.md',
+    'em guns':              'commands/mmguns.md',
+    'session-handoff':      'commands/session-handoff.md',
+    'session handoff':      'commands/session-handoff.md',
+    'become-expert':        'commands/become-expert.md',
+    'become expert':        'commands/become-expert.md',
+    'discussion-starter':   'commands/discussion-starter.md',
+    'discussion starter':   'commands/discussion-starter.md',
+    'prompt-sweep':         'commands/prompt-sweep.md',
+    'prompt sweep':         'commands/prompt-sweep.md',
+    'prompt-swipe':         'commands/prompt-sweep.md',
+    'prompt swipe':         'commands/prompt-sweep.md',
+    'prong sweep':          'commands/prompt-sweep.md',
+    'prompt sleep':         'commands/prompt-sweep.md',
+    'from sweep':           'commands/prompt-sweep.md',
+    'prompt sweet':         'commands/prompt-sweep.md',
 }
 
 CLAUDE_DIR = os.path.expanduser('~/.claude')
@@ -59,13 +82,23 @@ def extract_body(prompt):
     return prompt.strip()
 
 
-def first_token(text):
-    """Return the first whitespace-delimited token, stripped of leading/trailing punctuation."""
-    parts = text.split()
-    if not parts:
-        return ''
-    token = parts[0]
-    return token.strip(string.punctuation).lower()
+def match_keyword(text):
+    """Try to match 2-word then 1-word prefix against KEYWORD_MAP.
+
+    Returns (matched_keyword, num_tokens_consumed) or (None, 0).
+    Tries longest match first so 'load handoff' beats 'load' if both existed.
+    """
+    parts = text.lower().split()
+    for n in (2, 1):
+        if len(parts) < n:
+            continue
+        candidate = ' '.join(parts[:n])
+        # Strip punctuation from single-token candidates only
+        if n == 1:
+            candidate = candidate.strip(string.punctuation)
+        if candidate in KEYWORD_MAP:
+            return candidate, n
+    return None, 0
 
 
 def main():
@@ -81,7 +114,7 @@ def main():
         sys.exit(0)
 
     body = extract_body(prompt)
-    keyword = first_token(body)
+    keyword, n_tokens = match_keyword(body)
 
     if not keyword or keyword not in KEYWORD_MAP:
         sys.exit(0)
@@ -90,9 +123,9 @@ def main():
     if not path:
         sys.exit(0)
 
-    # Everything after the first token is arguments
-    parts = body.split(None, 1)
-    args = parts[1].strip() if len(parts) > 1 else ''
+    # Everything after the matched keyword tokens is arguments
+    parts = body.split(None, n_tokens)
+    args = parts[n_tokens].strip() if len(parts) > n_tokens else ''
 
     additional_context = (
         f"The user typed '{keyword}' which maps to the custom command at '{path}'. "

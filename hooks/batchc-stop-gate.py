@@ -132,9 +132,7 @@ def main():
                         inp = b.get("input", {}) or {}
 
                         # Handoff detection
-                        if name == "Skill" and "session-handoff" in str(inp.get("skill", "")):
-                            handoff_written = True
-                        elif name in ("Write", "Edit") and "HANDOFF-" in str(inp.get("file_path", "")):
+                        if name in ("Write", "Edit") and "HANDOFF-" in str(inp.get("file_path", "")):
                             handoff_written = True
 
                         # Multi-file edit detection (Write/Edit by main session)

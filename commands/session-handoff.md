@@ -16,7 +16,9 @@ If the session was trivial (a quick question, a single file edit, a lookup), ski
 
 ---
 
-Pick a short name for this handoff yourself — derive it from the main topic of the session (e.g. "sales-automation", "infra-cleanup", "discord-router-fix"). Do not ask the user for the name. Then write the session handoff note to `$(pwd)/handoffs/HANDOFF-{name}-{YYYY-MM-DD-HHMM}.md` where `{YYYY-MM-DD-HHMM}` is the current date and time (e.g. `HANDOFF-sales-automation-2026-03-19-1432.md`). Run `mkdir -p $(pwd)/handoffs` first if it doesn't exist. This file is the canonical handoff between Claude Code sessions.
+Pick a short name for this handoff yourself — derive it from the main topic of the session (e.g. "sales-automation", "infra-cleanup", "discord-router-fix"). Do not ask the user for the name. Then write the session handoff note to `$(pwd)/handoffs/HANDOFF-{name}-{YYYY-MM-DD-HHMM}.md`. **You must not guess or infer the timestamp — run `date '+%Y-%m-%d-%H%M'` via Bash first and use the exact output in the filename** (e.g. if Bash returns `2026-06-22-1517`, the file is `HANDOFF-sales-automation-2026-06-22-1517.md`). Run `mkdir -p $(pwd)/handoffs` first if it doesn't exist. This file is the canonical handoff between Claude Code sessions.
+
+After writing the file, run `ls -la $(pwd)/handoffs/HANDOFF-{name}-{timestamp}.md` to confirm it exists on disk. If the file is not found, the handoff was NOT written — do not claim it was.
 
 Structure it as follows:
 
