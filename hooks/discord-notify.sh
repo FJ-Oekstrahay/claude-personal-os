@@ -14,6 +14,32 @@ _log_error() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] discord-notify: $1" >> "$ERROR_LOG" 2>/dev/null
 }
 
+# Retry/backoff wrapper for webhook (and bot-API) POSTs.
+# Always call backgrounded — `post_webhook "$url" "$payload" "Label" &` — so the
+# whole retry loop runs in a background subshell and never adds latency to Claude.
+#   $1=url  $2=json-payload  $3=label-for-errorlog  $4=optional extra header (e.g. Authorization)
+post_webhook() {
+  local url="$1" payload="$2" label="$3" auth_header="$4" attempt=0 code retry
+  while [ $attempt -lt 3 ]; do
+    if [ -n "$auth_header" ]; then
+      code=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 8 \
+        -X POST "$url" -H "Content-Type: application/json" -H "$auth_header" -d "$payload")
+    else
+      code=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 8 \
+        -X POST "$url" -H "Content-Type: application/json" -d "$payload")
+    fi
+    [ "$code" -ge 200 ] && [ "$code" -lt 300 ] 2>/dev/null && return 0
+    # 429: fixed wait + jitter so concurrent backgrounded retries don't re-fire in lockstep.
+    # 5xx/other: linear backoff. 4xx (non-429) won't succeed on retry but the bounded
+    # loop is cheap; we still log the final failure below.
+    if [ "$code" = "429" ]; then retry=$((2 + RANDOM % 2)); else retry=$((1 + attempt)); fi
+    sleep "$retry"
+    attempt=$((attempt + 1))
+  done
+  _log_error "$label: POST failed after retries HTTP $code (url=${url:0:60}...)"
+  return 1
+}
+
 if [ ! -f "$CONF" ] || [ ! -r "$CONF" ]; then
   _log_error "webhook conf missing or unreadable at $CONF"
   exit 0
@@ -25,15 +51,14 @@ if ! source "$CONF" 2>/dev/null; then
   exit 0
 fi
 
-resolve_log_webhook() {
+# Resolve the Discord chat id for a session, in priority order:
+# 1. routechatid — parent-resolved ID (set for thread sessions so they route to parent channel)
+# 2. chatid — raw Discord channel from the session
+# 3. DISCORD_CHAT_ID env var — per-project fallback
+# Echoed (not a global) so it works inside command substitution; callers use it both
+# to resolve the webhook and to label empty-resolution errors with the chat id.
+_resolve_chat_id() {
   local session_id="$1"
-  local routing_file="$HOME/.claude/hooks/discord-routing.json"
-  [ -f "$routing_file" ] || { echo ""; return; }
-
-  # Try routing IDs in priority order:
-  # 1. routechatid — parent-resolved ID (set for thread sessions so they route to parent channel)
-  # 2. chatid — raw Discord channel from the session
-  # 3. DISCORD_CHAT_ID env var — per-project fallback
   local state_base="$HOME/.claude/hooks/state/${session_id}"
   local chat_id=""
   for candidate_file in "${state_base}.routechatid" "${state_base}.chatid"; do
@@ -43,6 +68,16 @@ resolve_log_webhook() {
     fi
   done
   [ -z "$chat_id" ] && chat_id="${DISCORD_CHAT_ID:-}"
+  echo "$chat_id"
+}
+
+resolve_log_webhook() {
+  local session_id="$1"
+  local routing_file="$HOME/.claude/hooks/discord-routing.json"
+  [ -f "$routing_file" ] || { echo ""; return; }
+
+  local chat_id
+  chat_id=$(_resolve_chat_id "$session_id")
   [ -z "$chat_id" ] && { echo ""; return; }
 
   local var_name
@@ -57,7 +92,13 @@ except Exception:
 
   if [ -n "$var_name" ]; then
     local url="${!var_name}"
-    [ -n "$url" ] && echo "$url" && return
+    if [ -n "$url" ]; then
+      echo "$url"
+      return
+    fi
+    # routing.json maps this chat to a var, but the var is absent/empty in the conf.
+    # Name it explicitly so the config gap is fixable (vs the generic downstream message).
+    _log_error "missing conf var $var_name for chat $chat_id"
   fi
   echo ""
 }
@@ -121,16 +162,13 @@ except Exception:
       ACTIVE_LOG_WEBHOOK=$(resolve_log_webhook "$SESSION_ID")
     fi
     if [ -z "$ACTIVE_LOG_WEBHOOK" ]; then
-      _log_error "PreToolUse: ACTIVE_LOG_WEBHOOK is empty, cannot post PRE_MSG"
+      # Only an actionable gap if there's a real chat to route (see PostToolUse note);
+      # unbound terminal sessions have nowhere to post, so stay silent.
+      PRE_CHAT_ID=$(_resolve_chat_id "$SESSION_ID")
+      [ -n "$PRE_CHAT_ID" ] && _log_error "PreToolUse: ACTIVE_LOG_WEBHOOK is empty, cannot post PRE_MSG (session=$SESSION_ID chat=$PRE_CHAT_ID)"
     else
-      {
-        HTTP_CODE=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 5 -X POST "$ACTIVE_LOG_WEBHOOK" \
-          -H "Content-Type: application/json" \
-          -d "{\"content\": $(echo "$PRE_MSG" | /usr/bin/jq -Rs .)}")
-        if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ] 2>/dev/null; then
-          _log_error "PreToolUse: webhook POST failed with HTTP $HTTP_CODE (url=${ACTIVE_LOG_WEBHOOK:0:60}...)"
-        fi
-      } &
+      PRE_PAYLOAD="{\"content\": $(echo "$PRE_MSG" | /usr/bin/jq -Rs .)}"
+      post_webhook "$ACTIVE_LOG_WEBHOOK" "$PRE_PAYLOAD" "PreToolUse" &
     fi
   fi
 
@@ -312,16 +350,8 @@ for path in ['~/.claude/hooks/discord-webhook.conf', '~/.claude/channels/discord
       DIRECT_MSG=":bell: **Claude Code needs approval** — check terminal"
       DIRECT_PAYLOAD=$(echo "$DIRECT_MSG" | /usr/bin/jq -Rs '{"content": .}')
     fi
-    {
-      HTTP_CODE=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 5 \
-        -X POST "https://discord.com/api/v10/channels/$CHAT_ID/messages" \
-        -H "Authorization: Bot $BOT_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d "$DIRECT_PAYLOAD")
-      if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ] 2>/dev/null; then
-        _log_error "Notification: bot API POST failed with HTTP $HTTP_CODE (channel=$CHAT_ID)"
-      fi
-    } &
+    post_webhook "https://discord.com/api/v10/channels/$CHAT_ID/messages" \
+      "$DIRECT_PAYLOAD" "Notification bot-API (channel=$CHAT_ID)" "Authorization: Bot $BOT_TOKEN" &
   fi
 
   # Also post to log webhook and ALERTS webhook as secondary channels
@@ -329,26 +359,14 @@ for path in ['~/.claude/hooks/discord-webhook.conf', '~/.claude/channels/discord
   [ -z "$ACTIVE_LOG_WEBHOOK" ] && ACTIVE_LOG_WEBHOOK="$LOGS_WEBHOOK_URL"
   if [ -n "$ACTIVE_LOG_WEBHOOK" ]; then
     LOG_MSG=":bell: **Needs input** — session \`${SESSION_SHORT}\` in \`${CWD_SHORT}\`"
-    {
-      HTTP_CODE=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 5 -X POST "$ACTIVE_LOG_WEBHOOK" \
-        -H "Content-Type: application/json" \
-        -d "{\"content\": $(echo "$LOG_MSG" | /usr/bin/jq -Rs .)}")
-      if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ] 2>/dev/null; then
-        _log_error "Notification: log webhook POST failed with HTTP $HTTP_CODE (url=${ACTIVE_LOG_WEBHOOK:0:60}...)"
-      fi
-    } &
+    LOG_PAYLOAD="{\"content\": $(echo "$LOG_MSG" | /usr/bin/jq -Rs .)}"
+    post_webhook "$ACTIVE_LOG_WEBHOOK" "$LOG_PAYLOAD" "Notification log webhook" &
   fi
   if [ -n "$ALERTS_WEBHOOK_URL" ]; then
     ALERTS_MSG=":rotating_light: **Claude Code needs input**
 Session: \`${SESSION_SHORT}\`  CWD: \`${CWD_SHORT}\`"
-    {
-      HTTP_CODE=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 5 -X POST "$ALERTS_WEBHOOK_URL" \
-        -H "Content-Type: application/json" \
-        -d "{\"content\": $(echo "$ALERTS_MSG" | /usr/bin/jq -Rs .)}")
-      if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ] 2>/dev/null; then
-        _log_error "Notification: alerts webhook POST failed with HTTP $HTTP_CODE (url=${ALERTS_WEBHOOK_URL:0:60}...)"
-      fi
-    } &
+    ALERTS_PAYLOAD="{\"content\": $(echo "$ALERTS_MSG" | /usr/bin/jq -Rs .)}"
+    post_webhook "$ALERTS_WEBHOOK_URL" "$ALERTS_PAYLOAD" "Notification alerts webhook" &
   fi
 
   exit 0
@@ -357,57 +375,25 @@ fi
 [ -z "$MSG" ] && exit 0
 
 if [ -z "$WEBHOOK_URL" ]; then
-  _log_error "PostToolUse: WEBHOOK_URL is empty, cannot post MSG"
+  # Distinguish two empty cases:
+  #  - chat id empty  → session has no Discord binding (e.g. a plain terminal session).
+  #    There is genuinely nowhere to post; this is expected, not a dropped message, so
+  #    exit silently rather than logging an error on every tool call (the old behavior
+  #    flooded hook-errors.log from unbound sessions).
+  #  - chat id present → a real channel/thread not mapped in discord-routing.json (or
+  #    mapping to an empty conf var). That IS an actionable gap — log it with the chat id.
+  POST_CHAT_ID=$(_resolve_chat_id "$SESSION_ID")
+  if [ -n "$POST_CHAT_ID" ]; then
+    _log_error "PostToolUse: WEBHOOK_URL is empty, cannot post MSG (session=$SESSION_ID chat=$POST_CHAT_ID)"
+  fi
   exit 0
 fi
 
-{
-  HTTP_CODE=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 5 -X POST "$WEBHOOK_URL" \
-    -H "Content-Type: application/json" \
-    -d "{\"content\": $(echo "$MSG" | /usr/bin/jq -Rs .)}")
-  if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ] 2>/dev/null; then
-    _log_error "PostToolUse: webhook POST failed with HTTP $HTTP_CODE (url=${WEBHOOK_URL:0:60}...)"
-  fi
-} &
+MSG_PAYLOAD="{\"content\": $(echo "$MSG" | /usr/bin/jq -Rs .)}"
+post_webhook "$WEBHOOK_URL" "$MSG_PAYLOAD" "PostToolUse" &
 
-# PostToolUse completion announcements for Skill and Agent tools
-DONE_MSG=$(echo "$INPUT" | python3 -c "
-import sys, json
-
-def safe_backtick(s, n=120):
-    s = str(s)
-    if len(s) > n:
-        s = s[:n] + '...'
-    s = s.replace('\`', \"'\")
-    return s
-
-try:
-    d = json.load(sys.stdin)
-    tool = d.get('tool_name', '')
-    ti = d.get('tool_input', {})
-    if tool == 'Agent':
-        desc = ti.get('description', ti.get('prompt', '')[:80])
-        print(f'[agent done] {safe_backtick(desc)}')
-    elif tool == 'Skill':
-        skill_name = ti.get('skill', ti.get('name', ''))
-        print(f'[skill done] {safe_backtick(skill_name)}')
-except Exception:
-    pass
-" 2>/dev/null)
-
-if [ -n "$DONE_MSG" ]; then
-  if [ -z "$WEBHOOK_URL" ]; then
-    _log_error "PostToolUse DONE_MSG: WEBHOOK_URL is empty, cannot post DONE_MSG"
-  else
-    {
-      HTTP_CODE=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 5 -X POST "$WEBHOOK_URL" \
-        -H "Content-Type: application/json" \
-        -d "{\"content\": $(echo "$DONE_MSG" | /usr/bin/jq -Rs .)}")
-      if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ] 2>/dev/null; then
-        _log_error "PostToolUse DONE_MSG: webhook POST failed with HTTP $HTTP_CODE (url=${WEBHOOK_URL:0:60}...)"
-      fi
-    } &
-  fi
-fi
+# DONE_MSG block removed: the [agent done]/[skill done] line was redundant with the
+# PostToolUse MSG line above (which already reports the tool) and added one extra POST
+# per Skill/Agent call — a direct contributor to the per-webhook 429 rate.
 
 exit 0

@@ -9,6 +9,33 @@ import os
 import re
 import subprocess
 import sys
+import time
+
+
+def post_with_retry(url: str, payload: str, label: str = 'text-extract') -> None:
+    """POST a webhook payload with bounded retry/backoff (mirrors discord-notify.sh's
+    post_webhook). This runs in a process already backgrounded by the shell hook, so
+    the retry sleeps never add latency to Claude. Best-effort: failures are silent
+    (no error log here) since the shell wrapper owns error reporting."""
+    code = None
+    for attempt in range(3):
+        try:
+            cp = subprocess.run(
+                ['/usr/bin/curl', '-s', '-o', '/dev/null', '-w', '%{http_code}',
+                 '--max-time', '8', '-X', 'POST', url,
+                 '-H', 'Content-Type: application/json', '-d', payload],
+                capture_output=True, text=True, check=False, timeout=12,
+            )
+            code = (cp.stdout or '').strip()
+            if code.isdigit() and 200 <= int(code) < 300:
+                return
+        except Exception:
+            code = None
+        # 429: fixed wait + jitter; other failures: linear backoff.
+        if code == '429':
+            time.sleep(2 + (attempt % 2))
+        else:
+            time.sleep(1 + attempt)
 
 
 _CHANNEL_ID_RE = re.compile(r'\b(\d{17,19})\b')
@@ -116,6 +143,11 @@ def main():
     with open(state_file, 'w') as f:
         f.write(str(current_line))
 
+    # State is already advanced above; if we have no destination, don't waste
+    # retry cycles POSTing to an empty URL (matches the shell hook's empty-skip).
+    if not logs_url:
+        sys.exit(0)
+
     channels = load_channels()
     for text, badge in new_texts:
         text = substitute_channel_ids(text, channels)
@@ -125,13 +157,7 @@ def main():
         prefix = f'{badge} ' if badge else ''
         msg = f'{prefix}> {text}'
         payload = json.dumps({'content': msg})
-        subprocess.run(
-            ['/usr/bin/curl', '-s', '-o', '/dev/null', '--max-time', '5',
-             '-X', 'POST', logs_url,
-             '-H', 'Content-Type: application/json',
-             '-d', payload],
-            check=False
-        )
+        post_with_retry(logs_url, payload)
 
 
 if __name__ == '__main__':
