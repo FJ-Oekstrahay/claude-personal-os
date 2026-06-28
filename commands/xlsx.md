@@ -40,15 +40,17 @@ Write `scripts/generate_xlsx.py`. The script must:
 
 3. **Formatting defaults** (when no XLSX section in spec):
    - Font: Calibri 11pt
-   - Header row: bold, background `#1F3864` (dark navy), white font
+   - Header row: bold, background `#1F3864` (dark navy), white font, `wrap_text=True`, row height 45
    - All other rows: no special background
-   - Top row frozen (freeze_panes(1, 0))
-   - Column widths: auto-approximate from max content length in each column (cap at 60)
-   - Number format for columns that appear to contain dollar amounts (column name contains "amount", "total", "revenue", "cost", "balance", "value", "income", "expense", or similar): `#,##0`
-   - Number format for columns that appear to contain percentages (column name contains "pct", "percent", "rate", "%"): `0.0%`
-   - Text wrapping: off
+   - Freeze panes: row 1 + column A by default (`freeze_panes(1, 1)`). For financial reports that have age column(s) immediately after the first column, freeze to the right of the last age column (e.g. `freeze_panes(1, 3)` if Year + the user Age + Anita Age are columns 1–3).
+   - Column widths: use the longest single word in the header (split on spaces) + 2 as the minimum floor — prevents any one word from being split mid-word when wrapped. Dollar columns: min 12 (fits $15,000,000 + padding). Non-dollar numerics: min 6. Notes/description columns: auto-fit to the longest data value + 2 (cap at 80), no text wrap. For ≤20 row sheets, Notes may wrap instead.
+   - Number format for dollar amount columns: `#,##0`
+   - Number format for percentage columns: `0.0%`
+   - Number format for modifier/multiplier columns: `0.00` (or minimum decimal places needed to uniquely distinguish all values in the column)
+   - Centering: center all non-dollar numeric columns (year, age, count, modifier, percentage). Dollar columns stay right-aligned (Excel default).
+   - Text wrapping: off (except header row). Notes/description columns: no wrap, auto-width.
 
-4. **Output filename**: use the output filename pattern from the spec if provided. Default: same directory as the input CSV, with `-formatted.xlsx` suffix replacing the `.csv` extension. If multiple reports go into one XLSX, use the pattern from the spec's Global section or default to `reports/report-<YYYY-MM-DD>.xlsx` using today's date.
+4. **Output filename**: include date AND time in Eastern US timezone. Format: `<stem>-<YYYY-MM-DD-HHMM>.xlsx`. Use `datetime.now(ZoneInfo("America/New_York"))` in Python. Do not use today's date without a time component.
 
 5. The script must be self-contained and runnable with `python3 scripts/generate_xlsx.py` from the project root with no arguments.
 
