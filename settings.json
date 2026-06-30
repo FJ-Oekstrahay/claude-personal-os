@@ -166,6 +166,15 @@
             "command": "python3 ~/.claude/hooks/audit-trail.py"
           }
         ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/onedrive-sync-office.sh"
+          }
+        ]
       }
     ],
     "Stop": [
@@ -224,7 +233,6 @@
       }
     }
   },
-  "effortLevel": "high",
   "advisorModel": "opus",
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
