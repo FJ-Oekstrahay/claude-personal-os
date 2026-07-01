@@ -168,7 +168,7 @@
         ]
       },
       {
-        "matcher": "Write",
+        "matcher": "Write|Bash",
         "hooks": [
           {
             "type": "command",
@@ -241,5 +241,6 @@
   "preferredNotifChannel": "ghostty",
   "teammateMode": "tmux",
   "agentPushNotifEnabled": true,
-  "voiceEnabled": false
+  "voiceEnabled": false,
+  "effortLevel": "high"
 }
