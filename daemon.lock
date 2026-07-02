@@ -1,0 +1,15 @@
+{
+  "pid": 41055,
+  "version": "2.1.198",
+  "jsonPath": "/Users/moltyjoe/.claude/daemon.json",
+  "logPath": "/Users/moltyjoe/.claude/daemon.log",
+  "startedAt": 1782939779661,
+  "origin": "transient",
+  "spawnedBy": {
+    "label": "claude",
+    "cwd": "/Users/moltyjoe/.openclaw/workspace/projects/famplan",
+    "pid": 40980
+  },
+  "procStart": "Wed Jul  1 21:02:59 2026",
+  "launchTarget": "/Users/moltyjoe/.local/share/claude/versions/2.1.198"
+}

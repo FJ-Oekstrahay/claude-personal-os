@@ -263,3 +263,5 @@ This table is updated automatically by Step 9 each time `/new-discord-session` r
 | log-health | <channel-id> |
 | financial | <channel-id> |
 | log-financial | <channel-id> |
+| health-ethan | <channel-id> |
+| log-health-ethan | <channel-id> |

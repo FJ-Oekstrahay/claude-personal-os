@@ -1,6 +1,61 @@
 {
   "proto": 1,
-  "supervisorPid": 96172,
-  "updatedAt": 1782591667393,
-  "workers": {}
+  "supervisorPid": 41055,
+  "updatedAt": 1782939863516,
+  "workers": {
+    "97a5d586": {
+      "pid": 41070,
+      "procStart": "Wed Jul  1 21:02:59 2026",
+      "sessionId": "97a5d586-b5be-4040-b190-7312324cc86f",
+      "rendezvousSock": "/tmp/cc-daemon-505/25db5ca8/rv/97a5d586.sock",
+      "ptySock": "/tmp/cc-daemon-505/25db5ca8/spare/790a59b1.pty.sock",
+      "cliVersion": "2.1.198",
+      "startedAt": 1782939838193,
+      "attempt": 1,
+      "cwd": "~/.openclaw/workspace/projects/famplan",
+      "dispatch": {
+        "proto": 1,
+        "short": "97a5d586",
+        "nonce": "81ed45ed",
+        "sessionId": "97a5d586-b5be-4040-b190-7312324cc86f",
+        "createdAt": 1782939838191,
+        "source": "fleet",
+        "cwd": "~/.openclaw/workspace/projects/famplan",
+        "launch": {
+          "mode": "prompt",
+          "args": [
+            "--session-id",
+            "97a5d586-b5be-4040-b190-7312324cc86f",
+            "--agent",
+            "claude",
+            "--model",
+            "claude-fable-5[1m]",
+            "--",
+            "what model are you running now"
+          ]
+        },
+        "env": {},
+        "isolation": "none",
+        "respawnFlags": [
+          "--agent",
+          "claude",
+          "--model",
+          "claude-fable-5[1m]"
+        ],
+        "agent": "claude",
+        "seed": {
+          "intent": "what model are you running now"
+        },
+        "cols": 103,
+        "rows": 45
+      },
+      "decModes": [
+        2004,
+        1004,
+        2031
+      ],
+      "rvAuth": "544388d7e18d4da43d32a4fead112f4d",
+      "ptyAuth": "5c6e229ff7d2dc07824f5301d99c181a"
+    }
+  }
 }

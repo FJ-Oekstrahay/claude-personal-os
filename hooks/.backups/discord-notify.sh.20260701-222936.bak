@@ -307,21 +307,14 @@ elif [ -z "$TOOL_NAME" ] && echo "$INPUT" | /usr/bin/jq -e 'has("transcript_path
 
   if [ -n "$SESSION_ID" ] && [ -n "$TRANSCRIPT_PATH" ]; then
     # Flush any trailing narrative text (after the last tool call) to the log webhook.
-    # text-extract advances the state file so stop-check doesn't double-post — which
-    # only holds if text-extract FINISHES before stop-check starts. Both were previously
-    # backgrounded concurrently; whichever won the state-file race decided whether the
-    # trailing text landed in the log channel, the discussion channel, or both.
-    # Sequenced inside one backgrounded group: deterministic handoff, still zero
-    # latency added to Claude.
+    # text-extract advances the state file so stop-check doesn't double-post.
     STOP_LOG_WEBHOOK=$(resolve_log_webhook "$SESSION_ID")
-    {
-      if [ -n "$STOP_LOG_WEBHOOK" ]; then
-        python3 "$HOME/.claude/hooks/discord-text-extract.py" \
-          "$SESSION_ID" "$TRANSCRIPT_PATH" "$STOP_LOG_WEBHOOK" 2>/dev/null
-      fi
-      python3 "$HOME/.claude/hooks/discord-stop-check.py" \
-        "$SESSION_ID" "$TRANSCRIPT_PATH" 2>/dev/null
-    } &
+    if [ -n "$STOP_LOG_WEBHOOK" ]; then
+      python3 "$HOME/.claude/hooks/discord-text-extract.py" \
+        "$SESSION_ID" "$TRANSCRIPT_PATH" "$STOP_LOG_WEBHOOK" 2>/dev/null &
+    fi
+    python3 "$HOME/.claude/hooks/discord-stop-check.py" \
+      "$SESSION_ID" "$TRANSCRIPT_PATH" 2>/dev/null &
   fi
 
   exit 0

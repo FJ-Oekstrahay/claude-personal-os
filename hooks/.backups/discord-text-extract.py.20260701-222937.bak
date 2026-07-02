@@ -12,24 +12,11 @@ import sys
 import time
 
 
-ERROR_LOG = os.path.expanduser('~/.claude/hooks/state/hook-errors.log')
-
-
-def _log_error(msg: str) -> None:
-    try:
-        with open(ERROR_LOG, 'a') as f:
-            f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] discord-text-extract: {msg}\n")
-    except Exception:
-        pass
-
-
 def post_with_retry(url: str, payload: str, label: str = 'text-extract') -> None:
     """POST a webhook payload with bounded retry/backoff (mirrors discord-notify.sh's
     post_webhook). This runs in a process already backgrounded by the shell hook, so
-    the retry sleeps never add latency to Claude. The shell wrapper cannot observe
-    this backgrounded process failing, so final failures ARE logged here — a dropped
-    narrative text is otherwise unrecoverable (the state file has already advanced
-    past it)."""
+    the retry sleeps never add latency to Claude. Best-effort: failures are silent
+    (no error log here) since the shell wrapper owns error reporting."""
     code = None
     for attempt in range(3):
         try:
@@ -49,7 +36,6 @@ def post_with_retry(url: str, payload: str, label: str = 'text-extract') -> None
             time.sleep(2 + (attempt % 2))
         else:
             time.sleep(1 + attempt)
-    _log_error(f'{label}: POST failed after retries HTTP {code} — text block dropped')
 
 
 _CHANNEL_ID_RE = re.compile(r'\b(\d{17,19})\b')
@@ -159,13 +145,7 @@ def main():
 
     # State is already advanced above; if we have no destination, don't waste
     # retry cycles POSTing to an empty URL (matches the shell hook's empty-skip).
-    # But if this session IS discord-bound and we just discarded real text, that is
-    # permanent message loss (state won't revisit these lines) — make it visible.
     if not logs_url:
-        if new_texts and (active_chat_id or os.path.exists(chatid_file)
-                          or os.environ.get('DISCORD_CHAT_ID')):
-            _log_error(f'dropped {len(new_texts)} text block(s) — no log webhook '
-                       f'resolved (session={session_id})')
         sys.exit(0)
 
     channels = load_channels()
