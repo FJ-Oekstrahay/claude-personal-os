@@ -3,11 +3,6 @@
 PostToolUse text extractor for discord-notify.sh
 Reads new assistant text blocks from the session JSONL and posts them to Discord.
 Called with: session_id transcript_path logs_webhook_url
-
-2026-07-03: routes posts through discord_outbound so every LOG-channel post is
-deduped (content-hash ring), coalesced (buffered and flushed as one POST per
-~2s / per Stop), and audited (one JSON line per attempt). Behaviour is otherwise
-identical — narrative text still mirrors to the log channel as a firehose.
 """
 import json
 import os
@@ -16,18 +11,8 @@ import subprocess
 import sys
 import time
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-try:
-    import discord_outbound as ob
-except Exception:
-    ob = None
 
-
-def _state_dir():
-    return os.environ.get('DISCORD_HOOK_STATE_DIR') or os.path.expanduser('~/.claude/hooks/state')
-
-
-ERROR_LOG = os.path.join(_state_dir(), 'hook-errors.log')
+ERROR_LOG = os.path.expanduser('~/.claude/hooks/state/hook-errors.log')
 
 
 def _log_error(msg: str) -> None:
@@ -39,7 +24,12 @@ def _log_error(msg: str) -> None:
 
 
 def post_with_retry(url: str, payload: str, label: str = 'text-extract') -> None:
-    """Fallback direct POST when the shared helper is unavailable."""
+    """POST a webhook payload with bounded retry/backoff (mirrors discord-notify.sh's
+    post_webhook). This runs in a process already backgrounded by the shell hook, so
+    the retry sleeps never add latency to Claude. The shell wrapper cannot observe
+    this backgrounded process failing, so final failures ARE logged here — a dropped
+    narrative text is otherwise unrecoverable (the state file has already advanced
+    past it)."""
     code = None
     for attempt in range(3):
         try:
@@ -54,6 +44,7 @@ def post_with_retry(url: str, payload: str, label: str = 'text-extract') -> None
                 return
         except Exception:
             code = None
+        # 429: fixed wait + jitter; other failures: linear backoff.
         if code == '429':
             time.sleep(2 + (attempt % 2))
         else:
@@ -68,12 +59,12 @@ DEFAULT_MODEL_TAG = 'sonnet-4-6'
 
 
 def model_badge(model: str) -> str:
+    """Return a compact [model] badge if model is non-default, else empty string."""
     if not model or DEFAULT_MODEL_TAG in model:
         return ''
     name = model.replace('claude-', '')
     name = re.sub(r'-\d{8}$', '', name)
     return f'[{name}]'
-
 
 def load_channels() -> dict:
     path = os.path.expanduser('~/.claude/hooks/discord-channels.json')
@@ -83,27 +74,11 @@ def load_channels() -> dict:
     except Exception:
         return {}
 
-
 def substitute_channel_ids(text: str, channels: dict) -> str:
     def replace(m):
         cid = m.group(1)
         return channels.get(cid, cid)
     return _CHANNEL_ID_RE.sub(replace, text)
-
-
-def _resolve_channel_id(session_id, active_chat_id):
-    """Best-effort channel id used only to key dedup/coalesce buffers."""
-    if active_chat_id:
-        return active_chat_id
-    state_dir = _state_dir()
-    for suffix in ('routechatid', 'chatid'):
-        try:
-            v = open(os.path.join(state_dir, f'{session_id}.{suffix}')).read().strip()
-            if v:
-                return v
-        except Exception:
-            pass
-    return os.environ.get('DISCORD_CHAT_ID', '') or 'log'
 
 
 def main():
@@ -117,10 +92,11 @@ def main():
     if not os.path.exists(jsonl_path):
         sys.exit(0)
 
-    state_dir = _state_dir()
+    state_dir = os.path.expanduser('~/.claude/hooks/state')
     os.makedirs(state_dir, exist_ok=True)
     state_file = os.path.join(state_dir, f'{session_id}.txt')
 
+    # Detect active Discord source channel and persist for routing
     chatid_file = os.path.join(state_dir, f'{session_id}.chatid')
     active_chat_id = None
     try:
@@ -181,6 +157,10 @@ def main():
     with open(state_file, 'w') as f:
         f.write(str(current_line))
 
+    # State is already advanced above; if we have no destination, don't waste
+    # retry cycles POSTing to an empty URL (matches the shell hook's empty-skip).
+    # But if this session IS discord-bound and we just discarded real text, that is
+    # permanent message loss (state won't revisit these lines) — make it visible.
     if not logs_url:
         if new_texts and (active_chat_id or os.path.exists(chatid_file)
                           or os.environ.get('DISCORD_CHAT_ID')):
@@ -188,7 +168,6 @@ def main():
                        f'resolved (session={session_id})')
         sys.exit(0)
 
-    channel_id = _resolve_channel_id(session_id, active_chat_id)
     channels = load_channels()
     for text, badge in new_texts:
         text = substitute_channel_ids(text, channels)
@@ -197,11 +176,8 @@ def main():
         text = text.replace('`', "'")
         prefix = f'{badge} ' if badge else ''
         msg = f'{prefix}> {text}'
-        if ob:
-            # Deduped + coalesced + audited log-channel post.
-            ob.buffer_or_send(session_id, 'text-extract', channel_id, logs_url, msg)
-        else:
-            post_with_retry(logs_url, json.dumps({'content': msg}))
+        payload = json.dumps({'content': msg})
+        post_with_retry(logs_url, payload)
 
 
 if __name__ == '__main__':

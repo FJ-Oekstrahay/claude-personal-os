@@ -177,12 +177,7 @@ try:
     elif tool == 'Agent':
         desc = ti.get('description', '?')
         subagent_type = ti.get('subagent_type', 'general') or 'general'
-        agent_name = ti.get('name', '') or ''
-        # model param is an explicit override; absent means the agent inherits
-        # the parent session's model.
-        model = ti.get('model', '') or 'inherit'
-        who = f'**{safe_backtick(agent_name, 40)}** ' if agent_name else ''
-        print(f'🤖 **Agent dispatch:** {who}[{safe_backtick(subagent_type, 30)} · {safe_backtick(model, 20)}] \`{safe_backtick(desc, 80)}\`')
+        print(f'🤖 **Agent dispatch:** \`{safe_backtick(desc, 80)}\` [{safe_backtick(subagent_type, 30)}]')
     elif tool == 'mcp__plugin_discord_discord__reply':
         print('💬 **Discord reply** queued')
 except Exception:
@@ -272,10 +267,7 @@ try:
         subagent = ti.get('subagent_type', '?')
         desc = ti.get('description', '')
         prompt = ti.get('prompt', '')
-        agent_name = ti.get('name', '') or ''
-        model = ti.get('model', '') or 'inherit'
-        who = f'**{safe_backtick(agent_name, 40)}** ' if agent_name else ''
-        header = f'**Agent** → {who}\`{safe_backtick(subagent, 40)}\` [{safe_backtick(model, 20)}]'
+        header = f'**Agent** → \`{safe_backtick(subagent, 40)}\`'
         if desc:
             header += f' — {safe_backtick(desc, 80)}'
         if prompt:

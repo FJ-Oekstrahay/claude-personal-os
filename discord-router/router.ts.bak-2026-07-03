@@ -24,15 +24,8 @@ function upsertThreadMap(parentId: string, userId: string, threadId: string): vo
     if (existsSync(THREAD_MAP_PATH)) {
       try {
         map = JSON.parse(readFileSync(THREAD_MAP_PATH, "utf8"));
-      } catch (err) {
-        // Parse failure is expected to be transient (cross-process writer mid-write,
-        // caught by a racing read before its atomic rename lands). Skip this tick's
-        // write rather than resetting the map to a single entry — the map is
-        // re-read fresh on the next message, and other writers use atomic rename too.
-        process.stderr.write(
-          `discord-router: thread-map parse failed, skipping write this tick: ${err instanceof Error ? err.message : String(err)}\n`
-        );
-        return;
+      } catch {
+        // corrupt or missing — start fresh
       }
     }
     map[`${parentId}:${userId}`] = { thread: threadId, ts: Math.floor(Date.now() / 1000) };
@@ -255,18 +248,6 @@ async function main(): Promise<void> {
     try {
       // Skip bot messages to prevent feedback loops
       if (msg.author.bot) return;
-
-      // Bug 2 root fix: skip Discord SYSTEM messages. When a thread is created,
-      // Discord posts a THREAD_CREATED system message (type 18) in the PARENT
-      // channel whose content is the thread NAME and whose author is the (human)
-      // creator. Without this filter it was gated in (requireMention is off for
-      // these channels) and delivered as a prompt, so the model flailed on the
-      // thread name ("I see you made a thread called XYZ, what do you want?").
-      // msg.system is true for all system message types and false for normal
-      // user messages and replies — a denylist that keeps real content (including
-      // the thread's first/starter message, which is delivered separately, tagged
-      // with the thread's channel id) while dropping the system notices.
-      if (msg.system) return;
 
       // Route DMs via "_dm" entry in routes.json
       if (!msg.guild) {

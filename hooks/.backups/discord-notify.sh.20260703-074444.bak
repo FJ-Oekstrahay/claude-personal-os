@@ -6,30 +6,9 @@
 #
 # curl is backgrounded so this hook exits immediately (<1ms latency to Claude).
 # Exit 0 always — never block Claude.
-#
-# ============================ ROUTING POLICY ==================================
-# Two Discord destinations, NEVER the same content to both:
-#
-#   DISCUSSION channel (the source channel the user is talking in):
-#     - the reply-tool message (posted by the reply tool itself — this hook does
-#       NOT re-post it)
-#     - final answers / questions for Geoff / done-pings that need attention
-#     - Job 1/Job 2 safety-net text in discord-stop-check.py (only when Claude did
-#       not use the reply tool)
-#
-#   LOG channel (per-project firehose mirror, resolved via discord-routing.json):
-#     - tool play-by-play (this file's PostToolUse/PreToolUse summary lines)
-#     - narrative text firehose (discord-text-extract.py)
-#     - post-reply trailing narrative (routed here by stop-check, not to discussion)
-#
-# Invariant: nothing posts verbatim to BOTH channels. The discussion-channel
-# mirror of reply text was removed 2026-07-03 (it produced the duplicate copies).
-# All outbound posts go through discord_outbound.py for dedup + coalescing + audit.
-# =============================================================================
 
 CONF="$HOME/.claude/hooks/discord-webhook.conf"
 ERROR_LOG="$HOME/.claude/hooks/state/hook-errors.log"
-HELPER="$HOME/.claude/hooks/discord_outbound.py"
 
 _log_error() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] discord-notify: $1" >> "$ERROR_LOG" 2>/dev/null
@@ -39,10 +18,8 @@ _log_error() {
 # Always call backgrounded — `post_webhook "$url" "$payload" "Label" &` — so the
 # whole retry loop runs in a background subshell and never adds latency to Claude.
 #   $1=url  $2=json-payload  $3=label-for-errorlog  $4=optional extra header (e.g. Authorization)
-#   $5=session (optional, for audit)  $6=channel (optional)  $7=target log|discussion|alert
 post_webhook() {
   local url="$1" payload="$2" label="$3" auth_header="$4" attempt=0 code retry
-  local a_session="$5" a_channel="$6" a_target="${7:-alert}"
   while [ $attempt -lt 3 ]; do
     if [ -n "$auth_header" ]; then
       code=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 8 \
@@ -51,10 +28,7 @@ post_webhook() {
       code=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 8 \
         -X POST "$url" -H "Content-Type: application/json" -d "$payload")
     fi
-    if [ "$code" -ge 200 ] && [ "$code" -lt 300 ] 2>/dev/null; then
-      [ -n "$a_session" ] && python3 "$HELPER" audit "$a_session" "$label" "$a_channel" "$a_target" "sent" "$code" "${payload:0:60}" 2>/dev/null
-      return 0
-    fi
+    [ "$code" -ge 200 ] && [ "$code" -lt 300 ] 2>/dev/null && return 0
     # 429: fixed wait + jitter so concurrent backgrounded retries don't re-fire in lockstep.
     # 5xx/other: linear backoff. 4xx (non-429) won't succeed on retry but the bounded
     # loop is cheap; we still log the final failure below.
@@ -62,7 +36,6 @@ post_webhook() {
     sleep "$retry"
     attempt=$((attempt + 1))
   done
-  [ -n "$a_session" ] && python3 "$HELPER" audit "$a_session" "$label" "$a_channel" "$a_target" "dropped" "$code" "${payload:0:60}" 2>/dev/null
   _log_error "$label: POST failed after retries HTTP $code (url=${url:0:60}...)"
   return 1
 }
@@ -177,12 +150,7 @@ try:
     elif tool == 'Agent':
         desc = ti.get('description', '?')
         subagent_type = ti.get('subagent_type', 'general') or 'general'
-        agent_name = ti.get('name', '') or ''
-        # model param is an explicit override; absent means the agent inherits
-        # the parent session's model.
-        model = ti.get('model', '') or 'inherit'
-        who = f'**{safe_backtick(agent_name, 40)}** ' if agent_name else ''
-        print(f'🤖 **Agent dispatch:** {who}[{safe_backtick(subagent_type, 30)} · {safe_backtick(model, 20)}] \`{safe_backtick(desc, 80)}\`')
+        print(f'🤖 **Agent dispatch:** \`{safe_backtick(desc, 80)}\` [{safe_backtick(subagent_type, 30)}]')
     elif tool == 'mcp__plugin_discord_discord__reply':
         print('💬 **Discord reply** queued')
 except Exception:
@@ -199,9 +167,8 @@ except Exception:
       PRE_CHAT_ID=$(_resolve_chat_id "$SESSION_ID")
       [ -n "$PRE_CHAT_ID" ] && _log_error "PreToolUse: ACTIVE_LOG_WEBHOOK is empty, cannot post PRE_MSG (session=$SESSION_ID chat=$PRE_CHAT_ID)"
     else
-      # Coalesced + deduped + audited log-channel post (buffer flushes at ~2s / Stop).
-      PRE_CHAT_ID=$(_resolve_chat_id "$SESSION_ID")
-      python3 "$HELPER" buffer "$SESSION_ID" "${PRE_CHAT_ID:-log}" "$ACTIVE_LOG_WEBHOOK" "$PRE_MSG" 2>/dev/null &
+      PRE_PAYLOAD="{\"content\": $(echo "$PRE_MSG" | /usr/bin/jq -Rs .)}"
+      post_webhook "$ACTIVE_LOG_WEBHOOK" "$PRE_PAYLOAD" "PreToolUse" &
     fi
   fi
 
@@ -272,10 +239,7 @@ try:
         subagent = ti.get('subagent_type', '?')
         desc = ti.get('description', '')
         prompt = ti.get('prompt', '')
-        agent_name = ti.get('name', '') or ''
-        model = ti.get('model', '') or 'inherit'
-        who = f'**{safe_backtick(agent_name, 40)}** ' if agent_name else ''
-        header = f'**Agent** → {who}\`{safe_backtick(subagent, 40)}\` [{safe_backtick(model, 20)}]'
+        header = f'**Agent** → \`{safe_backtick(subagent, 40)}\`'
         if desc:
             header += f' — {safe_backtick(desc, 80)}'
         if prompt:
@@ -350,14 +314,10 @@ elif [ -z "$TOOL_NAME" ] && echo "$INPUT" | /usr/bin/jq -e 'has("transcript_path
     # Sequenced inside one backgrounded group: deterministic handoff, still zero
     # latency added to Claude.
     STOP_LOG_WEBHOOK=$(resolve_log_webhook "$SESSION_ID")
-    STOP_CHAT_ID=$(_resolve_chat_id "$SESSION_ID")
     {
       if [ -n "$STOP_LOG_WEBHOOK" ]; then
         python3 "$HOME/.claude/hooks/discord-text-extract.py" \
           "$SESSION_ID" "$TRANSCRIPT_PATH" "$STOP_LOG_WEBHOOK" 2>/dev/null
-        # Force-flush any coalesced log-channel buffer so trailing play-by-play
-        # lands before the done-ping (avoids losing the turn's tail).
-        python3 "$HELPER" flush "$SESSION_ID" "${STOP_CHAT_ID:-log}" "$STOP_LOG_WEBHOOK" 2>/dev/null
       fi
       python3 "$HOME/.claude/hooks/discord-stop-check.py" \
         "$SESSION_ID" "$TRANSCRIPT_PATH" 2>/dev/null
@@ -398,8 +358,7 @@ for path in ['~/.claude/hooks/discord-webhook.conf', '~/.claude/channels/discord
       DIRECT_PAYLOAD=$(echo "$DIRECT_MSG" | /usr/bin/jq -Rs '{"content": .}')
     fi
     post_webhook "https://discord.com/api/v10/channels/$CHAT_ID/messages" \
-      "$DIRECT_PAYLOAD" "Notification-botapi" "Authorization: Bot $BOT_TOKEN" \
-      "$SESSION" "$CHAT_ID" "discussion" &
+      "$DIRECT_PAYLOAD" "Notification bot-API (channel=$CHAT_ID)" "Authorization: Bot $BOT_TOKEN" &
   fi
 
   # Also post to log webhook and ALERTS webhook as secondary channels
@@ -408,13 +367,13 @@ for path in ['~/.claude/hooks/discord-webhook.conf', '~/.claude/channels/discord
   if [ -n "$ACTIVE_LOG_WEBHOOK" ]; then
     LOG_MSG=":bell: **Needs input** — session \`${SESSION_SHORT}\` in \`${CWD_SHORT}\`"
     LOG_PAYLOAD="{\"content\": $(echo "$LOG_MSG" | /usr/bin/jq -Rs .)}"
-    post_webhook "$ACTIVE_LOG_WEBHOOK" "$LOG_PAYLOAD" "Notification-log" "" "$SESSION" "" "log" &
+    post_webhook "$ACTIVE_LOG_WEBHOOK" "$LOG_PAYLOAD" "Notification log webhook" &
   fi
   if [ -n "$ALERTS_WEBHOOK_URL" ]; then
     ALERTS_MSG=":rotating_light: **Claude Code needs input**
 Session: \`${SESSION_SHORT}\`  CWD: \`${CWD_SHORT}\`"
     ALERTS_PAYLOAD="{\"content\": $(echo "$ALERTS_MSG" | /usr/bin/jq -Rs .)}"
-    post_webhook "$ALERTS_WEBHOOK_URL" "$ALERTS_PAYLOAD" "Notification-alerts" "" "$SESSION" "" "alert" &
+    post_webhook "$ALERTS_WEBHOOK_URL" "$ALERTS_PAYLOAD" "Notification alerts webhook" &
   fi
 
   exit 0
@@ -437,9 +396,8 @@ if [ -z "$WEBHOOK_URL" ]; then
   exit 0
 fi
 
-# Coalesced + deduped + audited log-channel play-by-play line.
-POST_CHAT_ID=$(_resolve_chat_id "$SESSION_ID")
-python3 "$HELPER" buffer "$SESSION_ID" "${POST_CHAT_ID:-log}" "$WEBHOOK_URL" "$MSG" 2>/dev/null &
+MSG_PAYLOAD="{\"content\": $(echo "$MSG" | /usr/bin/jq -Rs .)}"
+post_webhook "$WEBHOOK_URL" "$MSG_PAYLOAD" "PostToolUse" &
 
 # DONE_MSG block removed: the [agent done]/[skill done] line was redundant with the
 # PostToolUse MSG line above (which already reports the tool) and added one extra POST

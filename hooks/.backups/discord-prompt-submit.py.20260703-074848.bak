@@ -35,11 +35,6 @@ THREAD_MAP_PATH = os.path.expanduser('~/.claude/hooks/discord-thread-map.json')
 ACTIVITY_LOG_PATH = os.path.expanduser('~/.claude/hooks/discord-activity.log')
 ACTIVITY_LOG_MAX_BYTES = 500 * 1024  # 500 KB
 ACTIVITY_LOG_TAIL_LINES = 200
-# Routing-failure log: only written when a parent-tagged message had recent
-# (but now-stale) thread evidence that we could not re-confirm. See main().
-HOOK_ERRORS_PATH = os.path.join(STATE_DIR, 'hook-errors.log')
-# When a stale thread-map entry exists, retry API detection once after this delay.
-THREAD_RETRY_DELAY_SECONDS = 2.0
 DEFAULT_MODEL = 'claude-sonnet-4-6'
 MODEL_STATE_SUFFIX = '.model'
 VOICE_CACHE_DIR = os.path.expanduser('~/.claude/hooks/voice-cache')
@@ -190,60 +185,13 @@ def set_mapped_thread(parent_id, user_id, thread_id):
     """Record that user_id's current thread in parent_id is thread_id."""
     try:
         import time
-        if os.path.exists(THREAD_MAP_PATH):
-            try:
-                mapping = json.load(open(THREAD_MAP_PATH))
-            except Exception:
-                # Parse failure is expected to be transient (router.ts's rename
-                # landed mid-read). Skip this tick's write rather than resetting
-                # the map to a single entry — matches router.ts's own handling.
-                return
-        else:
+        try:
+            mapping = json.load(open(THREAD_MAP_PATH))
+        except Exception:
             mapping = {}
         mapping[f'{parent_id}:{user_id}'] = {'thread': thread_id, 'ts': int(time.time())}
-        tmp_path = f'{THREAD_MAP_PATH}.tmp.{os.getpid()}'
-        with open(tmp_path, 'w') as f:
+        with open(THREAD_MAP_PATH, 'w') as f:
             json.dump(mapping, f)
-        os.replace(tmp_path, THREAD_MAP_PATH)
-    except Exception:
-        pass
-
-
-def get_stale_mapped_thread(parent_id, user_id, freshness):
-    """Return a thread id that IS in the map for parent:user but whose ts is
-    older than `freshness` seconds (i.e. real thread evidence that resolve_thread_id
-    intentionally skipped as too stale to trust). Returns '' if the entry is
-    missing, fresh (would have resolved normally), or timestampless.
-
-    This is the ONLY case where a parent-tagged message has positive evidence
-    that a thread existed recently — used to scope the annotate/retry fallback so
-    it never fires on a genuine top-level parent post (which has no map entry).
-    """
-    try:
-        import time
-        mapping = json.load(open(THREAD_MAP_PATH))
-        value = mapping.get(f'{parent_id}:{user_id}', '')
-        if not isinstance(value, dict):
-            return ''
-        ts = value.get('ts', 0)
-        if ts and (time.time() - ts) > freshness:
-            return value.get('thread', '')
-        return ''
-    except Exception:
-        return ''
-
-
-def log_routing_failure(entry):
-    """Append a JSON line to state/hook-errors.log describing an unresolved
-    parent-tagged message that had stale thread evidence. Best-effort; never raises."""
-    try:
-        import datetime
-        os.makedirs(STATE_DIR, exist_ok=True)
-        entry = dict(entry)
-        entry.setdefault('ts', datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'))
-        entry.setdefault('event', 'thread_routing_failure')
-        with open(HOOK_ERRORS_PATH, 'a') as f:
-            f.write(json.dumps(entry, separators=(',', ':')) + '\n')
     except Exception:
         pass
 
@@ -310,37 +258,6 @@ def detect_thread_via_api(message_id, expected_parent_id, bot_token, session_id)
         pass
 
     return ''
-
-
-def is_thread_create_event(message_id, parent_id, bot_token):
-    """Return True if message_id is a Discord THREAD_CREATED system message.
-
-    Bug 2: when a thread is created, Discord posts a system message (type 18,
-    ThreadCreated) IN THE PARENT channel whose `content` is the thread NAME and
-    whose author is the creating user (not a bot). The router does not filter
-    message types, so this gets delivered as a prompt with the thread name as its
-    body — the model then flails ("I see you made a thread called XYZ, what do you
-    want?"). Detect it so the caller can suppress the reply. Discord message
-    types treated as thread-create system events: 18 (ThreadCreated),
-    21 (ThreadStarterMessage). Empty return / errors → False (fail open: deliver).
-    """
-    if not message_id or not parent_id or not bot_token:
-        return False
-    try:
-        result = subprocess.run(
-            ['/usr/bin/curl', '-s', '--max-time', '3',
-             f'https://discord.com/api/v10/channels/{parent_id}/messages/{message_id}',
-             '-H', f'Authorization: Bot {bot_token}'],
-            capture_output=True, text=True
-        )
-        data = json.loads(result.stdout)
-        # type 18 = ThreadCreated (system notice in parent, content = thread name)
-        # A genuine user message is type 0 (default) or 19 (reply).
-        if data.get('type') == 18:
-            return True
-        return False
-    except Exception:
-        return False
 
 
 def resolve_thread_id(chat_id, message_id, user_id, bot_token, session_id):
@@ -649,59 +566,10 @@ def main():
     effective_chat_id = chat_id
     thread_redirect = ''
     resolution_method = 'none'
-    thread_create_suppress = False
 
     if chat_id in routing:
-        # Bug-2 (no router restart needed): a THREAD_CREATED system message is
-        # tagged with the parent channel id and lands here. Detect and suppress it
-        # so the model does not flail on the thread name. Only costs an API GET on
-        # parent-tagged messages (the minority — in-thread messages are tagged with
-        # the thread id and take the else branch below).
-        if is_thread_create_event(message_id, chat_id, bot_token):
-            thread_create_suppress = True
-            resolution_method = 'thread_create_suppressed'
         # chat_id is a parent/routing channel — look for thread override
-        thread_id, resolution_method = (('', resolution_method) if thread_create_suppress
-                                        else resolve_thread_id(chat_id, message_id, user_id, bot_token, session_id))
-        if not thread_id and user_id and not thread_create_suppress:
-            # Bug-1 scoped fallback. In the current relay architecture the router
-            # tags in-thread messages with the thread's channel id directly, so a
-            # parent-tagged message here is normally a genuine top-level post and
-            # replying in the parent is CORRECT. The one exception worth handling:
-            # a thread-map entry exists for this parent:user but just aged past the
-            # freshness window (resolve_thread_id skipped it). That is positive
-            # evidence a thread was recently active — likely mis-tag or a lull, not
-            # a deliberate top-level post. Retry API detection once (~2s) to catch a
-            # map/router write that is mid-flight; if still unresolved, keep the
-            # reply in the parent but LABEL it and log a routing-failure line.
-            stale_thread = get_stale_mapped_thread(chat_id, user_id, 1800)
-            if stale_thread:
-                try:
-                    import time
-                    time.sleep(THREAD_RETRY_DELAY_SECONDS)
-                except Exception:
-                    pass
-                retry_id, retry_method = resolve_thread_id(chat_id, message_id, user_id, bot_token, session_id)
-                if retry_id:
-                    thread_id, resolution_method = retry_id, retry_method + '_retry'
-                else:
-                    # Still unresolved. Fail visible-but-labeled, not silently-wrong:
-                    # reply stays in the parent, annotated with the intended thread.
-                    resolution_method = 'unresolved_stale'
-                    thread_redirect = (
-                        f'NOTE: This message arrived tagged chat_id={chat_id} (the parent channel). '
-                        f'A recent thread ({stale_thread}) for this user could not be re-confirmed as '
-                        f'active, so reply here in the parent (chat_id={chat_id}). If the user meant the '
-                        f'thread, they will redirect you.'
-                    )
-                    log_routing_failure({
-                        'session_id': session_id,
-                        'parent_chat_id': chat_id,
-                        'user_id': user_id,
-                        'message_id': message_id,
-                        'stale_thread': stale_thread,
-                        'action': 'replied_in_parent_annotated',
-                    })
+        thread_id, resolution_method = resolve_thread_id(chat_id, message_id, user_id, bot_token, session_id)
         if thread_id:
             effective_chat_id = thread_id
             thread_redirect = (
@@ -785,39 +653,16 @@ def main():
         'transcript_path': transcript_path,
     })
 
-    # Bug-2 hook-side mitigation. The router does not filter Discord system
-    # message types (e.g. type 21 ThreadCreatedMessage), and requireMention is
-    # off for these channels, so a bodyless system event can be delivered as a
-    # prompt with no user text. The hook runs AFTER the turn has started and
-    # cannot suppress it, but it CAN stop the flail ("I see you made a thread,
-    # what do you want?") by telling the model there is nothing to answer.
-    # Only triggers when there is genuinely no user content: empty Discord body,
-    # no attachments, and no voice transcript. (Attachment-only messages carry
-    # the router's "(attachment)" placeholder, so they are not treated as empty.)
-    body_m = re.search(r'source="plugin:discord:discord"[^>]*>(.*?)</channel>', prompt, re.DOTALL)
-    discord_body = body_m.group(1).strip() if body_m else prompt.strip()
-    has_attachments = bool(att_m and int(att_m.group(1)) > 0)
-    bodyless_event = thread_create_suppress or (
-        (not discord_body) and (not has_attachments) and (not transcripts))
-
     base_reminder = (
         'REMINDER: This message arrived from Discord. The user reads Discord only'
         ' — they cannot see your terminal output. You MUST reply using the'
         ' mcp__plugin_discord_discord__reply tool. Do not respond only in the terminal.'
     )
-    bodyless_notice = (
-        'This Discord event carried NO message body (likely a system/thread-create'
-        ' event, not a user message). There is nothing to answer. Do NOT send a'
-        ' Discord reply and do NOT ask what the user wants — silently wait for the'
-        ' user\'s actual message, which arrives as a separate prompt.'
-    )
     transcript_block = ''
     if transcripts:
         joined = ' / '.join(transcripts)
         transcript_block = f'Voice message transcribed: "{joined}"\n\nTreat the transcript above as the user\'s message. The original message was a voice recording.\n\n'
-    if bodyless_event:
-        additional_context = f'{channel_hint}\n\n{bodyless_notice}'.strip()
-    elif thread_redirect:
+    if thread_redirect:
         additional_context = f'{transcript_block}{channel_hint}\n\n{thread_redirect} {base_reminder}'.strip()
     else:
         additional_context = f'{transcript_block}{channel_hint}\n\n{base_reminder}'.strip()

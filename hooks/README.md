@@ -116,3 +116,51 @@ To create webhooks: Discord Server Settings → Integrations → Webhooks → Ne
 - **`tool_input`**: the correct key in the PreToolUse JSON payload (not `input`).
 
 Full lessons from hook development are in [`../CLAUDE.md`](../CLAUDE.md) under "Lessons Learned → Claude Code hooks".
+
+---
+
+## Discord outbound routing policy (2026-07-03)
+
+### Two destinations, never both
+
+Every session-activity post goes to exactly one of two Discord destinations, and
+**nothing posts verbatim to both**:
+
+| Destination | What lands here | Producer |
+|---|---|---|
+| **Discussion channel** (the source channel the user talks in) | the reply-tool message; final answers; questions for the user; the `@you done` ping; Job 1/Job 2 safety-net text **only when Claude did not use the reply tool** | reply tool itself + `discord-stop-check.py` |
+| **Log channel** (per-project firehose, mapped in `discord-routing.json` / `discord-log-channels.json`) | tool play-by-play summary lines; narrative-text firehose; post-reply trailing narrative | `discord-notify.sh` + `discord-text-extract.py` |
+
+The reply-tool message **is** the discussion-channel post. `discord-stop-check.py`
+does not re-post it. Trailing narrative that appears *after* the reply tool call
+is routed to the **log** channel (it is not the reply body), so the discussion
+channel never receives a duplicate.
+
+### Three cross-cutting guarantees (all in `discord_outbound.py`)
+
+1. **Dedup guard** — identical `(session, channel, content)` posted within
+   `DISCORD_DEDUP_WINDOW` seconds (default 20) is suppressed. Time-windowed so
+   legitimately-identical posts in different turns still fire. The done-ping and
+   the turn-done post dedup on a turn-scoped key so a genuine next-turn ping is
+   never swallowed. This is the safety net that makes the "same message 4×" bug
+   structurally impossible regardless of how many times Stop fires.
+2. **Coalescing** — log-channel lines are buffered per `(session, channel)` and
+   flushed as one POST when the buffer is >2s old, >1600 chars, or force-flushed
+   at Stop. Cuts POST volume (Discord webhook budget ≈ 5 posts / 2s → 429s).
+   Disable with `DISCORD_COALESCE=0`.
+3. **Outbound audit** — every POST attempt writes one JSON line to
+   `state/outbound-audit.log`: `{ts, session, event, channel, target, status
+   (sent|dedup|dropped|buffered), http, hash, text[:60]}`. Rotated past 5 MB.
+   This is the forensic trail for any future "why did/didn't X post" question.
+
+### Never-block invariant
+
+All of the above runs in processes the shell hook already backgrounded. The hook
+itself always exits 0 immediately; nothing here adds latency to a tool call.
+
+### Test / debug env vars
+
+- `DISCORD_HOOK_STATE_DIR` — override the state dir (used by the offline harness).
+- `DISCORD_DRYRUN=1` — write intended POSTs to `$DISCORD_DRYRUN_FILE` instead of curling.
+- `DISCORD_COALESCE=0` — post each log line immediately (no buffering).
+- `DISCORD_DEDUP_WINDOW=<secs>` — dedup window (default 20).

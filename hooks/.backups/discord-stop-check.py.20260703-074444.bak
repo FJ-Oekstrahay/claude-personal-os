@@ -11,52 +11,22 @@ Two jobs:
 
 Called with: session_id transcript_path
 Reads DISCORD_BOT_TOKEN from discord-webhook.conf; falls back to openclaw.json.
-
---- 2026-07-03 duplication fix -------------------------------------------------
-Root cause of "same message up to 4x in the discussion channel": the Stop event
-can fire more than once per turn (batchc-stop-gate.py exit-2 continuation is on
-the same Stop event; Claude Code also re-runs Stop hooks on continuations), and
-discord-notify.sh re-invokes this script on every fire. Job 2 previously posted
-to the discussion channel WITHOUT advancing any cursor or dedup marker, so every
-extra fire re-posted the identical text. The 07-01 sequential-ordering change made
-it worse: text-extract now always advances the .txt cursor before this script
-runs, so Job 1 always sees an empty backlog and always falls through to the
-non-idempotent Job 2.
-
-Three defenses added (belt-and-suspenders):
-  A. Per-session non-blocking lock (fcntl) — concurrent Stop fires serialize;
-     the loser exits cleanly.
-  B. Content-hash dedup guard (discord_outbound.is_duplicate, via .send) — an
-     identical (session, channel, text) posted within the dedup window is
-     suppressed regardless of how it got re-triggered.
-  C. Job 2 now advances the .txt cursor to end, so a later fire finds no backlog.
-
-Also: the replied-branch used to mirror trailing narrative to the *discussion*
-channel, duplicating what the reply tool already put there. That trailing text is
-now routed to the LOG channel instead (it is post-reply narrative, not the reply
-body). The discussion channel gets exactly one thing from this hook per turn.
 """
 import json
 import os
 import re
+import subprocess
 import sys
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-try:
-    import discord_outbound as ob
-except Exception:
-    ob = None
 
 CONF_PATH = os.path.expanduser('~/.claude/hooks/discord-webhook.conf')
 CHANNEL_TAG_RE = re.compile(r'<channel[^>]+source="plugin:discord:discord"[^>]+chat_id="(\d+)"')
 
 QUESTION_PHRASES = ('which', 'would you like', 'do you want', 'should i', 'can you')
 
+# Matches: "Model set to sonnet46 (anthropic/claude-sonnet-4-6)."
+#          "Model reset to default (sonnet46 (anthropic/claude-sonnet-4-6))."
+# Captures the full provider/model ID from the innermost parentheses.
 MODEL_SWITCH_RE = re.compile(r'Model (?:set to|reset to default)\b.*?\(([a-zA-Z0-9_][a-zA-Z0-9_./-]*)\)\.')
-
-
-def _state_dir():
-    return os.environ.get('DISCORD_HOOK_STATE_DIR') or os.path.expanduser('~/.claude/hooks/state')
 
 
 def load_conf():
@@ -75,6 +45,7 @@ def load_conf():
     except Exception:
         pass
     if not bot_token:
+        # Fallback: read from the canonical plugin env file
         try:
             plugin_env = os.path.expanduser('~/.claude/channels/discord/.env')
             with open(plugin_env) as f:
@@ -115,7 +86,7 @@ def _resolve_log_channel(session_id):
         mapping = json.load(open(log_channels_path))
     except Exception:
         return ''
-    state_dir = _state_dir()
+    state_dir = os.path.expanduser('~/.claude/hooks/state')
     for suffix in ('routechatid', 'chatid'):
         try:
             chat_id = open(os.path.join(state_dir, f'{session_id}.{suffix}')).read().strip()
@@ -123,51 +94,11 @@ def _resolve_log_channel(session_id):
                 return mapping[chat_id]
         except Exception:
             pass
+    # Fallback: use DISCORD_CHAT_ID env var (set per-project in .claude/settings.json)
     env_chat_id = os.environ.get('DISCORD_CHAT_ID', '')
     if env_chat_id and env_chat_id in mapping:
         return mapping[env_chat_id]
     return ''
-
-
-def _log_webhook_url(session_id):
-    """Resolve the LOG-channel *webhook URL* for this session (mirrors
-    discord-notify.sh resolve_log_webhook). Used to route post-reply narrative to
-    the log channel instead of duplicating it into the discussion channel."""
-    routing_path = os.path.expanduser('~/.claude/hooks/discord-routing.json')
-    try:
-        routing = json.load(open(routing_path))
-    except Exception:
-        return ''
-    state_dir = _state_dir()
-    chat_id = ''
-    for suffix in ('routechatid', 'chatid'):
-        try:
-            v = open(os.path.join(state_dir, f'{session_id}.{suffix}')).read().strip()
-            if v:
-                chat_id = v
-                break
-        except Exception:
-            pass
-    if not chat_id:
-        chat_id = os.environ.get('DISCORD_CHAT_ID', '')
-    var_name = routing.get(chat_id, '')
-    return os.environ.get(var_name, '') if var_name else ''
-
-
-def _post_discussion(session_id, chat_id, bot_token, text, event, payload=None,
-                     dedup_key=None):
-    """POST to the discussion (source) channel via bot API, deduped + audited."""
-    url = f'https://discord.com/api/v10/channels/{chat_id}/messages'
-    auth = f'Authorization: Bot {bot_token}'
-    if ob:
-        return ob.send(session_id, event, chat_id, 'discussion', url, text,
-                       auth_header=auth, payload=payload, dedup_key=dedup_key)
-    import subprocess
-    body = payload if payload is not None else json.dumps({'content': text})
-    subprocess.run(['/usr/bin/curl', '-s', '-o', '/dev/null', '--max-time', '10',
-                    '-X', 'POST', url, '-H', auth,
-                    '-H', 'Content-Type: application/json', '-d', body], check=False)
-    return None
 
 
 def main():
@@ -180,20 +111,9 @@ def main():
     bot_token, alert_user_id = load_conf()
     if not bot_token:
         sys.exit(0)
+
     if not os.path.exists(jsonl_path):
         sys.exit(0)
-
-    # --- Defense A: per-session non-blocking lock. If another Stop fire for this
-    #     session is already inside stop-check, exit — it will do the work. This
-    #     serializes overlapping/duplicate Stop events (the 4x driver). ----------
-    lock_fh = None
-    try:
-        import fcntl
-        os.makedirs(_state_dir(), exist_ok=True)
-        lock_fh = open(os.path.join(_state_dir(), f'{session_id}.stopcheck.lock'), 'w')
-        fcntl.flock(lock_fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except Exception:
-        sys.exit(0)   # lock held by a concurrent fire → let that one handle it
 
     entries = []
     with open(jsonl_path) as f:
@@ -203,6 +123,7 @@ def main():
             except Exception:
                 pass
 
+    # Find the last Discord user message and its index
     last_discord_chat_id = None
     last_discord_idx = -1
     for i, entry in enumerate(entries):
@@ -216,8 +137,10 @@ def main():
     if not last_discord_chat_id or last_discord_idx < 0:
         sys.exit(0)
 
-    # --- Model switch detection (unchanged) ---
-    state_dir = _state_dir()
+    # --- Model switch detection: update state file if model changed this turn ---
+    # UserPromptSubmit reads this file to label non-default models. Writing it here
+    # (after the turn completes) means the next turn sees the correct model with no lag.
+    state_dir = os.path.expanduser('~/.claude/hooks/state')
     model_state_file = os.path.join(state_dir, f'{session_id}.model')
     for entry in entries[last_discord_idx:]:
         if entry.get('type') != 'assistant':
@@ -230,14 +153,19 @@ def main():
                 continue
             m = MODEL_SWITCH_RE.search(block.get('text', ''))
             if m:
+                new_model = m.group(1)
                 try:
                     os.makedirs(state_dir, exist_ok=True)
                     with open(model_state_file, 'w') as f:
-                        f.write(m.group(1))
+                        f.write(new_model)
                 except Exception:
                     pass
 
-    # --- Job 1: flush unposted text since last text-extractor run → discussion ---
+    # --- Job 1: flush unposted text since last text-extractor run ---
+    # The text extractor (PreToolUse/PostToolUse) writes a state file tracking
+    # the last JSONL line it processed. Any assistant text after that line is
+    # "final-turn" text that was never flushed to Discord.
+    state_dir = os.path.expanduser('~/.claude/hooks/state')
     state_file = os.path.join(state_dir, f'{session_id}.txt')
     last_processed_line = 0
     if os.path.exists(state_file):
@@ -265,9 +193,15 @@ def main():
         for text in unposted:
             if len(text) > 1900:
                 text = text[:1897] + '...'
-            _post_discussion(session_id, last_discord_chat_id, bot_token, text,
-                             'Stop-job1-flush',
-                             dedup_key=f'job1|t{last_discord_idx}|{text}')
+            payload = json.dumps({'content': text})
+            subprocess.run(
+                ['/usr/bin/curl', '-s', '-o', '/dev/null', '--max-time', '10',
+                 '-X', 'POST', f'https://discord.com/api/v10/channels/{last_discord_chat_id}/messages',
+                 '-H', f'Authorization: Bot {bot_token}',
+                 '-H', 'Content-Type: application/json',
+                 '-d', payload],
+                check=False
+            )
         try:
             with open(state_file, 'w') as f:
                 f.write(str(len(entries)))
@@ -295,6 +229,7 @@ def main():
                     last_text = t
 
     if replied:
+        # Find the index (within post-discord entries) of the last reply tool_use block.
         post_discord_entries = entries[last_discord_idx + 1:]
         last_reply_entry_idx = -1
         for i, entry in enumerate(post_discord_entries):
@@ -309,6 +244,7 @@ def main():
                         and block.get('name') == 'mcp__plugin_discord_discord__reply'):
                     last_reply_entry_idx = i
 
+        # Collect any assistant text blocks from entries strictly after the last reply.
         post_reply_texts = []
         if last_reply_entry_idx >= 0:
             for entry in post_discord_entries[last_reply_entry_idx + 1:]:
@@ -323,43 +259,41 @@ def main():
                         if t:
                             post_reply_texts.append(t)
 
-        # Trailing narrative AFTER the reply tool call. This is NOT the reply body
-        # (the reply tool already delivered that to the discussion channel), so
-        # route it to the LOG channel — posting it to discussion is the mirror that
-        # produced duplicate copies. Deduped + audited.
-        log_url = _log_webhook_url(session_id)
+        # Post any trailing text to the discussion channel before the done ping.
         for text in post_reply_texts:
             if len(text) > 1900:
                 text = text[:1897] + '...'
-            if ob and log_url:
-                ob.send(session_id, 'Stop-postreply-log', last_discord_chat_id,
-                        'log', log_url, f'> {text}',
-                        dedup_key=f'{text}|t{last_discord_idx}')
-            elif ob:
-                # no log webhook resolved: record the drop so it's visible
-                ob.audit(session_id, 'Stop-postreply-log', last_discord_chat_id,
-                         'log', 'dropped', 'no-url', text)
+            subprocess.run(
+                ['/usr/bin/curl', '-s', '-o', '/dev/null', '--max-time', '10',
+                 '-X', 'POST',
+                 f'https://discord.com/api/v10/channels/{last_discord_chat_id}/messages',
+                 '-H', f'Authorization: Bot {bot_token}',
+                 '-H', 'Content-Type: application/json',
+                 '-d', json.dumps({'content': text})],
+                check=False
+            )
 
-        # Advance the cursor so a later Stop fire sees no backlog (Defense C).
-        try:
-            with open(state_file, 'w') as f:
-                f.write(str(len(entries)))
-        except Exception:
-            pass
-
-        # Done-ping to the log channel. Deduped so repeated Stop fires don't
-        # re-ping; the dedup window is short enough that a genuine next-turn ping
-        # still fires.
+        # Wait briefly for any in-flight background webhook posts (text extractor) to land
+        # before sending the "done" ping — prevents ordering inversion in Discord.
         import time
-        time.sleep(1.5)   # let in-flight log webhook posts land before the ping
+        time.sleep(1.5)
+        # Resolve the log channel: prefer per-session routing over the global env fallback.
+        # Priority: session routechatid → session chatid → DISCORD_LOG_CHANNEL_ID env var.
         ping_channel = _resolve_log_channel(session_id) or os.environ.get('DISCORD_LOG_CHANNEL_ID', '') or last_discord_chat_id
         if alert_user_id and ping_channel:
-            ping_text = f'<@{alert_user_id}> done — waiting for your next message.'
-            payload = json.dumps({'content': ping_text,
-                                  'allowed_mentions': {'users': [alert_user_id]}})
-            _post_discussion(session_id, ping_channel, bot_token, ping_text,
-                             'Stop-doneping', payload=payload,
-                             dedup_key=f'doneping|t{last_discord_idx}')
+            payload_dict = {
+                'content': f'<@{alert_user_id}> done — waiting for your next message.',
+                'allowed_mentions': {'users': [alert_user_id]},
+            }
+            subprocess.run(
+                ['/usr/bin/curl', '-s', '-o', '/dev/null', '--max-time', '10',
+                 '-X', 'POST',
+                 f'https://discord.com/api/v10/channels/{ping_channel}/messages',
+                 '-H', f'Authorization: Bot {bot_token}',
+                 '-H', 'Content-Type: application/json',
+                 '-d', json.dumps(payload_dict)],
+                check=False
+            )
         sys.exit(0)
 
     if not last_text:
@@ -373,20 +307,20 @@ def main():
         mention_prefix = f'<@{alert_user_id}> '
 
     message_content = f'{mention_prefix}**[turn done]** {last_text}'
+
     payload_dict = {'content': message_content}
     if mention_prefix and alert_user_id:
         payload_dict['allowed_mentions'] = {'users': [alert_user_id]}
 
-    _post_discussion(session_id, last_discord_chat_id, bot_token, message_content,
-                     'Stop-turndone', payload=json.dumps(payload_dict),
-                     dedup_key=f'turndone|t{last_discord_idx}|{message_content}')
-
-    # Advance the cursor so a repeated Stop fire finds no new backlog (Defense C).
-    try:
-        with open(state_file, 'w') as f:
-            f.write(str(len(entries)))
-    except Exception:
-        pass
+    payload = json.dumps(payload_dict)
+    subprocess.run(
+        ['/usr/bin/curl', '-s', '-o', '/dev/null', '--max-time', '10',
+         '-X', 'POST', f'https://discord.com/api/v10/channels/{last_discord_chat_id}/messages',
+         '-H', f'Authorization: Bot {bot_token}',
+         '-H', 'Content-Type: application/json',
+         '-d', payload],
+        check=False
+    )
 
 
 if __name__ == '__main__':
