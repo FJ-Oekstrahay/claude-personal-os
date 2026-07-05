@@ -1,5 +1,5 @@
 #!/bin/bash
-# Mirror Office/PDF files into OneDrive, preserving source directory structure.
+# Mirror Office/PDF/image files into OneDrive, preserving source directory structure.
 # PostToolUse hook — runs after Write or Bash, never blocks, exits 0 always.
 #
 # Example: ~/.openclaw/workspace/projects/financial/docs/reports/report.xlsx
@@ -22,7 +22,7 @@ mirror_one() {
   local ext_lower
   ext_lower=$(echo "$ext" | tr '[:upper:]' '[:lower:]')
   case "$ext_lower" in
-    xlsx|docx|pptx|pdf) ;;
+    xlsx|docx|pptx|pdf|png|jpg|jpeg|gif) ;;
     *) return ;;
   esac
 
@@ -58,7 +58,7 @@ case "$tool_name" in
     [[ -d "$SCAN_ROOT" ]] || exit 0
     while IFS= read -r -d '' f; do
       mirror_one "$f"
-    done < <(find "$SCAN_ROOT" -type f \( -iname "*.xlsx" -o -iname "*.docx" -o -iname "*.pptx" -o -iname "*.pdf" \) -mmin -5 -print0 2>/dev/null)
+    done < <(find "$SCAN_ROOT" -type f \( -iname "*.xlsx" -o -iname "*.docx" -o -iname "*.pptx" -o -iname "*.pdf" -o -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.gif" \) -mmin -5 -print0 2>/dev/null)
     ;;
 esac
 
