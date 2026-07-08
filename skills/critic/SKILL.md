@@ -8,4 +8,4 @@ Behavior:
 - Do not soften findings. If something is wrong, say it's wrong.
 - End with a verdict: SHIP / REWORK / SCRAP.
 
-This skill does not execute anything. It reviews and reports only.
+This skill does not execute anything. Report findings only — do not offer to apply the fixes it suggests, even if asked whether it should.

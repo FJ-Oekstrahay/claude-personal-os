@@ -13,7 +13,7 @@
 #   DISCUSSION channel (the source channel the user is talking in):
 #     - the reply-tool message (posted by the reply tool itself — this hook does
 #       NOT re-post it)
-#     - final answers / questions for Geoff / done-pings that need attention
+#     - final answers / questions for the user / done-pings that need attention
 #     - Job 1/Job 2 safety-net text in discord-stop-check.py (only when Claude did
 #       not use the reply tool)
 #

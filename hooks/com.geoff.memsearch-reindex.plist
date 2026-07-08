@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.geoff.memsearch-reindex</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/moltyjoe/.claude/hooks/memsearch-reindex.sh</string>
+    </array>
+
+    <!-- Daily at 04:00 local. Quiet hour; no session competing for the Milvus lock. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>4</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- Do NOT reindex on every load/login — the daily cadence is enough and a
+         15-min embed pass on each login would be wasteful. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/moltyjoe/.claude/hooks/state/memsearch-reindex.launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/moltyjoe/.claude/hooks/state/memsearch-reindex.launchd.log</string>
+</dict>
+</plist>

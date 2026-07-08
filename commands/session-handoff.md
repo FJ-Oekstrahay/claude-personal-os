@@ -46,6 +46,7 @@ Anything unexpected encountered — config quirks, command failures, behavior th
 First, do a self-check from this session:
 - Is project MEMORY.md (auto-memory) current? If anything was learned this session that isn't in MEMORY.md, update it now.
 - Is there a playbook that should be created or updated from a pattern, gotcha, or procedure discovered this session? Name it. Write it if it takes under 5 minutes.
+- Opt-in claims check: if this project has a `data/canonical-numbers.json` (or similar claims manifest) and this session touched dollar/percentage figures in advisor- or user-facing docs, run `python3 ~/.openclaw/workspace/tools/verify_claims.py --base-dir $(pwd)` and note any failures here before finalizing. Skip silently if the project has no such manifest — this is opt-in per project, not a blocking gate.
 
 If any reusable patterns, gotchas, or procedures were discovered this session, promote them to a playbook in `~/.openclaw/workspace/memory/playbooks/` now. Update `~/.openclaw/workspace/memory/00_index.md` to list them. If nothing worth capturing, say so explicitly.
 

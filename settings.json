@@ -102,6 +102,15 @@
             "command": "~/.claude/hooks/discord-notify.sh"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/handoff-timestamp-guard.sh"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [

@@ -54,9 +54,18 @@ Name it explicitly; write it if it takes under 5 minutes.
 4. Close with the required statement: "Handoff written — context can now be cleared." \
 On Discord-bound sessions, send it via the reply tool (text= param), not just the terminal.
 
-If the work was genuinely minor, you may stop: say "Context safe to clear — no \
-handoff needed." and stop again. This gate fires at most once per session, so a \
-second stop will not be blocked.\
+Before stopping, declare EXACTLY ONE end-state, accurately — and never claim \
+safe-to-clear while anything is still running:
+- DONE — handoff written (or the work was genuinely trivial) and nothing is \
+running. Say: "Done — safe to exit or clear."
+- PAUSED — no completed batch needs a handoff and nothing is running, but work \
+remains for later. Say: "Paused — nothing running, safe to exit; resume next \
+session with /load-handoff."
+- IN FLIGHT — background agents/tasks are still running. Say: "Work in flight — \
+do NOT exit or clear. N background agents are running; exiting or restarting \
+kills them and loses their results. I'll continue when they report." NEVER say \
+safe-to-clear in this state.
+This gate fires at most once per session, so a second stop will not be blocked.\
 """
 
 VERIFIER_REMINDER = """\

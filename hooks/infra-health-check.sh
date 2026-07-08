@@ -96,40 +96,24 @@ if [ $SKIP_STATS -eq 0 ]; then
   fi
 fi
 
-# --- Check 2: memsearch index age ---
-MEMSEARCH_DIRS=()
-[ -d "$HOME/.memsearch/memory" ] && MEMSEARCH_DIRS+=("$HOME/.memsearch/memory")
-[ -d "$HOME/.openclaw/.memsearch/memory" ] && MEMSEARCH_DIRS+=("$HOME/.openclaw/.memsearch/memory")
-
-if [ ${#MEMSEARCH_DIRS[@]} -eq 0 ]; then
-  FAILURES+=("memsearch memory directories not found")
-  send_discord_alert "[INFRA ALERT] No memsearch memory directories found (~/.memsearch/memory or ~/.openclaw/.memsearch/memory)."
+# --- Check 2: memsearch index freshness (last-reindex stamp) ---
+# The daily reindex (com.geoff.memsearch-reindex -> memsearch-reindex.sh) writes
+# this stamp on success; its mtime = when the index last actually refreshed. This
+# measures index freshness directly, instead of statting orphan .memsearch dirs
+# that Claude never writes to (the old, permanently-firing proxy).
+MEMSEARCH_STAMP="$HOME/.claude/hooks/state/memsearch-last-reindex"
+if [ ! -f "$MEMSEARCH_STAMP" ]; then
+  FAILURES+=("memsearch reindex stamp missing — daily reindex may not be running")
+  send_discord_alert "[INFRA ALERT] memsearch last-reindex stamp missing ($MEMSEARCH_STAMP). Is com.geoff.memsearch-reindex loaded? Check: launchctl list | grep memsearch"
 else
-  # Find most recent .md file across all dirs
-  MOST_RECENT=""
-  for dir in "${MEMSEARCH_DIRS[@]}"; do
-    CANDIDATE=$(find "$dir" -name "*.md" -type f -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -1)
-    if [ -n "$CANDIDATE" ]; then
-      if [ -z "$MOST_RECENT" ] || [ "$CANDIDATE" -nt "$MOST_RECENT" ] 2>/dev/null; then
-        MOST_RECENT="$CANDIDATE"
-      fi
-    fi
-  done
-
-  if [ -z "$MOST_RECENT" ]; then
-    FAILURES+=("memsearch: no .md files found in memory dirs")
-    send_discord_alert "[INFRA ALERT] memsearch memory dirs exist but contain no .md files."
-  else
-    # Check if older than 48h (172800 seconds)
-    NOW=$(date +%s)
-    FILE_MTIME=$(stat -f "%m" "$MOST_RECENT" 2>/dev/null)
-    if [ -n "$FILE_MTIME" ]; then
-      AGE=$(( NOW - FILE_MTIME ))
-      if [ $AGE -gt 172800 ]; then
-        AGE_HOURS=$(( AGE / 3600 ))
-        FAILURES+=("memsearch index may be stale (newest .md is ${AGE_HOURS}h old)")
-        send_discord_alert "[INFRA ALERT] memsearch memory index may be stale — newest .md file is ${AGE_HOURS}h old (threshold: 48h)."
-      fi
+  NOW=$(date +%s)
+  STAMP_MTIME=$(stat -f "%m" "$MEMSEARCH_STAMP" 2>/dev/null)
+  if [ -n "$STAMP_MTIME" ]; then
+    AGE=$(( NOW - STAMP_MTIME ))
+    if [ $AGE -gt 172800 ]; then
+      AGE_HOURS=$(( AGE / 3600 ))
+      FAILURES+=("memsearch index stale — last reindex ${AGE_HOURS}h ago")
+      send_discord_alert "[INFRA ALERT] memsearch index stale — last successful reindex was ${AGE_HOURS}h ago (threshold: 48h). Check com.geoff.memsearch-reindex."
     fi
   fi
 fi
