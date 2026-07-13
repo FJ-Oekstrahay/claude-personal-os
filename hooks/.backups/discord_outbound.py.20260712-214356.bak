@@ -235,13 +235,6 @@ def _flush_buffer(session, channel, url, event='coalesce'):
     path = _buf_path(session, channel)
     if not os.path.exists(path):
         return
-    # Check for a usable webhook BEFORE claiming. The claim (rename + later remove)
-    # is destructive; doing it first meant an unresolved webhook silently ate the
-    # buffered lines. Leaving the buffer intact lets a later flush still deliver it.
-    if not url:
-        _log_error(f'flush: no webhook url (session={session} chan={channel}) — '
-                   f'buffer left intact for a later flush')
-        return
     claim = path + f'.flushing.{os.getpid()}'
     try:
         os.replace(path, claim)     # atomically take ownership of the pending lines
@@ -256,55 +249,20 @@ def _flush_buffer(session, channel, url, event='coalesce'):
         os.remove(claim)
     except Exception:
         pass
-    if not lines:
+    if not lines or not url:
         return
     combined = '\n'.join(lines)
     for part in _chunk(combined):
         send(session, event, channel, 'log', url, part, dedup=True)
 
 
-def flush_all_for_session(session, url):
-    """Flush every buffer belonging to `session`, whatever channel key it was
-    written under.
-
-    The producers do not agree on the channel key: discord-text-extract.py keys on
-    the chat id parsed from the transcript's <channel> tag, while discord-notify.sh
-    keys on _resolve_chat_id() (routechatid/chatid state). For thread sessions those
-    differ, so the Stop-time flush was looking up a key that was never written and
-    left the real buffer on disk — 129 of the 131 orphaned .logbuf files found on
-    2026-07-12. Globbing by session makes the flush key-agnostic.
-    """
-    try:
-        safe_session = str(session).replace('/', '_')
-        prefix = f'{safe_session}__'
-        d = _state_dir()
-        for name in os.listdir(d):
-            if not name.startswith(prefix) or not name.endswith('.logbuf'):
-                continue
-            channel = name[len(prefix):-len('.logbuf')]
-            _flush_buffer(session, channel, url, event='stop-flush')
-    except Exception as e:
-        _log_error(f'flush_all_for_session crashed: {e}')
-
-
-def buffer_or_send(session, event, channel, url, text, urgent=False):
+def buffer_or_send(session, event, channel, url, text):
     """Append `text` to the per-channel log buffer; flush the buffer first if it
-    is stale or full. With DISCORD_COALESCE=0 (or no url) posts immediately.
-
-    `urgent=True` bypasses coalescing and posts immediately. The coalescing buffer
-    is *lazy* — it only drains when a LATER call notices it is stale, so a buffered
-    line waits for the next hook invocation to happen. Across a slow tool call that
-    is the tool's entire duration (measured 2026-07-12: median 15s, p90 66s, worst
-    2500s). Narrative text is what a human actually reads, so it goes out now;
-    tool play-by-play stays coalesced, which is what protects the webhook from 429s.
-    """
+    is stale or full. With DISCORD_COALESCE=0 (or no url) posts immediately."""
     if not url:
         audit(session, event, channel, 'log', 'dropped', 'no-url', text)
         return
-    if urgent or os.environ.get('DISCORD_COALESCE') == '0':
-        # Drain anything already queued first so the urgent line does not jump
-        # ahead of earlier play-by-play and scramble the channel's chronology.
-        _flush_buffer(session, channel, url, event='urgent-flush')
+    if os.environ.get('DISCORD_COALESCE') == '0':
         send(session, event, channel, 'log', url, text)
         return
     try:
@@ -331,11 +289,10 @@ def _cli():
     """Thin CLI so discord-notify.sh (bash) can reach the same helpers.
 
     Usage:
-      discord_outbound.py buffer   <session> <channel> <url> <text>
-      discord_outbound.py flush    <session> <channel> <url>
-      discord_outbound.py flushall <session> <url>
-      discord_outbound.py send     <session> <event> <channel> <target> <url> <text> [auth]
-      discord_outbound.py audit    <session> <event> <channel> <target> <status> <http> <text>
+      discord_outbound.py buffer  <session> <channel> <url> <text>
+      discord_outbound.py flush   <session> <channel> <url>
+      discord_outbound.py send    <session> <event> <channel> <target> <url> <text> [auth]
+      discord_outbound.py audit   <session> <event> <channel> <target> <status> <http> <text>
     """
     if len(sys.argv) < 2:
         return 0
@@ -344,10 +301,6 @@ def _cli():
     try:
         if cmd == 'buffer' and len(a) >= 4:
             buffer_or_send(a[0], 'PostToolUse', a[1], a[2], a[3])
-        elif cmd == 'flushall' and len(a) >= 2:
-            # Key-agnostic: drains every buffer for the session, whichever channel
-            # key each producer wrote under. See flush_all_for_session().
-            flush_all_for_session(a[0], a[1])
         elif cmd == 'flush' and len(a) >= 3:
             _flush_buffer(a[0], a[1], a[2], event='stop-flush')
         elif cmd == 'send' and len(a) >= 6:

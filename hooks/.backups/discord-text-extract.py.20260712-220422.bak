@@ -92,23 +92,9 @@ def substitute_channel_ids(text: str, channels: dict) -> str:
 
 
 def _resolve_channel_id(session_id, active_chat_id):
-    """Channel id used to key the dedup/coalesce buffers.
-
-    MUST mirror _resolve_chat_id() in discord-notify.sh (routechatid → chatid → env),
-    because that is the key the tool play-by-play buffers under and the key the Stop
-    flush looks up. This function used to prefer `active_chat_id` — the chat id parsed
-    from the transcript's <channel> tag — which for a THREAD session is the thread id
-    while notify.sh resolves the PARENT id. Two consequences, both observed live:
-
-      * the two streams buffered under different keys, so the urgent path's pre-drain
-        looked up a buffer that did not exist and narrative posted ahead of tool lines
-        that had happened earlier (chronology inversion — every thread session);
-      * the Stop flush looked up a key nothing had written, stranding the buffer —
-        129 of the 131 orphaned .logbuf files found 2026-07-12.
-
-    Geoff works in threads by default, so the thread case is the norm, not an edge.
-    active_chat_id stays as a last resort for sessions with no state files yet.
-    """
+    """Best-effort channel id used only to key dedup/coalesce buffers."""
+    if active_chat_id:
+        return active_chat_id
     state_dir = _state_dir()
     for suffix in ('routechatid', 'chatid'):
         try:
@@ -117,8 +103,6 @@ def _resolve_channel_id(session_id, active_chat_id):
                 return v
         except Exception:
             pass
-    if active_chat_id:
-        return active_chat_id
     return os.environ.get('DISCORD_CHAT_ID', '') or 'log'
 
 

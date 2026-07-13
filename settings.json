@@ -242,7 +242,7 @@
       }
     }
   },
-  "effortLevel": "xhigh",
+  "effortLevel": "high",
   "advisorModel": "opus",
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
