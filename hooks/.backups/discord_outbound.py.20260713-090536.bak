@@ -33,7 +33,6 @@ the live state dir or POSTs to a real webhook:
                              of curling (default /tmp/discord-dryrun.log)
   DISCORD_COALESCE=0       — disable coalescing (post each line immediately)
 """
-import fcntl
 import hashlib
 import json
 import os
@@ -223,163 +222,45 @@ def _buf_path(session, channel):
     return os.path.join(_state_dir(), f'{safe}.logbuf')
 
 
-def _lock_path(session, channel):
-    safe = f'{session}__{channel}'.replace('/', '_')
-    return os.path.join(_state_dir(), f'{safe}.buflock')
-
-
-def _with_buf_lock(session, channel, fn):
-    """Run `fn()` while holding an exclusive fcntl lock scoped to this buffer's
-    (session, channel) key. Mirrors the fcntl pattern discord-stop-check.py
-    already uses for its per-session lock (flock on a dedicated lock file) —
-    LOCK_EX here, not LOCK_NB, because both sides of the race this guards
-    (an append, or a claim-rename) are quick and the correct behavior is for
-    the loser to wait its turn, not bail. Do not call this recursively for the
-    same (session, channel) — flock is not reentrant across separate opens of
-    the same file, even from the same process, and a nested call deadlocks."""
-    lock_fh = None
-    try:
-        lock_fh = open(_lock_path(session, channel), 'w')
-        fcntl.flock(lock_fh.fileno(), fcntl.LOCK_EX)
-    except Exception:
-        lock_fh = None   # fail open: no lock is better than a crashed hook
-    try:
-        return fn()
-    finally:
-        if lock_fh:
-            try:
-                fcntl.flock(lock_fh.fileno(), fcntl.LOCK_UN)
-            except Exception:
-                pass
-            lock_fh.close()
-
-
 def _chunk(text, cap=DISCORD_BODY_CAP):
     while text:
         yield text[:cap]
         text = text[cap:]
 
 
-def _claim_buffer(session, channel):
-    """Atomically claim the live buffer for (session, channel), if any, under
-    the per-buffer lock (this is the operation that races against an append in
-    buffer_or_send — see _with_buf_lock). Returns the claim-file path, or None
-    if there was nothing to claim (already claimed by a concurrent flush, or no
-    buffer exists)."""
+def _flush_buffer(session, channel, url, event='coalesce'):
+    """Post everything currently buffered for (session, channel) as as-few-as-
+    possible POSTs, then clear the buffer. Atomic rename claims the buffer so a
+    concurrent flush cannot double-send."""
     path = _buf_path(session, channel)
     if not os.path.exists(path):
-        return None
-    claim = path + f'.flushing.{os.getpid()}'
-
-    def _do_claim():
-        try:
-            os.replace(path, claim)   # atomically take ownership of the pending lines
-            return claim
-        except Exception:
-            return None              # someone else claimed it first
-
-    return _with_buf_lock(session, channel, _do_claim)
-
-
-def _find_orphaned_claim(session, channel):
-    """Find a claim file left behind by a flush that died mid-send (item 1: the
-    claim now survives a failed send so a later flush can retry it; item 4: it
-    must not be invisible to that later flush). Returns the oldest matching
-    claim path, or None. Merely locating it — see _adopt_orphaned_claim for the
-    atomic ownership step, required before reading/sending it."""
-    path = _buf_path(session, channel)
-    d = _state_dir()
-    orphan_prefix = os.path.basename(path) + '.flushing.'
-    try:
-        candidates = sorted(
-            os.path.join(d, f) for f in os.listdir(d) if f.startswith(orphan_prefix)
-        )
-    except Exception:
-        candidates = []
-    return candidates[0] if candidates else None
-
-
-def _adopt_orphaned_claim(session, channel):
-    """Atomically take ownership of an orphaned claim file (see
-    _find_orphaned_claim) via rename, exactly like _claim_buffer does for a
-    live buffer. Without this, two concurrent flushes for the same
-    (session, channel) — e.g. overlapping Stop fires, which is precisely why
-    discord-stop-check.py has its own per-session lock — could both find the
-    SAME orphan, both read and send it, and both then try to remove it. Item 6
-    turned off dedup on this path (the live-buffer claim-rename was the only
-    thing preventing double-send there), so without this rename an orphan
-    recovery is exactly the double-send item 6's reasoning assumed couldn't
-    happen. Returns this process's owned copy path, or None if the orphan was
-    already claimed by a concurrent flush (or none exists)."""
-    orphan = _find_orphaned_claim(session, channel)
-    if orphan is None:
-        return None
-    mine = orphan + f'.owned.{os.getpid()}'
-    try:
-        os.replace(orphan, mine)   # still matches the '.logbuf.flushing.' glob if this dies too
-        return mine
-    except Exception:
-        return None   # a concurrent flush already claimed it
-
-
-def _flush_buffer(session, channel, url, event='coalesce'):
-    """Post everything currently buffered (or left behind by a prior failed
-    flush) for (session, channel) as as-few-as-possible POSTs.
-
-    Durability trade (item 1, decided explicitly): the claim file is kept on
-    disk until every chunk's send() call returns a 2xx. A failed send leaves
-    the claim in place — orphaned exactly like a flusher killed mid-send would
-    leave one (item 4 covers recovering those) — so a later flush can retry it
-    instead of the content being silently gone. This trades "guaranteed no
-    loss" for "possible double-send if the process dies AFTER a successful
-    POST but BEFORE the remove"; the 20s dedup ring only catches that within
-    the same window, not a retry minutes later, so a rare double-send is the
-    accepted cost of never silently dropping a buffer on a failed POST.
-    """
-    claim = _claim_buffer(session, channel)
-    if claim is None:
-        # Nothing live to claim — check for a claim orphaned by an earlier
-        # flush that died (or failed to send) before it could clean up.
-        # Adoption must be atomic (rename), not just a listdir match, or two
-        # concurrent flushers race to read+send the same orphan (see
-        # _adopt_orphaned_claim's docstring).
-        claim = _adopt_orphaned_claim(session, channel)
-        if claim is None:
-            return
+        return
+    # Check for a usable webhook BEFORE claiming. The claim (rename + later remove)
+    # is destructive; doing it first meant an unresolved webhook silently ate the
+    # buffered lines. Leaving the buffer intact lets a later flush still deliver it.
     if not url:
         _log_error(f'flush: no webhook url (session={session} chan={channel}) — '
-                   f'buffer/claim left intact for a later flush ({claim})')
+                   f'buffer left intact for a later flush')
         return
+    claim = path + f'.flushing.{os.getpid()}'
+    try:
+        os.replace(path, claim)     # atomically take ownership of the pending lines
+    except Exception:
+        return                      # someone else claimed it first
     try:
         with open(claim) as f:
             lines = [ln.rstrip('\n') for ln in f if ln.strip()]
     except Exception:
         lines = []
+    try:
+        os.remove(claim)
+    except Exception:
+        pass
     if not lines:
-        try:
-            os.remove(claim)
-        except Exception:
-            pass
         return
     combined = '\n'.join(lines)
-    # dedup=False (item 6): dedup here protects against double-send from a
-    # concurrent flush, which the claim-rename above already prevents. With it
-    # on, a buffer holding exactly one line collides with an identical earlier
-    # single-line post within the 20s window and is silently suppressed —
-    # observed live, 5 of 138 records on 2026-07-12.
-    all_ok = True
     for part in _chunk(combined):
-        code = send(session, event, channel, 'log', url, part, dedup=False)
-        if not (code and str(code).isdigit() and 200 <= int(code) < 300):
-            all_ok = False
-    if all_ok:
-        try:
-            os.remove(claim)
-        except Exception:
-            pass
-    else:
-        _log_error(f'flush: POST failed, leaving claim on disk for a later retry '
-                   f'(session={session} chan={channel} claim={claim})')
+        send(session, event, channel, 'log', url, part, dedup=True)
 
 
 def flush_all_for_session(session, url):
@@ -392,24 +273,15 @@ def flush_all_for_session(session, url):
     differ, so the Stop-time flush was looking up a key that was never written and
     left the real buffer on disk — 129 of the 131 orphaned .logbuf files found on
     2026-07-12. Globbing by session makes the flush key-agnostic.
-
-    Also matches orphaned `*.logbuf.flushing.*` claim files (item 4) — a flush
-    killed between claiming and removing left content that plain `.logbuf`
-    globbing would never see again.
     """
     try:
         safe_session = str(session).replace('/', '_')
         prefix = f'{safe_session}__'
         d = _state_dir()
-        channels = set()
         for name in os.listdir(d):
-            if not name.startswith(prefix):
+            if not name.startswith(prefix) or not name.endswith('.logbuf'):
                 continue
-            if name.endswith('.logbuf'):
-                channels.add(name[len(prefix):-len('.logbuf')])
-            elif '.logbuf.flushing.' in name:
-                channels.add(name[len(prefix):name.index('.logbuf.flushing.')])
-        for channel in channels:
+            channel = name[len(prefix):-len('.logbuf')]
             _flush_buffer(session, channel, url, event='stop-flush')
     except Exception as e:
         _log_error(f'flush_all_for_session crashed: {e}')
@@ -425,12 +297,6 @@ def buffer_or_send(session, event, channel, url, text, urgent=False):
     is the tool's entire duration (measured 2026-07-12: median 15s, p90 66s, worst
     2500s). Narrative text is what a human actually reads, so it goes out now;
     tool play-by-play stays coalesced, which is what protects the webhook from 429s.
-
-    The actual append (below) runs under the same per-(session, channel) fcntl
-    lock (item 2) that _flush_buffer's claim-rename uses, so a concurrent
-    flusher can never rename the buffer file out from under an in-progress
-    append — that race silently dropped the PRE_MSG line (Skill/Agent dispatch
-    announcements) on every PreToolUse with narrative before this fix.
     """
     if not url:
         audit(session, event, channel, 'log', 'dropped', 'no-url', text)
@@ -452,12 +318,8 @@ def buffer_or_send(session, event, channel, url, text, urgent=False):
                 age, size = 0, 0
             if age > COALESCE_MAX_AGE or size > COALESCE_MAX_CHARS:
                 _flush_buffer(session, channel, url, event='coalesce-flush')
-
-        def _do_append():
-            with open(path, 'a') as f:
-                f.write(text.replace('\n', '  ') + '\n')
-
-        _with_buf_lock(session, channel, _do_append)
+        with open(path, 'a') as f:
+            f.write(text.replace('\n', '  ') + '\n')
         audit(session, event, channel, 'log', 'buffered', '', text)
     except Exception:
         # fall back to immediate send on any buffering error

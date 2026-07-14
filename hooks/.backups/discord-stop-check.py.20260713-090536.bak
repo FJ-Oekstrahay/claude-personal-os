@@ -130,20 +130,9 @@ def _resolve_log_channel(session_id):
 
 
 def _log_webhook_url(session_id):
-    """Fallback resolver for the LOG-channel *webhook URL*, used only when the
-    caller didn't pass one in explicitly (see item 7 below and main()'s
-    log_webhook_arg). Mirrors discord-notify.sh's resolve_log_webhook, but that
-    mirroring is exactly the bug this item fixed: routing.json maps a chat id to
-    a conf *variable name* (e.g. LOG_FINANCIAL_WEBHOOK_URL), and
-    os.environ.get(var_name) can only see it if that variable was exported.
-    discord-notify.sh's `source "$CONF"` sets these as plain bash locals, never
-    `export`s them, so this lookup was always empty in the live Stop path — the
-    8 all-time Stop-postreply-log drops logged as http=no-url. Fixed at the
-    source: discord-notify.sh now resolves the URL once (it already has to, to
-    decide whether to flush) and passes it as sys.argv[3] to main(). This
-    function stays only as a fallback for direct/manual invocation without that
-    arg (e.g. ad-hoc debugging) — it will reproduce the old (broken) behavior in
-    that case since the env var still isn't exported anywhere real."""
+    """Resolve the LOG-channel *webhook URL* for this session (mirrors
+    discord-notify.sh resolve_log_webhook). Used to route post-reply narrative to
+    the log channel instead of duplicating it into the discussion channel."""
     routing_path = os.path.expanduser('~/.claude/hooks/discord-routing.json')
     try:
         routing = json.load(open(routing_path))
@@ -187,10 +176,6 @@ def main():
 
     session_id = sys.argv[1]
     jsonl_path = sys.argv[2]
-    # Item 7: discord-notify.sh now passes its already-resolved log webhook URL
-    # explicitly (sys.argv[3]) instead of this script re-deriving it from an
-    # env var that was never exported. Empty string if the caller has none.
-    log_webhook_arg = sys.argv[3] if len(sys.argv) > 3 else ''
 
     bot_token, alert_user_id = load_conf()
     if not bot_token:
@@ -342,10 +327,7 @@ def main():
         # (the reply tool already delivered that to the discussion channel), so
         # route it to the LOG channel — posting it to discussion is the mirror that
         # produced duplicate copies. Deduped + audited.
-        # Item 7: prefer the URL discord-notify.sh resolved and passed in; only
-        # fall back to the (broken-by-design, see _log_webhook_url docstring)
-        # env-var re-derivation if the caller didn't pass one.
-        log_url = log_webhook_arg or _log_webhook_url(session_id)
+        log_url = _log_webhook_url(session_id)
         for text in post_reply_texts:
             if len(text) > 1900:
                 text = text[:1897] + '...'

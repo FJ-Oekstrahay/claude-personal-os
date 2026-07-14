@@ -13,7 +13,7 @@
 #   DISCUSSION channel (the source channel the user is talking in):
 #     - the reply-tool message (posted by the reply tool itself — this hook does
 #       NOT re-post it)
-#     - final answers / questions for the user / done-pings that need attention
+#     - final answers / questions for Geoff / done-pings that need attention
 #     - Job 1/Job 2 safety-net text in discord-stop-check.py (only when Claude did
 #       not use the reply tool)
 #
@@ -363,14 +363,8 @@ elif [ -z "$TOOL_NAME" ] && echo "$INPUT" | /usr/bin/jq -e 'has("transcript_path
         # flushall globs by session and is agnostic to which key the producer used.
         python3 "$HELPER" flushall "$SESSION_ID" "$STOP_LOG_WEBHOOK" 2>/dev/null
       fi
-      # Item 7 (2026-07-13): pass the already-resolved log webhook through as an
-      # explicit arg instead of letting discord-stop-check.py re-derive it from
-      # $STOP_LOG_WEBHOOK's conf var name via os.environ — that var is set by
-      # `source "$CONF"` above (a bash local), never `export`ed, so the Python
-      # child could never see it. That was the root cause of the 8 all-time
-      # Stop-postreply-log drops logged as http=no-url.
       python3 "$HOME/.claude/hooks/discord-stop-check.py" \
-        "$SESSION_ID" "$TRANSCRIPT_PATH" "$STOP_LOG_WEBHOOK" 2>/dev/null
+        "$SESSION_ID" "$TRANSCRIPT_PATH" 2>/dev/null
     } &
   fi
 

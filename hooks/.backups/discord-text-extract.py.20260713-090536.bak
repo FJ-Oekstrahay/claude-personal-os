@@ -206,23 +206,6 @@ def main():
 
     channel_id = _resolve_channel_id(session_id, active_chat_id)
     channels = load_channels()
-
-    # Item 3 (2026-07-13): a lost/missing .txt cursor (hook added mid-session,
-    # --resume with a stale cursor, or a state-dir GC — see discord-state-reaper.py)
-    # makes last_line = 0, so new_texts can be the ENTIRE transcript. Each block
-    # posts urgent=True (immediate, uncoalesced) since the latency fix, so a
-    # 100-block backlog became 100 back-to-back POSTs — sustained 429s until
-    # post_with_retry gives up after 3 attempts and drops content outright. Cap
-    # the urgent path: past this threshold it's backlog history nobody is
-    # waiting on in real time, so fall back to the coalesced/buffered path,
-    # which bounds it into a handful of combined POSTs via COALESCE_MAX_CHARS.
-    URGENT_BACKLOG_THRESHOLD = 5
-    use_urgent = len(new_texts) <= URGENT_BACKLOG_THRESHOLD
-    if not use_urgent:
-        _log_error(f'backlog of {len(new_texts)} text block(s) exceeds urgent '
-                   f'threshold ({URGENT_BACKLOG_THRESHOLD}) — falling back to '
-                   f'coalesced path (session={session_id})')
-
     for text, badge in new_texts:
         text = substitute_channel_ids(text, channels)
         if len(text) > 1700:
@@ -236,10 +219,8 @@ def main():
             # drain it — across a slow tool call that wait is the tool's full duration.
             # Tool play-by-play stays coalesced (that is what holds the 429 rate down).
             # Side benefit: text that is never buffered can never be orphaned on disk.
-            # Backlog case (use_urgent False, see above): coalesced instead, to avoid
-            # an unpaced POST storm.
             ob.buffer_or_send(session_id, 'text-extract', channel_id, logs_url, msg,
-                              urgent=use_urgent)
+                              urgent=True)
         else:
             post_with_retry(logs_url, json.dumps({'content': msg}))
 
