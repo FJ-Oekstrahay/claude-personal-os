@@ -53,6 +53,19 @@ If any reusable patterns, gotchas, or procedures were discovered this session, p
 ## Suggested First Step for Next Session
 One concrete action to start with, not a list of everything. The one thing that would have the most momentum.
 
+**REQUIRED (the user, 2026-07-15): every next step must name its MODEL and its PROMPT FILE.** the user does
+not want to waste a turn figuring this out. For the first step AND for each item in Pending/Not Done
+that is a runnable next action, state on the same line:
+- **Model:** Opus / Sonnet / Haiku — with a one-word why (judgment/synthesis → Opus; cross-file or
+  ambiguous spec → Sonnet; enumerated mechanical single-file → Haiku). If a "high"-effort call is
+  implied, tag "(auto OK)" or "(set effort explicitly)". Follow the routing table in the global
+  `~/.claude/CLAUDE.md` ("Subagent model routing"). For a prompt file, the model is whatever the
+  prompt's own `**Model:**` header says — quote it.
+- **Prompt file:** the exact `prompts/<name>.md` path if one exists, or **"no prompt file — <write one / run inline>"**.
+  If a next step warrants a prompt and none exists, write it now (per the rule below) and cite it here.
+
+Format each as: `- <action> — **Model:** <X> (<why>). **Prompt:** <path | none>.`
+
 Rules:
 - Write a new handoff file — do NOT update old handoff files. Old handoffs are archives; once written they are not needed again. New sessions load the most recent handoff.
 - If this session changed any system config (new/removed agents, plugins toggled, integrations added, hardware changed), update `~/.openclaw/workspace/memory/system_info.md` to reflect it and note it under Lessons Captured.
