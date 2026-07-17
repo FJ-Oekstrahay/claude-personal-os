@@ -13,7 +13,7 @@
 #   DISCUSSION channel (the source channel the user is talking in):
 #     - the reply-tool message (posted by the reply tool itself — this hook does
 #       NOT re-post it)
-#     - final answers / questions for the user / done-pings that need attention
+#     - final answers / questions for Geoff / done-pings that need attention
 #     - Job 1/Job 2 safety-net text in discord-stop-check.py (only when Claude did
 #       not use the reply tool)
 #
@@ -33,18 +33,6 @@ HELPER="$HOME/.claude/hooks/discord_outbound.py"
 
 _log_error() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] discord-notify: $1" >> "$ERROR_LOG" 2>/dev/null
-}
-
-# 2026-07-16: instrumentation for prompts/discord-inflight-visibility-gap.md Phase 1.
-# One line per resolve_log_webhook() miss so we can measure how often sessions have
-# no route to Discord at all, before picking a Phase 2 fix. session_id/cwd let us see
-# whether misses cluster on fresh terminal sessions vs unmapped channels.
-MISS_LOG="$HOME/.claude/hooks/state/webhook-resolve-misses.log"
-_log_webhook_miss() {
-  local reason="$1" session_id="$2" chat_id="$3"
-  printf '{"ts":"%s","session_id":"%s","cwd":"%s","chat_id":"%s","reason":"%s"}\n' \
-    "$(date '+%Y-%m-%d %H:%M:%S')" "$session_id" "$HOOK_CWD" "$chat_id" "$reason" \
-    >> "$MISS_LOG" 2>/dev/null
 }
 
 # Retry/backoff wrapper for webhook (and bot-API) POSTs.
@@ -117,11 +105,7 @@ resolve_log_webhook() {
 
   local chat_id
   chat_id=$(_resolve_chat_id "$session_id")
-  if [ -z "$chat_id" ]; then
-    _log_webhook_miss "no_chat_id" "$session_id" ""
-    echo ""
-    return
-  fi
+  [ -z "$chat_id" ] && { echo ""; return; }
 
   local var_name
   var_name=$(python3 -c "
@@ -142,19 +126,11 @@ except Exception:
     # routing.json maps this chat to a var, but the var is absent/empty in the conf.
     # Name it explicitly so the config gap is fixable (vs the generic downstream message).
     _log_error "missing conf var $var_name for chat $chat_id"
-    _log_webhook_miss "missing_conf_var:$var_name" "$session_id" "$chat_id"
-    echo ""
-    return
   fi
-  _log_webhook_miss "unmapped_chat" "$session_id" "$chat_id"
   echo ""
 }
 
 INPUT=$(cat)
-
-# Used by _log_webhook_miss() above — read once, all resolve_log_webhook() callers
-# below run after this point.
-HOOK_CWD=$(echo "$INPUT" | /usr/bin/jq -r '.cwd // "unknown"' 2>/dev/null)
 
 TOOL_NAME=$(echo "$INPUT" | /usr/bin/jq -r '.tool_name // empty' 2>/dev/null)
 HAS_RESPONSE=$(echo "$INPUT" | /usr/bin/jq -r 'if has("tool_response") then "yes" else "no" end' 2>/dev/null)
