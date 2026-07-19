@@ -75,25 +75,6 @@ def model_badge(model: str) -> str:
     return f'[{name}]'
 
 
-def _short_model(model: str) -> str:
-    name = (model or '').replace('claude-', '')
-    return re.sub(r'-\d{8}$', '', name)
-
-
-def subagent_badge(agent_type: str, model: str) -> str:
-    """Always-on badge for subagent narrative: ↳[<type> · <model>].
-
-    Unlike model_badge(), never suppressed for the default model — marking that a
-    line came from a subagent (and which one / what model) is the whole point of
-    Option B. Real model comes from the subagent transcript's message.model, which
-    the spike (2026-07-18) confirmed carries the resolved model (e.g. haiku), unlike
-    the Agent dispatch's tool_input.model which is None ('inherit') for pinned agents.
-    """
-    at = agent_type or 'subagent'
-    m = _short_model(model)
-    return f'↳[{at} · {m}]' if m else f'↳[{at}]'
-
-
 def load_channels() -> dict:
     path = os.path.expanduser('~/.claude/hooks/discord-channels.json')
     try:
@@ -149,60 +130,40 @@ def main():
     jsonl_path = sys.argv[2]
     logs_url = sys.argv[3]
 
-    # Subagent mode (Option B, 2026-07-18). discord-notify.sh passes agent_id/agent_type
-    # when the hook input carries a non-empty agent_id (a subagent tool call). In that case
-    # jsonl_path is the CONSTRUCTED subagent sidechain file
-    # (<transcript>/subagents/agent-<id>.jsonl) — NOT the hook's transcript_path, which the
-    # spike proved always points at the main transcript. We key the cursor per-agent so
-    # parallel subagents (Workflow fan-out) never share/clobber a line count, and we badge
-    # every block with ↳[type · model] so the log stream shows which subagent spoke.
-    agent_id = sys.argv[4] if len(sys.argv) > 4 else ''
-    agent_type = sys.argv[5] if len(sys.argv) > 5 else ''
-    subagent_mode = bool(agent_id)
-
     if not os.path.exists(jsonl_path):
         sys.exit(0)
 
     state_dir = _state_dir()
     os.makedirs(state_dir, exist_ok=True)
-    if subagent_mode:
-        state_file = os.path.join(state_dir, f'{session_id}.{agent_id}.txt')
-    else:
-        state_file = os.path.join(state_dir, f'{session_id}.txt')
+    state_file = os.path.join(state_dir, f'{session_id}.txt')
 
-    # Main-transcript <channel> parsing resolves the session's chat id for buffer keying.
-    # Skip it in subagent mode: the sidechain file has no <channel> tag, and the channel
-    # is resolved from the PARENT session's state (routechatid/chatid) via _resolve_channel_id
-    # below — the subagent shares the parent session_id, so tool lines and narrative key the
-    # same coalesce buffer and stay in the same log channel.
     chatid_file = os.path.join(state_dir, f'{session_id}.chatid')
     active_chat_id = None
-    if not subagent_mode:
+    try:
+        with open(jsonl_path) as _f:
+            for _line in _f:
+                try:
+                    _entry = json.loads(_line)
+                    if _entry.get('type') == 'user':
+                        _content = _entry.get('message', {}).get('content', '')
+                        if isinstance(_content, list):
+                            _content = ' '.join(
+                                b.get('text', '') for b in _content
+                                if isinstance(b, dict) and b.get('type') == 'text'
+                            )
+                        _m = _CHANNEL_TAG_RE.search(str(_content))
+                        if _m:
+                            active_chat_id = _m.group(1)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    if active_chat_id:
         try:
-            with open(jsonl_path) as _f:
-                for _line in _f:
-                    try:
-                        _entry = json.loads(_line)
-                        if _entry.get('type') == 'user':
-                            _content = _entry.get('message', {}).get('content', '')
-                            if isinstance(_content, list):
-                                _content = ' '.join(
-                                    b.get('text', '') for b in _content
-                                    if isinstance(b, dict) and b.get('type') == 'text'
-                                )
-                            _m = _CHANNEL_TAG_RE.search(str(_content))
-                            if _m:
-                                active_chat_id = _m.group(1)
-                    except Exception:
-                        pass
+            with open(chatid_file, 'w') as f:
+                f.write(active_chat_id)
         except Exception:
             pass
-        if active_chat_id:
-            try:
-                with open(chatid_file, 'w') as f:
-                    f.write(active_chat_id)
-            except Exception:
-                pass
 
     last_line = 0
     if os.path.exists(state_file):
@@ -222,10 +183,7 @@ def main():
                 entry = json.loads(line)
                 if entry.get('type') == 'assistant':
                     entry_model = entry.get('message', {}).get('model', '')
-                    if subagent_mode:
-                        badge = subagent_badge(agent_type, entry_model)
-                    else:
-                        badge = model_badge(entry_model)
+                    badge = model_badge(entry_model)
                     content = entry.get('message', {}).get('content', [])
                     if isinstance(content, list):
                         for block in content:

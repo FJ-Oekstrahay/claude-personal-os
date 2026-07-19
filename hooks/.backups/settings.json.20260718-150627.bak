@@ -1,7 +1,7 @@
 {
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
-    "DISCORD_LOG_CHANNEL_ID": "<channel-id>"
+    "DISCORD_LOG_CHANNEL_ID": "1499363606444114044"
   },
   "permissions": {
     "allow": [
@@ -196,16 +196,6 @@
           {
             "type": "command",
             "command": "python3 ~/.claude/hooks/batchc-stop-gate.py"
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/discord-notify.sh"
           }
         ]
       }

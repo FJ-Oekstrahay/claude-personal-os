@@ -13,7 +13,7 @@
 #   DISCUSSION channel (the source channel the user is talking in):
 #     - the reply-tool message (posted by the reply tool itself — this hook does
 #       NOT re-post it)
-#     - final answers / questions for the user / done-pings that need attention
+#     - final answers / questions for Geoff / done-pings that need attention
 #     - Job 1/Job 2 safety-net text in discord-stop-check.py (only when Claude did
 #       not use the reply tool)
 #
@@ -150,77 +150,11 @@ except Exception:
   echo ""
 }
 
-# Option B (2026-07-18): live-interleave subagent narrative into the log channel.
-# On a subagent (Agent-tool, in-process) tool call the hook input carries a non-empty
-# agent_id/agent_type, but transcript_path still points at the MAIN transcript (verified
-# via spike 2026-07-18) — the subagent's own narrative lives in a sidechain file we must
-# locate ourselves: "<transcript_path without .jsonl>/subagents/agent-<agent_id>.jsonl".
-# discord-text-extract reads it under a PER-AGENT cursor and posts each block with a
-# ↳[type · model] badge. Called from BOTH Pre- and PostToolUse so narrative flushes just
-# before its own tool line (true interleave, same as the main-session firehose).
-# Fail-open: any missing piece → silent return 0, never blocks the tool call.
-flush_subagent_narrative() {
-  local session_id="$1" transcript_path="$2" log_webhook="$3" agent_id="$4" agent_type="$5"
-  [ -n "$agent_id" ] || return 0
-  [ -n "$log_webhook" ] || return 0
-  [ -n "$transcript_path" ] || return 0
-  local subfile="${transcript_path%.jsonl}/subagents/agent-${agent_id}.jsonl"
-  [ -f "$subfile" ] || return 0
-  python3 "$HOME/.claude/hooks/discord-text-extract.py" \
-    "$session_id" "$subfile" "$log_webhook" "$agent_id" "$agent_type" 2>/dev/null &
-}
-
 INPUT=$(cat)
 
 # Used by _log_webhook_miss() above — read once, all resolve_log_webhook() callers
 # below run after this point.
 HOOK_CWD=$(echo "$INPUT" | /usr/bin/jq -r '.cwd // "unknown"' 2>/dev/null)
-
-# SubagentStop (Option B Phase 2, 2026-07-18): flush the subagent's TRAILING narrative —
-# the text it writes after its LAST tool call, which the Phase 1 Pre/PostToolUse interleave
-# structurally can't reach (nothing fires after that last tool call). The event carries
-# agent_transcript_path (the sidechain file itself — verified via spike) plus agent_id /
-# agent_type. We reuse the SAME extractor + PER-AGENT cursor as Phase 1, so only the blocks
-# after Phase 1's last flush post (idempotent — no double-post), then drain the coalesce
-# buffer. Handled HERE, before the tool-name/Stop dispatch below: SubagentStop has no
-# tool_name but DOES carry transcript_path, so without this guard it would fall into the
-# Stop branch and misfire discord-stop-check. Fail-open: any missing piece → exit 0.
-HOOK_EVENT=$(echo "$INPUT" | /usr/bin/jq -r '.hook_event_name // empty' 2>/dev/null)
-if [ "$HOOK_EVENT" = "SubagentStop" ]; then
-  SS_SESSION_ID=$(echo "$INPUT" | /usr/bin/jq -r '.session_id // empty' 2>/dev/null)
-  SS_AGENT_ID=$(echo "$INPUT" | /usr/bin/jq -r '.agent_id // empty' 2>/dev/null)
-  SS_AGENT_TYPE=$(echo "$INPUT" | /usr/bin/jq -r '.agent_type // empty' 2>/dev/null)
-  SS_ATP=$(echo "$INPUT" | /usr/bin/jq -r '.agent_transcript_path // empty' 2>/dev/null)
-  SS_TP=$(echo "$INPUT" | /usr/bin/jq -r '.transcript_path // empty' 2>/dev/null)
-  # Prefer the event's own sidechain path; fall back to constructing it from agent_id
-  # (same construction Phase 1 uses) if the field is ever absent.
-  if [ -z "$SS_ATP" ] && [ -n "$SS_TP" ] && [ -n "$SS_AGENT_ID" ]; then
-    SS_ATP="${SS_TP%.jsonl}/subagents/agent-${SS_AGENT_ID}.jsonl"
-  fi
-  if [ -n "$SS_SESSION_ID" ] && [ -n "$SS_AGENT_ID" ] && [ -f "$SS_ATP" ]; then
-    SS_WEBHOOK=$(resolve_log_webhook "$SS_SESSION_ID")
-    if [ -n "$SS_WEBHOOK" ]; then
-      # Phase 3 fix (2026-07-18, Architect review finding 1): no flushall here.
-      # text-extract already force-drains its narrative via urgent=True (see
-      # discord-text-extract.py) — and subagents share the SAME (session, channel)
-      # coalesce buffer as the parent (subagent-mode channel resolution keys off
-      # the parent session's routechatid/chatid, per that file's comments). A
-      # flushall on every subagent completion under a Workflow fan-out therefore
-      # drains the shared main-session buffer once per subagent, defeating the
-      # coalescing that protects the webhook from 429s. The only thing left
-      # unflushed here is a trailing PostToolUse tool-line for THIS buffer key,
-      # which the next hook invocation (main session resuming, or another
-      # subagent) will flush within COALESCE_MAX_AGE (~2s), or the parent's own
-      # Stop-time flushall will drain regardless. Do not reintroduce a flush
-      # here without re-solving the 2026-07-12 orphaned-key bug (see the Stop
-      # path below) — that's why this was flushall, not flush, in the first
-      # place.
-      python3 "$HOME/.claude/hooks/discord-text-extract.py" \
-        "$SS_SESSION_ID" "$SS_ATP" "$SS_WEBHOOK" "$SS_AGENT_ID" "$SS_AGENT_TYPE" 2>/dev/null &
-    fi
-  fi
-  exit 0
-fi
 
 TOOL_NAME=$(echo "$INPUT" | /usr/bin/jq -r '.tool_name // empty' 2>/dev/null)
 HAS_RESPONSE=$(echo "$INPUT" | /usr/bin/jq -r 'if has("tool_response") then "yes" else "no" end' 2>/dev/null)
@@ -233,14 +167,11 @@ if [ -n "$TOOL_NAME" ] && [ "$HAS_RESPONSE" = "no" ]; then
 
   SESSION_ID=$(echo "$INPUT" | /usr/bin/jq -r '.session_id // empty' 2>/dev/null)
   TRANSCRIPT_PATH=$(echo "$INPUT" | /usr/bin/jq -r '.transcript_path // empty' 2>/dev/null)
-  AGENT_ID=$(echo "$INPUT" | /usr/bin/jq -r '.agent_id // empty' 2>/dev/null)
-  AGENT_TYPE=$(echo "$INPUT" | /usr/bin/jq -r '.agent_type // empty' 2>/dev/null)
 
   if [ -n "$SESSION_ID" ] && [ -n "$TRANSCRIPT_PATH" ]; then
     ACTIVE_LOG_WEBHOOK=$(resolve_log_webhook "$SESSION_ID")
     python3 "$HOME/.claude/hooks/discord-text-extract.py" \
       "$SESSION_ID" "$TRANSCRIPT_PATH" "$ACTIVE_LOG_WEBHOOK" 2>/dev/null &
-    flush_subagent_narrative "$SESSION_ID" "$TRANSCRIPT_PATH" "$ACTIVE_LOG_WEBHOOK" "$AGENT_ID" "$AGENT_TYPE"
   fi
 
   # Immediate PreToolUse announcements for notable tools
@@ -309,21 +240,10 @@ elif [ -n "$TOOL_NAME" ]; then
   # where PreToolUse didn't run, e.g. hook was just added mid-session.)
   SESSION_ID=$(echo "$INPUT" | /usr/bin/jq -r '.session_id // empty' 2>/dev/null)
   TRANSCRIPT_PATH=$(echo "$INPUT" | /usr/bin/jq -r '.transcript_path // empty' 2>/dev/null)
-  AGENT_ID=$(echo "$INPUT" | /usr/bin/jq -r '.agent_id // empty' 2>/dev/null)
-  AGENT_TYPE=$(echo "$INPUT" | /usr/bin/jq -r '.agent_type // empty' 2>/dev/null)
-  # Phase 3 fix (2026-07-18, Architect review finding 3): resolve exactly once,
-  # unconditionally, so PreToolUse/SubagentStop's one-miss-per-event pattern
-  # holds here too. Previously this was only set inside the guard below, then
-  # re-resolved via `${POST_LOG_WEBHOOK:-$(resolve_log_webhook ...)}` further
-  # down whenever the guard was skipped or resolved empty — logging a second
-  # _log_webhook_miss per event and skewing the 1:1 miss-rate instrumentation
-  # webhook-resolve-misses.log exists to measure.
-  POST_LOG_WEBHOOK=$(resolve_log_webhook "$SESSION_ID")
 
   if [ -n "$SESSION_ID" ] && [ -n "$TRANSCRIPT_PATH" ]; then
     python3 "$HOME/.claude/hooks/discord-text-extract.py" \
-      "$SESSION_ID" "$TRANSCRIPT_PATH" "$POST_LOG_WEBHOOK" &
-    flush_subagent_narrative "$SESSION_ID" "$TRANSCRIPT_PATH" "$POST_LOG_WEBHOOK" "$AGENT_ID" "$AGENT_TYPE"
+      "$SESSION_ID" "$TRANSCRIPT_PATH" "$(resolve_log_webhook "$SESSION_ID")" &
   fi
 
   # --- Tool call summary line ---
@@ -437,11 +357,7 @@ except Exception as e:
     print(f'**hook-error** {str(e)[:60]}')
 " 2>/dev/null)
 
-  # Tool-line attribution (Option B bonus): tag subagent tool lines so the log stream
-  # shows they came from a subagent, matching the ↳[type · model] narrative badge.
-  [ -n "$AGENT_TYPE" ] && [ -n "$MSG" ] && MSG="↳[$AGENT_TYPE] $MSG"
-
-  WEBHOOK_URL="$POST_LOG_WEBHOOK"
+  WEBHOOK_URL=$(resolve_log_webhook "$SESSION_ID")
 
 elif [ -z "$TOOL_NAME" ] && echo "$INPUT" | /usr/bin/jq -e 'has("transcript_path")' >/dev/null 2>&1; then
   # Stop hook path — turn ended. Post to Discord if a Discord message arrived this turn
