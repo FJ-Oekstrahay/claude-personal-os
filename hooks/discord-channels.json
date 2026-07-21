@@ -34,5 +34,7 @@
   "<channel-id>": "financial",
   "<channel-id>": "log-financial",
   "<channel-id>": "health-ethan",
-  "<channel-id>": "log-health-ethan"
+  "<channel-id>": "log-health-ethan",
+  "<channel-id>": "income-and-life",
+  "<channel-id>": "log-income-and-life"
 }

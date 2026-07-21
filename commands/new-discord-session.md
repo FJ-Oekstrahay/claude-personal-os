@@ -265,3 +265,5 @@ This table is updated automatically by Step 9 each time `/new-discord-session` r
 | log-financial | <channel-id> |
 | health-ethan | <channel-id> |
 | log-health-ethan | <channel-id> |
+| income-and-life | <channel-id> |
+| log-income-and-life | <channel-id> |
