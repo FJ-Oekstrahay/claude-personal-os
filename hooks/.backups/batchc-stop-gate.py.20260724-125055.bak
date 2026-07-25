@@ -25,12 +25,7 @@ stop. Loud-but-stoppable beats wedged.
 Loop prevention (three layers, any one suffices):
   1. stop_hook_active=True  → we're already in a stop-hook continuation; allow.
   2. per-session marker file → block at most once per session.
-  3. handoff-detected scan   → a written handoff clears the §12 obligation.
-     NOTE (2026-07-24): this is no longer an unconditional "never block again".
-     Geoff ruled that a handoff must NOT satisfy the §11 verifier gate — it
-     records that work happened, it is not evidence anyone reviewed it. So a
-     handoff allows the stop only when no review is outstanding. Layers 1 and 2
-     are what guarantee no session can wedge; layer 3 is a §12 clearance only.
+  3. handoff-detected scan   → once the model writes a handoff, never block again.
 
 Discord notify (2026-07-18, handoffs/HANDOFF-stop-gate-discord-notify-gap-2026-07-18-1124.md,
 Option A): the block message below is written to stderr, which is internal to the
@@ -105,18 +100,11 @@ that work happened, it is not evidence anyone reviewed it.
 Two mechanisms satisfy this. Pick one and do it NOW:
 
   1. Dispatch a reviewer subagent over the diff — this is the one YOU can always \
-do. Use the Agent tool.
-     DEFAULT: subagent_type "cto" (or "gadfly"). Both run on Sonnet and are the \
-right proportionate cost for an ordinary change.
-     ESCALATE to "The Architect" (Opus) only when the change is genuinely hard — \
-subtle control flow, concurrency, a security or data-loss surface, or anything \
-where being wrong is expensive. Opus draws on the weekly cap; spend it on purpose, \
-not by default.
-     "Safety Officer" (Opus) for anything touching flight-controller or hardware \
-safety, regardless of size.
-     Any OTHER subagent_type (general-purpose, cob, seymour, ...) counts only if \
-you include the literal marker [verifier-gate] in the Agent prompt — that keeps a \
-routine search or lookup agent from satisfying this gate by accident.
+do. Use the Agent tool. subagent_type "The Architect", "cto", "gadfly", "critic", \
+"code-reviewer", or "Safety Officer" counts automatically. Any OTHER subagent_type \
+(general-purpose, cob, seymour, ...) counts only if you include the literal marker \
+[verifier-gate] in the Agent prompt — that keeps a routine search or lookup agent \
+from satisfying this gate by accident.
 
   2. Ask the user to run /verify or /code-review. Those ARE real built-in commands \
 (compiled into the CC binary, not files under ~/.claude/commands), but both are \
@@ -415,12 +403,7 @@ def main():
         except Exception:
             pass
 
-    # Name the gate that ACTUALLY blocked. When the handoff is already written,
-    # the only outstanding obligation is the review, and a "§12 handoff gate"
-    # header over §11 verifier text reads as a contradiction on Discord.
-    gate_label = ("§11 — verifier gate" if handoff_written
-                  else "§12 — handoff gate")
-    _notify_discord(session_id, f":no_entry: **batchc {gate_label} blocked stop**\n{block_msg}")
+    _notify_discord(session_id, f":no_entry: **batchc §12 — handoff gate blocked stop**\n{block_msg}")
 
     sys.stderr.write(block_msg + "\n")
     sys.exit(2)

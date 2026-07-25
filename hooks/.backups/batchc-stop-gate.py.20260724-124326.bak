@@ -25,12 +25,7 @@ stop. Loud-but-stoppable beats wedged.
 Loop prevention (three layers, any one suffices):
   1. stop_hook_active=True  → we're already in a stop-hook continuation; allow.
   2. per-session marker file → block at most once per session.
-  3. handoff-detected scan   → a written handoff clears the §12 obligation.
-     NOTE (2026-07-24): this is no longer an unconditional "never block again".
-     Geoff ruled that a handoff must NOT satisfy the §11 verifier gate — it
-     records that work happened, it is not evidence anyone reviewed it. So a
-     handoff allows the stop only when no review is outstanding. Layers 1 and 2
-     are what guarantee no session can wedge; layer 3 is a §12 clearance only.
+  3. handoff-detected scan   → once the model writes a handoff, never block again.
 
 Discord notify (2026-07-18, handoffs/HANDOFF-stop-gate-discord-notify-gap-2026-07-18-1124.md,
 Option A): the block message below is written to stderr, which is internal to the
@@ -92,31 +87,19 @@ This gate fires at most once per session, so a second stop will not be blocked.\
 
 VERIFIER_REMINDER = """\
 
-[batchc §11 — verifier gate] This session edited MORE THAN ONE file, or edited a \
-LIVE SHARED SURFACE (a hook, slash command, agent/skill definition, settings.json, \
-or a launchd plist — one edit there changes behavior for every session on this \
-machine). No independent review of those edits was detected.
-
-Per batchc §11 the requirement is an INTENT, not one specific command: a separate \
-agent context must review the change. The agent that wrote the code does not \
-verify its own work. Writing a handoff does NOT satisfy this — a handoff records \
-that work happened, it is not evidence anyone reviewed it.
+[batchc §11 — verifier gate] This session edited MORE THAN ONE file and NO \
+independent review of those edits was detected. Per batchc §11 the requirement is \
+an INTENT, not one specific command: a separate agent context must review the \
+change. The agent that wrote the code does not verify its own work.
 
 Two mechanisms satisfy this. Pick one and do it NOW:
 
   1. Dispatch a reviewer subagent over the diff — this is the one YOU can always \
-do. Use the Agent tool.
-     DEFAULT: subagent_type "cto" (or "gadfly"). Both run on Sonnet and are the \
-right proportionate cost for an ordinary change.
-     ESCALATE to "The Architect" (Opus) only when the change is genuinely hard — \
-subtle control flow, concurrency, a security or data-loss surface, or anything \
-where being wrong is expensive. Opus draws on the weekly cap; spend it on purpose, \
-not by default.
-     "Safety Officer" (Opus) for anything touching flight-controller or hardware \
-safety, regardless of size.
-     Any OTHER subagent_type (general-purpose, cob, seymour, ...) counts only if \
-you include the literal marker [verifier-gate] in the Agent prompt — that keeps a \
-routine search or lookup agent from satisfying this gate by accident.
+do. Use the Agent tool. subagent_type "The Architect", "cto", "gadfly", "critic", \
+"code-reviewer", or "Safety Officer" counts automatically. Any OTHER subagent_type \
+(general-purpose, cob, seymour, ...) counts only if you include the literal marker \
+[verifier-gate] in the Agent prompt — that keeps a routine search or lookup agent \
+from satisfying this gate by accident.
 
   2. Ask the user to run /verify or /code-review. Those ARE real built-in commands \
 (compiled into the CC binary, not files under ~/.claude/commands), but both are \
@@ -155,46 +138,6 @@ USER_VERIFIER_COMMANDS = (
     "<command-name>/verify</command-name>",
     "<command-name>/code-review</command-name>",
 )
-
-# Live shared surfaces: one edit here changes behavior for EVERY session on this
-# machine, so it earns a reviewer regardless of file count. Kept deliberately
-# narrow and path-anchored — a broad match would nag on ordinary source edits
-# and the gate would get ignored, which is worse than not having it.
-LIVE_SURFACE_SUFFIXES = (
-    "/.claude/settings.json",
-    "/.claude/settings.local.json",
-)
-LIVE_SURFACE_DIRS = (
-    "/.claude/hooks/",
-    "/.claude/commands/",
-    "/.claude/agents/",
-    "/.claude/skills/",
-    "/.claude/output-styles/",
-    "/.openclaw/bin/",
-    "/Library/LaunchAgents/",
-)
-
-
-def _is_live_surface(path):
-    """True if `path` is a shared runtime surface every session depends on.
-
-    Checks BOTH the expanded path and its realpath: today ~/.claude is a real
-    directory, but if it ever becomes a symlink, realpath alone would resolve the
-    ".claude/hooks/" marker out of the string and this gate would fail SILENTLY —
-    the worst failure mode available to it. Never raises; a bad path just isn't a
-    live surface.
-    """
-    cands = []
-    try:
-        expanded = os.path.abspath(os.path.expanduser(str(path)))
-        cands.append(expanded)
-        cands.append(os.path.realpath(expanded))
-    except Exception:
-        return False
-    for p in cands:
-        if p.endswith(LIVE_SURFACE_SUFFIXES) or any(d in p for d in LIVE_SURFACE_DIRS):
-            return True
-    return False
 
 
 def _resolve_chat_id(session_id):
@@ -286,8 +229,7 @@ def main():
     # --- Scan transcript JSONL for handoff, multi-file edits, and verify calls ---
     handoff_written = False
     multi_file_edited = False   # >1 distinct path written/edited by main session
-    live_surface_edited = False # any edit to a shared runtime surface (see below)
-    verify_called = False       # independent review detected after the last edit
+    verify_called = False       # /verify or /code-review invoked after edits
 
     try:
         if transcript_path and os.path.exists(transcript_path):
@@ -375,36 +317,19 @@ def main():
 
             if len(edited_paths) > 1:
                 multi_file_edited = True
-            # Threshold (Geoff, 2026-07-24): file COUNT is a weak proxy for risk.
-            # A single edit to a live shared surface — a hook every session
-            # executes, a slash command every session reads, gateway/agent config
-            # — deserves a second context regardless of count. Ordinary
-            # single-file source edits are still exempt (§7b).
-            if any(_is_live_surface(p) for p in edited_paths):
-                live_surface_edited = True
     except Exception:
         pass  # fail-open: parse errors don't trigger the verifier gate
 
-    # --- Verifier gate (§11) ---
-    # Deliberately evaluated BEFORE the handoff short-circuit (Geoff, 2026-07-24):
-    # a handoff is a RECORD that work happened, not evidence anyone reviewed it.
-    # Letting it satisfy §11 meant "edit 5 files, write a handoff, skip all
-    # review, stop clean" — which contradicts batchc.md's own wording that a
-    # multi-file change is NOT done until a separate agent context has reviewed it.
-    needs_verifier = (multi_file_edited or live_surface_edited) and not verify_called
-
-    if handoff_written and not needs_verifier:
-        sys.exit(0)  # loop guard 3: handoff exists AND review happened — allow stop
-
-    # --- Build the block message ---
-    # If the handoff is already written, don't re-run the §12 checklist at the
-    # model; the only outstanding obligation is the review.
     if handoff_written:
-        block_msg = VERIFIER_REMINDER.lstrip("\n")
-    else:
-        block_msg = HANDOFF_CHECKLIST
-        if needs_verifier:
-            block_msg += VERIFIER_REMINDER
+        sys.exit(0)  # loop guard 3 + the whole point: handoff exists, allow stop
+
+    # --- Build combined block message (never double-block) ---
+    needs_verifier = multi_file_edited and not verify_called
+
+    # Compose the full message; verifier reminder appended only when triggered
+    block_msg = HANDOFF_CHECKLIST
+    if needs_verifier:
+        block_msg += VERIFIER_REMINDER
 
     # --- Block: mark (so we fire only once), write to stderr, exit 2 ---
     if marker:
@@ -415,12 +340,7 @@ def main():
         except Exception:
             pass
 
-    # Name the gate that ACTUALLY blocked. When the handoff is already written,
-    # the only outstanding obligation is the review, and a "§12 handoff gate"
-    # header over §11 verifier text reads as a contradiction on Discord.
-    gate_label = ("§11 — verifier gate" if handoff_written
-                  else "§12 — handoff gate")
-    _notify_discord(session_id, f":no_entry: **batchc {gate_label} blocked stop**\n{block_msg}")
+    _notify_discord(session_id, f":no_entry: **batchc §12 — handoff gate blocked stop**\n{block_msg}")
 
     sys.stderr.write(block_msg + "\n")
     sys.exit(2)

@@ -105,18 +105,11 @@ that work happened, it is not evidence anyone reviewed it.
 Two mechanisms satisfy this. Pick one and do it NOW:
 
   1. Dispatch a reviewer subagent over the diff — this is the one YOU can always \
-do. Use the Agent tool.
-     DEFAULT: subagent_type "cto" (or "gadfly"). Both run on Sonnet and are the \
-right proportionate cost for an ordinary change.
-     ESCALATE to "The Architect" (Opus) only when the change is genuinely hard — \
-subtle control flow, concurrency, a security or data-loss surface, or anything \
-where being wrong is expensive. Opus draws on the weekly cap; spend it on purpose, \
-not by default.
-     "Safety Officer" (Opus) for anything touching flight-controller or hardware \
-safety, regardless of size.
-     Any OTHER subagent_type (general-purpose, cob, seymour, ...) counts only if \
-you include the literal marker [verifier-gate] in the Agent prompt — that keeps a \
-routine search or lookup agent from satisfying this gate by accident.
+do. Use the Agent tool. subagent_type "The Architect", "cto", "gadfly", "critic", \
+"code-reviewer", or "Safety Officer" counts automatically. Any OTHER subagent_type \
+(general-purpose, cob, seymour, ...) counts only if you include the literal marker \
+[verifier-gate] in the Agent prompt — that keeps a routine search or lookup agent \
+from satisfying this gate by accident.
 
   2. Ask the user to run /verify or /code-review. Those ARE real built-in commands \
 (compiled into the CC binary, not files under ~/.claude/commands), but both are \
