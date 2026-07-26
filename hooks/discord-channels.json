@@ -36,5 +36,7 @@
   "<channel-id>": "health-ethan",
   "<channel-id>": "log-health-ethan",
   "<channel-id>": "income-and-life",
-  "<channel-id>": "log-income-and-life"
+  "<channel-id>": "log-income-and-life",
+  "<channel-id>": "games",
+  "<channel-id>": "log-games"
 }

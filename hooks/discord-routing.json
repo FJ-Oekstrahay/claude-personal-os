@@ -13,5 +13,6 @@
   "<channel-id>": "LOG_HEALTH_WEBHOOK_URL",
   "<channel-id>": "LOG_FINANCIAL_WEBHOOK_URL",
   "<channel-id>": "LOG_HEALTH_ETHAN_WEBHOOK_URL",
-  "<channel-id>": "LOG_INCOME_WEBHOOK_URL"
+  "<channel-id>": "LOG_INCOME_WEBHOOK_URL",
+  "<channel-id>": "LOG_GAMES_WEBHOOK_URL"
 }
