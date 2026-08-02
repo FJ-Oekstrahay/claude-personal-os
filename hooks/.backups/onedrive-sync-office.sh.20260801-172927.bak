@@ -10,33 +10,12 @@
 # don't tell us which file changed, so we sweep for recently-modified Office/PDF/HTML
 # files instead and mirror any that are newer than their OneDrive copy.
 #
-# html/htm ADDED 2026-08-01 (the user, prompts/visualizations-aug.md): the Anita
+# html/htm ADDED 2026-08-01 (Geoff, prompts/visualizations-aug.md): the Anita
 # visualization pages (docs/visualizations/*.html) are self-contained deliverables
 # he reads, and they were the one artifact class the mirror skipped. pdf was already
-# covered.
+# covered. The scratch/ exclusion above is what keeps throwaway HTML out.
 #
-# ⚠️⚠️ HTML IS PATH-SCOPED AND MUST STAY THAT WAY. The first cut of this change matched
-# html by EXTENSION ALONE, like the Office types — and that is wrong for html in a way it
-# is not wrong for .xlsx, because html is a BUILD OUTPUT format. A bare extension match
-# over ~/.openclaw/workspace/projects qualified 272 files across 47 projects, including
-# multi-megabyte vendor and dist artifacts in the drone repos (a 6.7MB credits.html among
-# them). Any npm build touching those within the 5-minute sweep window would have silently
-# copied them into personal OneDrive.
-#
-# That is the SAME root cause as the 2026-07-23 incident this hook was already patched for
-# (an unscoped sweep, narrowed only by a directory blocklist), so the fix must not repeat
-# it. Requiring a `docs/` path segment takes the candidate set from 272 to 5 — four of
-# which are the intended pages.
-#
-# ⚠️ Do NOT "simplify" this back to a bare -iname match. And if a new HTML deliverable
-# needs mirroring, put it under a `docs/` directory rather than widening this rule.
-#
-# KNOWN GAP, deliberately left alone: EXCLUDE_DIR_NAMES does not list build dirs
-# (dist, vendor, cache, build), so a stray .pdf or .png in one of those still mirrors.
-# That predates this change and has been live for weeks without incident; widening the
-# blocklist would change behaviour for extensions that are not the problem here.
-#
-# EXCLUDED path components (2026-07-23, the user via Discord): ephemeral/staging dirs
+# EXCLUDED path components (2026-07-23, Geoff via Discord): ephemeral/staging dirs
 # that should never leave a permanent copy in OneDrive. Mirroring these produced
 # ~1,200 stale files in OneDrive (818 docs-inbox incl. PII like a signed 1040, 385
 # from a deleted git worktree, 13 already-ingested delete-me payslips) that
@@ -69,17 +48,7 @@ mirror_one() {
   local ext_lower
   ext_lower=$(echo "$ext" | tr '[:upper:]' '[:lower:]')
   case "$ext_lower" in
-    xlsx|docx|pptx|pdf|png|jpg|jpeg|gif) ;;
-    html|htm)
-      # Path-scoped, not extension-scoped — see the ⚠️ block at the top of this file.
-      [[ "$file_path" == */docs/* ]] || return
-      # docs/reports/backlog-artifact.html is 432KB of GITIGNORED build output,
-      # regenerated on nearly every backlog change and re-published through the Artifact
-      # tool. It is staging, not something the user opens from OneDrive, and mirroring it
-      # would drop a new large file into the folder that accumulated ~1,200 stale files
-      # in July. Excluded by name.
-      [[ "${file_path##*/}" == "backlog-artifact.html" ]] && return
-      ;;
+    xlsx|docx|pptx|pdf|html|htm|png|jpg|jpeg|gif) ;;
     *) return ;;
   esac
 
@@ -117,11 +86,7 @@ case "$tool_name" in
     [[ -d "$SCAN_ROOT" ]] || exit 0
     while IFS= read -r -d '' f; do
       mirror_one "$f"
-    done < <(find "$SCAN_ROOT" -type f \( \
-        \( -iname "*.xlsx" -o -iname "*.docx" -o -iname "*.pptx" -o -iname "*.pdf" \
-           -o -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.gif" \) \
-        -o \( -path "*/docs/*" \( -iname "*.html" -o -iname "*.htm" \) \) \
-     \) -mmin -5 -print0 2>/dev/null)
+    done < <(find "$SCAN_ROOT" -type f \( -iname "*.xlsx" -o -iname "*.docx" -o -iname "*.pptx" -o -iname "*.pdf" -o -iname "*.html" -o -iname "*.htm" -o -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.gif" \) -mmin -5 -print0 2>/dev/null)
     ;;
 esac
 
