@@ -113,15 +113,7 @@ else
     if [ $AGE -gt 172800 ]; then
       AGE_HOURS=$(( AGE / 3600 ))
       FAILURES+=("memsearch index stale — last reindex ${AGE_HOURS}h ago")
-      # Forensic pair: stamp mtime (when it was last written) vs stamp content
-      # (what the reindex script believes it wrote) vs the launchd job's own
-      # exit status. Disagreement between mtime and content tells us whether
-      # the whole file was reverted (both stale) or just the mtime was
-      # touched/read wrong (content fresh, mtime stale) — the 2026-08-03
-      # incident had no way to tell these apart after the fact.
-      STAMP_CONTENT=$(cat "$MEMSEARCH_STAMP" 2>/dev/null)
-      LAUNCHD_STATUS=$(launchctl list 2>/dev/null | grep memsearch || echo "not found")
-      send_discord_alert "[INFRA ALERT] memsearch index stale — last successful reindex was ${AGE_HOURS}h ago (threshold: 48h). stamp mtime age=${AGE_HOURS}h, stamp content=\"${STAMP_CONTENT}\", launchctl=\"${LAUNCHD_STATUS}\". Check com.geoff.memsearch-reindex."
+      send_discord_alert "[INFRA ALERT] memsearch index stale — last successful reindex was ${AGE_HOURS}h ago (threshold: 48h). Check com.geoff.memsearch-reindex."
     fi
   fi
 fi

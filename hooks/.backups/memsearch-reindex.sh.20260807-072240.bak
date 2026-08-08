@@ -5,7 +5,7 @@
 # WHY: Claude writes memory to ~/.openclaw/workspace/memory and
 # ~/.claude/projects/*/memory, but memsearch's index was frozen because nothing
 # re-indexed those dirs. This runs daily via launchd (com.geoff.memsearch-reindex)
-# so recall stays fresh. Canonical dir set = the user's decision 2026-07-07
+# so recall stays fresh. Canonical dir set = Geoff's decision 2026-07-07
 # ("index everything including projects"): the two legacy .memsearch dirs +
 # workspace memory + every project auto-memory dir (globbed so new projects are
 # picked up automatically).
@@ -63,12 +63,7 @@ log "START reindex over ${#dirs[@]} dirs"
 if "$UVX" --from 'memsearch[onnx]' memsearch index "${dirs[@]}" >> "$LOG" 2>&1; then
   # Stamp success — mtime is what the health check measures.
   TZ=America/New_York date '+%F %T %z' > "$STAMP"
-  # Log the mtime we actually observe right after the write, plus wall clock,
-  # so a later "stale index" alert can be checked against this append-only
-  # record instead of trusting the write happened (2026-08-03 stamp-revert
-  # incident: the write silently failed to persist for 5 days and this log
-  # kept saying "OK" regardless).
-  log "OK reindex complete — stamped $STAMP (observed mtime $(stat -f '%Sm' "$STAMP" 2>/dev/null), wall clock $(date))"
+  log "OK reindex complete — stamped $STAMP"
   exit 0
 else
   rc=$?
