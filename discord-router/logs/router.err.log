@@ -341,3 +341,15 @@ DeprecationWarning: The ready event has been renamed to clientReady to distingui
       at emit (/Users/moltyjoe/.claude/discord-router/node_modules/@vladfrangu/async_event_emitter/dist/index.cjs:2504:31)
       at emit (/Users/moltyjoe/.claude/discord-router/node_modules/@vladfrangu/async_event_emitter/dist/index.cjs:2504:31)
 
+discord-router: gateway connected as Claudio#2685
+DeprecationWarning: The ready event has been renamed to clientReady to distinguish it from the gateway READY event and will only emit under that name in v15. Please use clientReady instead.
+      at triggerClientReady (/Users/moltyjoe/.claude/discord-router/node_modules/discord.js/src/client/websocket/WebSocketManager.js:389:15)
+      at checkShardsReady (/Users/moltyjoe/.claude/discord-router/node_modules/discord.js/src/client/websocket/WebSocketManager.js:368:10)
+      at <anonymous> (/Users/moltyjoe/.claude/discord-router/node_modules/discord.js/src/client/websocket/WebSocketManager.js:198:16)
+      at emit (node:events:92:22)
+      at checkReady (/Users/moltyjoe/.claude/discord-router/node_modules/discord.js/src/client/websocket/WebSocketShard.js:184:12)
+      at gotGuild (/Users/moltyjoe/.claude/discord-router/node_modules/discord.js/src/client/websocket/WebSocketShard.js:158:10)
+      at <anonymous> (/Users/moltyjoe/.claude/discord-router/node_modules/discord.js/src/client/websocket/WebSocketManager.js:238:15)
+      at emit (/Users/moltyjoe/.claude/discord-router/node_modules/@vladfrangu/async_event_emitter/dist/index.cjs:2504:31)
+      at emit (/Users/moltyjoe/.claude/discord-router/node_modules/@vladfrangu/async_event_emitter/dist/index.cjs:2504:31)
+
