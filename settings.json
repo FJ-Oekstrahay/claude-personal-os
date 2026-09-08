@@ -53,7 +53,6 @@
     ],
     "_comment_openclaw": "The launchctl, openclaw, and pa-restart allow rules below require the OpenClaw companion system (not public yet — separate repo). They're here to show the real config; remove or adapt for your own setup."
   },
-  "model": "opus",
   "hooks": {
     "SessionStart": [
       {
@@ -252,14 +251,6 @@
       }
     }
   },
-  "modelSettings": {
-    "claude-sonnet-5": {
-      "effortLevel": "high"
-    },
-    "claude-opus-5": {
-      "effortLevel": "high"
-    }
-  },
   "advisorModel": "opus",
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
@@ -268,5 +259,13 @@
   "preferredNotifChannel": "ghostty",
   "teammateMode": "tmux",
   "agentPushNotifEnabled": true,
-  "voiceEnabled": false
+  "voiceEnabled": false,
+  "modelSettings": {
+    "claude-sonnet-5": {
+      "effortLevel": "high"
+    },
+    "claude-opus-5": {
+      "effortLevel": "high"
+    }
+  }
 }
