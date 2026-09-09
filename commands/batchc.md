@@ -35,7 +35,7 @@ Smartbatch execution protocol. Read the full prompt before touching anything, th
    - Check `wave_density` from `~/.claude/hooks/state/session-pressure.json` before dispatching: if `wave_density` ≥ 30, treat rapid-fire urge as a confirmed throttle signal — pause, do not accelerate. If the field is missing, treat as 0 (normal).
    - Lightweight waves (inline answers, single fast lookups) do not require a pacing pause
 
-1d. **Throttle-risk heuristic**
+1d. **Throttle-risk heuristic** — applies by default per CLAUDE.md's "Default-on safety posture" to ANY 2+ parallel `Agent`/`Workflow` dispatch, not only when this file is explicitly invoked as `/batchc`.
    - Read `wave_density` from the state file (tool calls in the last 60 seconds, written by `wave-counter.py`):
      - **wave_density < 30** — normal; no special constraint
      - **wave_density 30–59** — elevated burst; reduce wave to 1–2 tasks, enforce turn boundary
@@ -161,6 +161,7 @@ Smartbatch execution protocol. Read the full prompt before touching anything, th
 12. **Post-batch completion checklist**
 After all work items are committed and done:
 - Check whether auto-memory files or project MEMORY.md need updating based on what was learned this batch. Update them now, not later.
+- **A REJECT verdict from §11's verifier gate is itself a trigger**: write (or confirm Auto Memory already wrote) a `feedback`-type memory entry documenting why the reviewer rejected it, before closing the batch. This replaces the old `/capture-pair` nudge — that command is retired (it duplicated Auto Memory's `feedback` type and was never used; see `distillation/checklist.md`'s history in claude-config). Auto Memory writes `feedback`/`project`/`reference`/`user` entries automatically with no separate command; the point of this line is to make sure a rejection specifically doesn't get fixed and forgotten without one.
 - Flag any playbook that should be created or updated from patterns discovered this batch — name it explicitly. If it can be written in under 5 minutes, write it. Do not let session learnings go unwritten while context is still fresh.
 - Write any next-session prompts now while context is fresh, even if the session is not ending yet.
 - **Handoff is automatic, not advisory.** If the batch involved substantial work or learnings and no handoff has been written yet, run `/session-handoff` NOW — pick a descriptive name yourself (format: `HANDOFF-<topic>-<YYYY-MM-DD>-<HHMM>.md`). Never tell the user a handoff is "recommended" or ask whether to run one — recommending is a protocol failure. The only reason to skip is that the work was genuinely minor.
