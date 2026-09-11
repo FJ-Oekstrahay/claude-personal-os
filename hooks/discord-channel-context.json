@@ -94,5 +94,9 @@
   "<channel-id>": {
     "name": "log-health",
     "context_hint": "Receives activity logs only — read-only context."
+  },
+  "<channel-id>": {
+    "name": "obsidian-mgmt",
+    "context_hint": "the user's real Discord thread name (confirmed live via GET /channels/{id}, type 11 = public thread, parent claude-config-mba). 2026-08-29 topics: Obsidian/iCloud MBA sync force-sync question, then a deep-dive on Discord channel-notification turn-batching and thread-ID plumbing. See memory [[obsidian_icloud_sync_mini_mba]] and [[discord_channel_notification_batching]] before re-deriving."
   }
 }

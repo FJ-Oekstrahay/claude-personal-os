@@ -57,7 +57,35 @@ DISCORD_MSG_CAP = 1900  # Discord's 2000-char body limit, minus headroom for the
 # Substantial-batch thresholds (any one trips it).
 # cumulative_tool_calls counts every PostToolUse call; 15 is a real working batch.
 SUBSTANTIAL_TOOL_CALLS = 15
+# fill_pct is now relative to the model's real context window (1M on opus-5/
+# sonnet-5-class), so 0.35 means 350k tokens — far too high to fire in practice.
+# Trip on absolute context tokens instead; the pct is kept as a backstop for
+# small-window models where 35% is a genuinely substantial batch.
+# 150k, not 70k: 70k is reachable by two or three sizeable Reads, so a purely
+# read-only exploratory session would trip the §12 handoff checklist having
+# produced nothing to hand off. cumulative_tool_calls >= 15 already catches any
+# real working batch; this arm is meant to catch a big-context one.
 SUBSTANTIAL_FILL_PCT = 0.35
+SUBSTANTIAL_CONTEXT_TOKENS = 150_000
+
+
+def _read_pressure_state(session_id):
+    """Prefer this session's own state file; the shared one carries whichever
+    session ticked last, which under concurrency silently fails this gate open."""
+    candidates = []
+    if session_id:
+        safe = "".join(c for c in session_id if c.isalnum() or c in "-_")
+        candidates.append(os.path.join(STATE_DIR, f"session-pressure-{safe}.json"))
+    candidates.append(PRESSURE_FILE)
+    for path in candidates:
+        try:
+            with open(path) as f:
+                state = json.load(f)
+        except Exception:
+            continue
+        if state.get("session_id") == session_id:
+            return state
+    return None
 
 HANDOFF_CHECKLIST = """\
 [batchc §12 — handoff gate] This looks like a SUBSTANTIAL batch and no \
@@ -175,6 +203,48 @@ LIVE_SURFACE_DIRS = (
 )
 
 
+def _is_scratch_path(path):
+    """True if `path` is a throwaway scratch file, not a reviewable change.
+
+    The §11 file-count arm had no path filter, so a session that wrote two
+    disposable files — a debug script and its output, a pair of /tmp fixtures —
+    tripped the verifier gate with no reviewable change in existence. Observed:
+    a reviewer subagent wrote two sandboxed repro harnesses under /tmp and the
+    gate demanded an independent review of those. That is how a gate earns being
+    ignored on the change that actually matters.
+
+    Only the file-COUNT arm uses this. The live-surface arm stays unfiltered —
+    it is path-anchored to ~/.claude and cannot match these prefixes anyway.
+    """
+    prefixes = ["/tmp/", "/private/tmp/", "/var/folders/"]
+    tmpdir = os.environ.get("TMPDIR")
+    if tmpdir:
+        prefixes.append(os.path.join(tmpdir, ""))
+    try:
+        expanded = os.path.abspath(os.path.expanduser(str(path)))
+    except Exception:
+        return False
+
+    # A background job's working directory is real work, whatever path it sits
+    # under. CLAUDE_JOB_DIR's convention is not documented and could not be
+    # confirmed from an interactive session; if it is ever placed under a temp
+    # path, every edit a bg/longrun session makes would be misfiled as scratch
+    # and skip the §11 count arm silently. Cheaper to exclude it than to find
+    # out the hard way.
+    job_dir = os.environ.get("CLAUDE_JOB_DIR")
+    if job_dir:
+        try:
+            jd = os.path.abspath(os.path.expanduser(job_dir))
+            if expanded.startswith(os.path.join(jd, "")) or expanded == jd:
+                return False
+        except Exception:
+            pass
+    for cand in (expanded, os.path.realpath(expanded)):
+        if any(cand.startswith(p) for p in prefixes):
+            return True
+    return False
+
+
 def _is_live_surface(path):
     """True if `path` is a shared runtime surface every session depends on.
 
@@ -268,12 +338,14 @@ def main():
     # Fall back to tool_calls if cumulative not present (older state files).
     substantial = False
     try:
-        ps = json.load(open(PRESSURE_FILE))
-        if ps.get("session_id") == session_id:
+        ps = _read_pressure_state(session_id)
+        if ps is not None:
             cumulative = ps.get("cumulative_tool_calls") or ps.get("tool_calls", 0) or 0
             fill_pct = ps.get("fill_pct", 0) or 0
+            context_tokens = ps.get("context_tokens", 0) or 0
             pressure = ps.get("pressure", "normal")
             if (cumulative >= SUBSTANTIAL_TOOL_CALLS
+                    or context_tokens >= SUBSTANTIAL_CONTEXT_TOKENS
                     or fill_pct >= SUBSTANTIAL_FILL_PCT
                     or pressure in ("elevated", "high")):
                 substantial = True
@@ -373,7 +445,10 @@ def main():
                             if st in REVIEWER_SUBAGENT_TYPES or VERIFIER_MARKER in blob:
                                 verify_called = True
 
-            if len(edited_paths) > 1:
+            # Scratch files are not a reviewable change — see _is_scratch_path.
+            # The live-surface arm below deliberately keeps the unfiltered set.
+            substantive_paths = {p for p in edited_paths if not _is_scratch_path(p)}
+            if len(substantive_paths) > 1:
                 multi_file_edited = True
             # Threshold (Geoff, 2026-07-24): file COUNT is a weak proxy for risk.
             # A single edit to a live shared surface — a hook every session

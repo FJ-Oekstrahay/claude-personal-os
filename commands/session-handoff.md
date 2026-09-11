@@ -8,7 +8,11 @@ Ask yourself: did this session accomplish meaningful work? A real handoff is nee
 
 If the session was trivial (a quick question, a single file edit, a lookup), skip the full handoff. Instead:
 1. Write any next-session prompts to `prompts-and-questions/` while context is fresh (one file per prompt, named descriptively).
-2. Check whether auto-memory (MEMORY.md) needs any updates from what was learned.
+2. Check whether auto-memory (MEMORY.md) needs any updates from what was learned — AND whether
+   anything discovered (a gotcha, a wrong assumption corrected, a procedure that took more than
+   one try) is worth a playbook entry, not just a memory line. "Trivial" describes the tool-call
+   count, not necessarily the value of what was learned — don't let a small session skip a real
+   finding just because the batch itself was short.
 3. Tell the user: "No handoff needed — [one-line summary of what happened]. OK to clear context."
 4. If there are loose ends that should be addressed before clearing context (uncommitted changes, unresolved blockers, half-done work), say so and — if it wouldn't take too many tokens — use the batchc methodology to handle them first.
 
@@ -29,7 +33,21 @@ Pick a short name for this handoff yourself — derive it from the main topic of
 
 If the `ls -la` above shows no file (or errors), the handoff was NOT written — do not claim it was. Do not fall back to typing a timestamped filename by hand; fix the command and re-run.
 
-Structure it as follows:
+**Discord metadata (only if this session received messages via a Discord `<channel>` tag):**
+Capture, in order, before writing the body:
+- `discord_chat_id`: the `chat_id` from the most recent `<channel>` tag seen this session. This is the thread's own ID if you're in a thread, or the plain channel ID otherwise.
+- `discord_parent_channel_id`: only include if it would differ from `discord_chat_id` (i.e. you're in a thread). Read it from `~/.claude/hooks/state/$CLAUDE_CODE_SESSION_ID.parentchatid` if that file exists — the `discord-prompt-submit` hook already resolves and caches it, don't re-derive it yourself via the Discord API.
+- `discord_channel_name`: look up `discord_chat_id`, then `discord_parent_channel_id` as fallback, in `~/.claude/hooks/discord-channel-context.json` — use the matching entry's `name` if found.
+
+Prepend whichever of these resolve as HTML comments at the very top of the handoff body, before `## Accomplished`:
+```
+<!-- discord_chat_id: <channel-id> -->
+<!-- discord_parent_channel_id: <channel-id> -->
+<!-- discord_channel_name: mba-obsidian-sync-and-discord-mechanics -->
+```
+Omit the entire block for non-Discord sessions. Omit any individual line that didn't resolve.
+
+Structure the rest as follows:
 
 ## Accomplished
 What was done this session, with enough specificity that the next session can verify it (file paths, command output, diffs). Group by topic. Note if the user did something manually.
@@ -41,7 +59,13 @@ Items that were discussed, started, or intended but not completed. Note why (blo
 Anything unexpected encountered — config quirks, command failures, behavior that differed from expectation. These prevent the next session from hitting the same walls.
 
 ## Lessons Captured
-**REQUIRED before writing this section.**
+**REQUIRED before writing this section. Write the header even when there is nothing to
+capture — say so explicitly under it.** An omitted header is treated as non-compliant: the
+batchc §12 Stop-hook gate (`~/.claude/hooks/batchc-stop-gate.py`) checks for the literal
+string `## Lessons Captured` in a substantial-batch handoff and blocks the stop if it's
+missing. (Added 2026-08-25 after measuring that 13 of 47 duel-dingo handoffs had silently
+dropped this section despite it being marked required — see
+`feedback_struggle_earns_a_playbook_not_just_a_memory_note`.)
 
 First, do a self-check from this session:
 - Is project MEMORY.md (auto-memory) current? If anything was learned this session that isn't in MEMORY.md, update it now.
@@ -76,5 +100,8 @@ Rules:
 - Use Obsidian wiki-links (`[[filename]]`) when referencing workspace .md files — playbooks, BOARD, AGENTS, GOVERNANCE, etc. Use the filename without extension and without path (e.g. `[[launchd_git_backup_cron]]` not the full path). This makes the handoff navigable in Obsidian.
 
 After writing the handoff, auto-archive old ones from the project handoffs dir:
-- Run: `mkdir -p $(pwd)/handoffs/archive && find $(pwd)/handoffs -maxdepth 1 -name 'HANDOFF-*.md' -mtime +3 -exec mv {} $(pwd)/handoffs/archive/ \;`
-- Report how many were archived (if any). Don't ask for confirmation — this is routine cleanup.
+- If `~/.openclaw/workspace/tools/archive_handoffs.sh` exists, run:
+  `~/.openclaw/workspace/tools/archive_handoffs.sh $(pwd)/handoffs`
+- Otherwise, fall back to the inline form:
+  `mkdir -p $(pwd)/handoffs/archive && find $(pwd)/handoffs -maxdepth 1 -name 'HANDOFF-*.md' -mtime +3 -exec mv {} $(pwd)/handoffs/archive/ \;`
+- Report how many were archived (if any) — the script already prints the count. Don't ask for confirmation — this is routine cleanup.

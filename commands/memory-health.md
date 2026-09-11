@@ -64,7 +64,17 @@ else:
     fixes.append("memsearch: install/configure memsearch plugin and run indexer")
 
 # --- Tier 3: session-pressure state file ---
-pressure_file = os.path.expanduser("~/.claude/hooks/state/session-pressure.json")
+# Prefer THIS session's file. The legacy shared path carries whichever session
+# ticked last, so under concurrency it will happily report "healthy" off a
+# peer's activity while this session's own hook is dead.
+state_dir = os.path.expanduser("~/.claude/hooks/state")
+pressure_file = os.path.join(state_dir, "session-pressure.json")
+_sid = os.environ.get("CLAUDE_CODE_SESSION_ID")
+if _sid:
+    _safe = "".join(c for c in _sid if c.isalnum() or c in "-_")
+    _own = os.path.join(state_dir, f"session-pressure-{_safe}.json")
+    if os.path.exists(_own):
+        pressure_file = _own
 if os.path.exists(pressure_file):
     age_secs = now.timestamp() - os.path.getmtime(pressure_file)
     age = age_str(pressure_file)
@@ -77,6 +87,8 @@ if os.path.exists(pressure_file):
         if fill is not None:
             detail += f", fill={fill:.0%}"
         detail += f", updated {age}"
+        if state.get("session_id") and _sid and state.get("session_id") != _sid:
+            detail += " [PEER's session — not yours]"
         status = "STALE" if age_secs > 3600 else "OK"
         rows.append(("session-pressure", status, detail))
         if status == "STALE":

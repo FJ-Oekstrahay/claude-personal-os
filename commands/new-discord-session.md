@@ -269,3 +269,23 @@ This table is updated automatically by Step 9 each time `/new-discord-session` r
 | log-income-and-life | <channel-id> |
 | games | <channel-id> |
 | log-games | <channel-id> |
+| mba-games | <channel-id> |
+| log-mba-games | <channel-id> |
+| claude-config-mba | <channel-id> |
+| log-claude-config-mba | <channel-id> |
+| pet-block | <channel-id> |
+| log-pet-block | <channel-id> |
+| fruits-roots | <channel-id> |
+| log-fruits-roots | <channel-id> |
+| games (2026-08-21 recreate, supersedes <channel-id>) | <channel-id> |
+| log-games (2026-08-21 recreate, supersedes <channel-id>) | <channel-id> |
+| godot | <channel-id> |
+| log-godot | <channel-id> |
+| window-washer | <channel-id> |
+| log-window-washer | <channel-id> |
+| so-board | <channel-id> |
+| log-so-board | <channel-id> |
+| roblox-main | <channel-id> |
+| log-roblox-main | <channel-id> |
+| magma-tiles | <channel-id> |
+| log-magma-tiles | <channel-id> |

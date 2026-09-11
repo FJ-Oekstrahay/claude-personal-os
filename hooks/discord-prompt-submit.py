@@ -145,6 +145,42 @@ def get_parent_channel_id(chat_id, bot_token, session_id):
         return None
 
 
+def fetch_live_channel_name(chat_id, bot_token, session_id):
+    """Fetch a channel/thread's real Discord name via the API when it's not in
+    discord-channel-context.json, cached per-session (same pattern as
+    get_parent_channel_id's .parentchatid cache). Works for real Threads too —
+    GET /channels/{id} returns `name` for both plain channels and threads."""
+    if not bot_token or not chat_id or not session_id:
+        return None
+    cache_file = os.path.join(STATE_DIR, f'{session_id}.channelname')
+    if os.path.exists(cache_file):
+        try:
+            cached = open(cache_file).read().strip()
+            if cached:
+                return cached
+        except Exception:
+            pass
+    try:
+        result = subprocess.run(
+            ['/usr/bin/curl', '-s', '--max-time', '3',
+             f'https://discord.com/api/v10/channels/{chat_id}',
+             '-H', f'Authorization: Bot {bot_token}'],
+            capture_output=True, text=True
+        )
+        data = json.loads(result.stdout)
+        name = data.get('name')
+        if name:
+            try:
+                os.makedirs(STATE_DIR, exist_ok=True)
+                with open(cache_file, 'w') as f:
+                    f.write(name)
+            except Exception:
+                pass
+        return name
+    except Exception:
+        return None
+
+
 def resolve_route_chat_id(chat_id, routing, bot_token, session_id):
     """Return the chat_id to use for log routing.
 
@@ -723,6 +759,13 @@ def main():
     context_json_path = os.path.expanduser('~/.claude/hooks/discord-channel-context.json')
     channel_context = load_channel_context(context_json_path)
     channel_hint = get_channel_hint(effective_chat_id, channel_context, channels)
+    if channel_hint.startswith('This session is from Discord channel ID:'):
+        live_name = fetch_live_channel_name(effective_chat_id, bot_token, session_id)
+        if live_name:
+            channel_hint = (
+                f"This session is from Discord channel/thread: **{live_name}** "
+                f"(live-looked-up, not yet curated — chat_id={effective_chat_id})."
+            )
 
     route_id = resolve_route_chat_id(effective_chat_id, routing, bot_token, session_id)
 

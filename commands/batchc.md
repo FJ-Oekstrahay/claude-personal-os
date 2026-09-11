@@ -1,12 +1,25 @@
 Smartbatch execution protocol. Read the full prompt before touching anything, then:
 
 0. **Check resource pressure** (before classifying anything)
-   - Run: `python3 -c "import json; d=json.load(open(os.path.expanduser('~/.claude/hooks/state/session-pressure.json'))); print(d['pressure'], d['tool_calls'], d['checkpoint_due'])" 2>/dev/null` — or simply `cat ~/.claude/hooks/state/session-pressure.json`.
+   - **Read the per-session file, not the shared one.** Other Claude sessions on this machine write
+     the legacy shared path too, so it often describes *someone else's* session:
+     `cat ~/.claude/hooks/state/session-pressure-<session_id>.json` — fall back to
+     `cat ~/.claude/hooks/state/session-pressure.json` only if the per-session file is absent, and
+     when you do, check its `session_id` matches yours before trusting it.
    - If the file is missing or unreadable, treat as `normal`.
    - **elevated** (50–74% context): cap wave size at 2; enforce turn boundaries between all waves regardless of task weight.
    - **high** (75%+ context): cap wave size at 1; stop after each wave and ask the user before continuing.
    - If `checkpoint_due` is `true` and a `compact-checkpoint` has not been run this session: run `/compact-checkpoint` now, before dispatching any wave.
-   - State the pressure level in your wave plan line: "Wave 1 [pressure: elevated]: ..."
+   - **Quote the absolute numbers, not just the level**, so a mis-tiered denominator is visible
+     rather than silently throttling you: "Wave 1 [normal · 118k/1.0M · opus-5]: ...". `fill_pct` is
+     `context_tokens / context_window`, and `context_window` is resolved from the model
+     (1M for opus-5/sonnet-5/fable-5-class, 200k for haiku-class) with a self-healing promote.
+     If `context_window` looks wrong for the model you are running, say so — do not just obey it.
+   - **Check `fill_stale` before quoting those numbers.** When it is `true`, this tick had no usage
+     record and `fill_pct` / `context_tokens` / `context_window` are carried over from an earlier
+     one — `pressure` was recomputed from `wave_density` instead. Say so rather than quoting them as
+     current: "Wave 1 [normal · 118k/1.0M · opus-5 — carried over, not fresh this turn]". Without
+     this the state can read `fill_pct: 0.82` alongside `pressure: normal` and you would quote both.
 
 1. **Classify every item** into one of four buckets:
    - **Inline answer** — can be answered from existing context, no tools needed
@@ -32,11 +45,11 @@ Smartbatch execution protocol. Read the full prompt before touching anything, th
 1c. **Wave gating and pacing**
    - Do not start the next wave until the current wave has produced useful results
    - For tool-heavy waves: enforce a turn boundary before dispatching the next wave — do not fire the next wave in the same turn as receiving results
-   - Check `wave_density` from `~/.claude/hooks/state/session-pressure.json` before dispatching: if `wave_density` ≥ 30, treat rapid-fire urge as a confirmed throttle signal — pause, do not accelerate. If the field is missing, treat as 0 (normal).
+   - Check `wave_density` from the §0 state file before dispatching: if `wave_density` ≥ 30, treat rapid-fire urge as a confirmed throttle signal — pause, do not accelerate. If the field is missing, treat as 0 (normal). Note `wave_density` is **machine-global** — it counts every session's tool calls in the last 60s from a shared log — so a busy peer can trip it. It only ever over-reports, so it fails safe; if you stop on it, say a peer may be the cause rather than blaming your own pacing.
    - Lightweight waves (inline answers, single fast lookups) do not require a pacing pause
 
 1d. **Throttle-risk heuristic** — applies by default per CLAUDE.md's "Default-on safety posture" to ANY 2+ parallel `Agent`/`Workflow` dispatch, not only when this file is explicitly invoked as `/batchc`.
-   - Read `wave_density` from the state file (tool calls in the last 60 seconds, written by `wave-counter.py`):
+   - Read `wave_density` from the §0 state file (tool calls in the last 60 seconds across **all** sessions, written by `wave-counter.py`):
      - **wave_density < 30** — normal; no special constraint
      - **wave_density 30–59** — elevated burst; reduce wave to 1–2 tasks, enforce turn boundary
      - **wave_density ≥ 60** — HIGH; cap wave at 1 task, enforce turn boundary, do not skip this check
@@ -48,6 +61,35 @@ Smartbatch execution protocol. Read the full prompt before touching anything, th
      - Stop. State what was completed and what remains.
      - Ask the user whether to continue before dispatching another wave.
    - Do not continue autonomously past this checkpoint.
+
+1f. **Autonomy budget — `/batchc auto [N]`**
+   - Default (`/batchc` with no `auto`): unchanged — gate at every wave boundary as 1c/1e describe.
+   - With `auto`: **self-continue** across wave boundaries without asking, up to **N waves**
+     (default 6), as long as *all* of these hold at the start of each wave:
+     - `pressure` is `normal` **and** `checkpoint_due` is false. `checkpoint_due` is not itself a
+       stop: take §0's remedy — run `/compact-checkpoint`, then continue on the budget. It becomes a
+       stop only if it is still true afterwards.
+     - `wave_density` < 30
+     - no task in the previous wave failed twice (1 retry per 3a is fine)
+     - no queued item touches a **live shared surface** (the §11 path list) or a
+       hardware-safety surface — those always stop for the user, regardless of `auto`
+   - **What `auto` changes in 1c and 1e — stated explicitly, because "self-continue" is otherwise
+     a no-op.** In Claude Code, ending your turn *is* handing control to the user, so 1c's "turn
+     boundary" and "ask the user" are the same act. Under `auto`:
+     - 1c's turn boundary is satisfied by **waiting for the previous wave's tool results** before
+       dispatching the next one — a results boundary, not an end-of-turn. You still never fire two
+       tool-heavy waves without seeing the first one's output.
+     - 1e's "3 or more consecutive tool-heavy waves" limit is **raised to N** for the duration of
+       the budget. Without this, `auto` maxes out at 3 on Cob waves (§1b/§7a make every Cob task
+       tool-heavy) and the documented default of 6 could never be reached. Every *other* 1e
+       condition — `wave_density` ≥ 60 twice running — still hard-stops and outranks the budget.
+   - The moment any condition breaks: stop, state what completed and what remains, ask. `auto` buys
+     you consecutive waves; it never buys you past a real signal.
+   - Emit one line per wave so the run is followable — on Discord sessions use
+     `mcp__plugin_discord_discord__edit_message` on a single progress message rather than a new
+     `reply` per wave (edits don't push-notify; the §12 closing reply does).
+   - Budget the whole run before starting: state the wave count and the rough token/rate-limit share
+     you expect to spend, per the Max-5x rule. `auto 6` on tool-heavy Cob waves is not a small run.
 
 2. **Map dependencies** — classify each as:
    - **HARD**: must wait for another task's output
@@ -154,6 +196,10 @@ Smartbatch execution protocol. Read the full prompt before touching anything, th
       - Run the verifier in a fresh agent context — never in the same Cob instance that did the writing.
       - **The review must come AFTER the last code edit it covers.** A reviewer dispatched early in the batch does not cover files edited later, and the hook enforces this: any Write/Edit resets the detection, so only a verifier dispatched after the final substantive edit counts. If you fix something the reviewer flagged, that fix is itself unreviewed — re-run the reviewer or say plainly that the fix went in unreviewed. (Writing the HANDOFF file does not count as a code edit and does not reset the gate.)
       - Token tradeoff: this adds ~1 agent per multi-file task. That cost is load-bearing; absorb it.
+        Note it is ~1 agent **per run, not per wave**: because the review must come after the last
+        edit it covers, one verifier dispatched at the end of an `auto` run covers every file that
+        run touched. Longer autonomous runs make this gate *cheaper* per unit of work, not dearer —
+        so it is not a reason to shorten a run, and it is never a thing to trade away for tokens.
       - Skip for single-file Haiku-routed mechanical edits (per §7b) **that are not on a live shared surface**: the change is immediately visible on inspection and the gate adds no value there. A one-line edit to a live hook is not covered by that exemption.
       - **This gate is hook-enforced.** `batchc-stop-gate.py` scans the session transcript at Stop time. If the trigger above is met (>1 distinct file written/edited, **or** any edit to a live shared surface) with no independent review detected, it blocks the stop — appending a verifier reminder to the §12 checklist message, or, if the handoff is already written, emitting the verifier reminder alone. The block fires at most once per session (one-shot marker). Detection covers: an `Agent`/`Task` call matching mechanism 1 above, a `Skill` call whose name is exactly `verify` or `code-review`, and a the user-typed `/verify` or `/code-review` in the transcript. It deliberately has **no Bash branch** — the old substring match on `"/verify"` was satisfied by the *file path* `scripts/verify_claims.py`, so every financial re-anchor silently disarmed the gate.
     - **Threshold note — RESOLVED 2026-07-24.** The old ">1 file" line underfired on exactly the changes that mattered most. Rather than a blanket ">0 files" (which would nag on every ordinary single-file edit until the gate got ignored), the trigger is now risk-based: >1 file **or** any live shared surface, enumerated above. the user's call; the path list is deliberately narrow and is the thing to extend if it turns out to underfire again.
@@ -174,4 +220,16 @@ After all work items are committed and done:
 When $ARGUMENTS is empty, apply this protocol to the items in the current user message.
 When $ARGUMENTS contains items, treat those as the work list.
 
+**Strip the mode arguments first.** If $ARGUMENTS begins with `auto`, consume it — and an integer
+immediately after it, if present — as the §1f autonomy budget. What remains is the work list.
+`/batchc auto 4 fix X` means "budget 4 waves, work list = [fix X]", never a work item called
+"auto 4". If nothing remains after stripping, fall back to the items in the current user message.
+
 Usage: type `/batchc` followed by your task list in the same message, or use it as a prefix — the items after `/batchc` become the work list.
+Add `auto` (optionally `auto N`) as the first argument to grant the §1f autonomy budget: `/batchc auto 4 <task list>`.
+
+Token levers for long runs — verified against `claude` 2.1.231, not folklore:
+`~/.openclaw/workspace/memory/playbooks/long-run-token-levers.md`. Read it before changing any
+model / thinking / context env var. The short version: **never set `CLAUDE_CODE_SUBAGENT_MODEL`** —
+it silently overrides every explicit `model:` you pass to the Agent tool, including the §11
+reviewers and `Safety Officer`.

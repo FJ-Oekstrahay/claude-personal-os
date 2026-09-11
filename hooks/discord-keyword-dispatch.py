@@ -53,6 +53,12 @@ KEYWORD_MAP = {
     'prompt sleep':         'commands/prompt-sweep.md',
     'from sweep':           'commands/prompt-sweep.md',
     'prompt sweet':         'commands/prompt-sweep.md',
+    'longrun':              'commands/longrun.md',
+    'runqueue':             'commands/longrun.md',
+    'run queue':            'commands/longrun.md',
+    'run cue':              'commands/longrun.md',
+    'run q':                'commands/longrun.md',
+    'runq':                 'commands/longrun.md',
 }
 
 CLAUDE_DIR = os.path.expanduser('~/.claude')

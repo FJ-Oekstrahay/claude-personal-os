@@ -33,7 +33,15 @@
       "Bash(tail *)",
       "Bash(grep *)",
       "Bash(jq *)",
-      "Bash(pa-restart)"
+      "Bash(pa-restart)",
+      "Bash(pkill -9 -f RobloxStudio*)",
+      "Bash(chmod +x:*)",
+      "Bash(launchctl list*)",
+      "Bash(find ~/.claude -name *.md)",
+      "Bash(source ~/.zshrc)",
+      "Bash(alias claudo:*)",
+      "WebSearch",
+      "Read(~/**)"
     ],
     "deny": [
       "Bash(rm -rf*)",
@@ -44,14 +52,13 @@
       "Bash(git clean *)",
       "Bash(git checkout -- *)",
       "Bash(kill *)",
-      "Bash(pkill *)",
       "Bash(killall *)",
       "Bash(curl * | sh*)",
       "Bash(curl *|sh*)",
       "Bash(wget * | sh*)",
       "Bash(wget *|sh*)"
     ],
-    "_comment_openclaw": "The launchctl, openclaw, and pa-restart allow rules below require the OpenClaw companion system (not public yet — separate repo). They're here to show the real config; remove or adapt for your own setup."
+    "_comment_openclaw": "The launchctl, openclaw, and pa-restart allow rules below require the OpenClaw companion system (not public yet \u2014 separate repo). They're here to show the real config; remove or adapt for your own setup."
   },
   "model": "opus",
   "hooks": {
@@ -82,6 +89,15 @@
             "command": "python3 ~/.claude/hooks/resource-pressure.py --reset"
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/anthropic-key-tripwire.sh"
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -109,6 +125,15 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/handoff-timestamp-guard.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/roblox-capability-gate.py pretool"
           }
         ]
       }
@@ -198,6 +223,14 @@
             "command": "python3 ~/.claude/hooks/batchc-stop-gate.py"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/roblox-capability-gate.py stop"
+          }
+        ]
       }
     ],
     "SubagentStop": [
@@ -252,6 +285,7 @@
       }
     }
   },
+  "effortLevel": "high",
   "modelSettings": {
     "claude-sonnet-5": {
       "effortLevel": "high"
