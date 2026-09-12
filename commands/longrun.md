@@ -40,7 +40,7 @@ is an E2E validation, not production work. On that first run:
 
 - Cap it: `{ rounds: 1, maxPerRound: 1 }`, **one** item, Max-only. Do not honour `cross` on the first
   run — say why. (The default `maxPerRound` is 4; without this override the first run takes 4 items.)
-- Follow `claude-config-mba/prompts/feature-build-e2e-validation.md` if it is present. (That prompt
+- Follow `~/.openclaw/workspace/projects/claude-config/prompts/feature-build-e2e-validation.md` if it is present. (That prompt
   covers the cross-provider/ccx path for a later B2 run; the first run is Max-only.)
 - Watch for the two silent failure modes specifically: a worker that does the work *itself* instead
   of routing (voids the whole point), and a `ccx` session that dies without reporting.

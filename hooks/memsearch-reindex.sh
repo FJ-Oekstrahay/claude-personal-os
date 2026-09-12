@@ -25,6 +25,15 @@ mkdir -p "$STATE_DIR"
 UVX="$HOME/.local/bin/uvx"
 [ -x "$UVX" ] || UVX="$(command -v uvx 2>/dev/null)"
 
+# Under launchd's minimal env, uvx's interpreter discovery falls back to
+# /usr/bin/python3 (Apple's system stub, 3.9.6) instead of the Homebrew
+# python3.10+ available interactively. memsearch[onnx] requires >=3.10, so
+# every scheduled run failed silently from 2026-07-28 to 2026-09-11 — see
+# playbook memsearch_launchd_python_version_mismatch. Pin a version range
+# (not an exact version) so this survives either machine's Homebrew python
+# being upgraded independently.
+UVX_PYTHON='>=3.10'
+
 log() { echo "$(TZ=America/New_York date '+%F %T') $*" >> "$LOG"; }
 
 # Single-writer guard: mkdir is atomic. Skip (not fail) if a run is in progress —
@@ -60,7 +69,7 @@ if [ -f "$LOG" ] && [ "$(wc -l < "$LOG" 2>/dev/null || echo 0)" -gt 400 ]; then
 fi
 
 log "START reindex over ${#dirs[@]} dirs"
-if "$UVX" --from 'memsearch[onnx]' memsearch index "${dirs[@]}" >> "$LOG" 2>&1; then
+if "$UVX" --python "$UVX_PYTHON" --from 'memsearch[onnx]' memsearch index "${dirs[@]}" >> "$LOG" 2>&1; then
   # Stamp success — mtime is what the health check measures.
   TZ=America/New_York date '+%F %T %z' > "$STAMP"
   # Log the mtime we actually observe right after the write, plus wall clock,
