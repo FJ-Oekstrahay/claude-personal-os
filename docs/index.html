@@ -618,7 +618,7 @@
 <p class="lede">I build agent systems with the governance, verification, and pacing that let them run without someone watching. This page is the working setup behind that claim: a Claude Code operating layer in daily use since March 2026, and the projects it runs.</p>
 <div class="hero-badges">
 <span class="badge"><span class="dot"></span>7 hook events wired</span>
-<span class="badge"><span class="dot"></span>8 named subagents</span>
+<span class="badge"><span class="dot"></span>7 named subagents</span>
 <span class="badge"><span class="dot"></span>450+ playbooks</span>
 <span class="badge"><span class="dot"></span>2 machines, 1 config</span>
 <span class="badge"><span class="dot"></span>rules enforced by hooks</span>
@@ -753,9 +753,24 @@ style TEL fill:#1a2a3a,stroke:#2a4a6a
 <p>In early 2026 I built a mobile command center on Discord: hooks that stream the model's narrative and every tool call to a channel, approvals that page me, and a keyword-dispatch hook so a dictated word triggers a slash command. Anthropic was building the same shape at the same time. Remote Control existed by February, channels shipped in March, push notifications in April. That is convergence, and I say so because anyone can check. Remote Control now handles the monitoring case and I use it. The streaming hooks are still published because sending every tool call to a channel is still not native, and because the judgment call of when to switch is the part worth showing.</p>
 </section>
 <div class="section-rule"></div>
-<section id="projects">
+<section id="hardware">
 <span class="section-tag">05</span>
+<h2>Hardware on one machine, reasoning on another</h2>
+<p>Cross-machine session messaging (above) turns out to solve a problem that's specific to hardware: firmware tuning needs a live USB connection to a flight controller, but deciding what to do with what that connection reports doesn't need to happen on the same machine the drone is plugged into. Droneteleo now splits along that line — a small daemon on whichever machine has drones connected serves flight-controller access over Tailscale, while the Claude session doing the reasoning runs wherever I am, talking to that daemon's machine over one channel and to me over another.</p>
+<p>In practice: hand a session the day's blackbox logs and a flight controller on a different machine, have it analyze and stage a fix, then close the laptop while it waits at the bench. The actual save still happens when I'm there to press it myself, because of how I've set the workflow up, not because the daemon enforces it. Or drive that same session from my phone with the laptop closed, through the same dictated-keyword relay already built for Discord.</p>
+<p>Letting a model hold write access to a flight controller only works if the review discipline above survives contact with real hardware. It did, on the fourth try: the Safety Officer's first pass on this daemon was DO NOT SHIP — motor commands weren't blocked, and nothing stopped the motors on an unexpected disconnect. The next two rounds each found the prior fix incomplete: a command-injection bypass through an embedded carriage return, then a second through the byte (0x7F, DEL) Betaflight's own CLI reads as backspace. It closed for good only once the check became a whitelist read out of Betaflight's own firmware source, verified against two real flight controllers including an actual flash write and reboot.</p>
+<p>The same loop is also how Droneteleo gets <em>built</em> with more than one flight controller or radio connected, not just how it gets operated afterward:</p>
+<ul>
+<li>New command logic is exercised against a simulated flight controller first (<code>mock_daemon_virtual_testing</code>), so most iteration needs no hardware plugged in at all.</li>
+<li>When two flight controllers or radios really are connected together, access to a shared serial port is explicitly serialized (<code>serial_port_contention</code>), not left to chance.</li>
+<li>Nothing that could spin a motor ships without the Safety Officer's review, whose first question is always unexpected prop spin, and whose verdict has stopped a shipment before.</li>
+</ul>
+</section>
+<div class="section-rule"></div>
+<section id="projects">
+<span class="section-tag">06</span>
 <h2>Projects this runs</h2>
+<p>Most of these exist because the setup between a person and the thing they actually wanted to do is where they quit — and that part was never supposed to be the hard part.</p>
 <p>Seven systems — six in real use, one a paused proof of concept — two of them public. The family-facing ones are built around my own household; a general version of either is possible and not started.</p>
 <div class="projects">
 <div class="project-card">
@@ -765,7 +780,7 @@ style TEL fill:#1a2a3a,stroke:#2a4a6a
 </div>
 <div class="project-card">
 <div class="project-name">Droneteleo <span class="project-status">private · in daily use</span></div>
-<p>A command-line tool that holds a live USB connection to a Betaflight flight controller and lets a pilot tune it by describing the problem. Changes stage to RAM; nothing touches flash without an explicit save. A dedicated safety-review agent audits anything that could spin a motor, because on this project that risk was never theoretical. Chirp detection, its signal processing, and the parameter recommendations are deterministic Python; a model narrates and interprets, it doesn't produce the recommendations, and users pay for fewer tokens.</p>
+<p>A command-line tool that holds a live USB connection to a Betaflight flight controller and lets a pilot tune it by describing the problem. Changes stage to RAM; nothing touches flash without an explicit save. A dedicated safety-review agent audits anything that could spin a motor, because on this project that risk was never theoretical. Chirp detection, its signal processing, and the parameter recommendations are deterministic Python; a model narrates and interprets, it doesn't produce the recommendations, and users pay for fewer tokens. Also the subject of the cross-machine and hardware-in-the-loop workflow above.</p>
 </div>
 <div class="project-card">
 <div class="project-name">Retirement planning engine <span class="project-status">private · in daily use</span></div>
@@ -792,7 +807,7 @@ style TEL fill:#1a2a3a,stroke:#2a4a6a
 </section>
 <div class="section-rule"></div>
 <section id="about">
-<span class="section-tag">06</span>
+<span class="section-tag">07</span>
 <h2>About</h2>
 <p>I'm Geoff Hoekstra. MSEE from the University of Virginia, then thirty years in technical sales and marketing, which means a career spent translating between the people who build systems and the people who buy them. Since early 2026 I have been building AI systems: agent orchestration, governance and verification, and the tooling that turns a model demo into something that runs on its own.</p>
 <p>If you're trying to get from a working demo to a system you'd leave running, that is the problem I work on. The repo is the evidence: nearly every claim about the setup on this page traces to a file in it or to Anthropic's public changelog — the few that don't (like the SessionStart health check) are personal plumbing I've said isn't published. The project descriptions are mine to stand behind.</p>

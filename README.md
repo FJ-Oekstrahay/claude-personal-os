@@ -101,13 +101,31 @@ Anthropic was building the same shape at the same time. Remote Control existed b
 
 ---
 
+## Hardware on one machine, reasoning on another
+
+Claude Code shipped cross-machine session messaging in August 2026: a session on one machine can `ListAgents`/`SendMessage` a session on another, no bridge of my own for that channel. I use it for a constraint that's specific to hardware — firmware tuning needs a live USB connection to a flight controller, but deciding what to do with what that connection reports doesn't need to happen on the same machine the drone is plugged into.
+
+Droneteleo, the drone-tuning tool below, now splits along that line. A small daemon runs on whichever machine has drones connected and serves flight-controller CLI access over the network — Tailscale carries that traffic; the Claude-to-Claude messaging above is a separate layer for the two sessions to talk to each other. In practice, two things: I can hand a session the day's blackbox logs, point it at a flight controller plugged into a different machine, tell it to analyze the logs and stage a fix, then close the laptop while the Mac mini keeps working. The write-to-flash still waits until I issue the save myself, which I do at the bench — that's how I've shaped the workflow, not something the daemon enforces. And I can drive that same session from my phone with the laptop closed, through the same dictated-keyword relay this repo already uses for Discord.
+
+Handing a model write access to a flight controller is only defensible if the review discipline above holds against a real hardware target, not a hypothetical one. The first Safety Officer pass on this daemon came back DO NOT SHIP, with two critical findings: motor commands weren't blocked, and nothing stopped the motors on an unexpected disconnect. The next two rounds each found the previous fix incomplete: a command-injection bypass through an embedded carriage return, then a second through the byte (0x7F, DEL) Betaflight's own CLI reads as backspace. It only closed when the check became a whitelist read out of Betaflight's firmware source rather than a blocklist guessed at from outside. Every round was re-verified against two real flight controllers, including an actual flash write and power-cycle reboot to confirm the change survived.
+
+That same review-and-hardware loop is also how Droneteleo itself gets built with more than one flight controller or radio connected at once, not just how it gets operated remotely afterward. Three things make that workable:
+
+- [`mock_daemon_virtual_testing`](selected-playbooks/mock_daemon_virtual_testing.md): new command-and-control logic gets exercised against a simulated flight controller first, so most iteration doesn't need real hardware plugged in at all.
+- [`serial_port_contention`](selected-playbooks/serial_port_contention.md): when two flight controllers or radios really are connected at once, access to a shared serial port is explicitly serialized, not left to chance.
+- `agents/safety-officer.md`: nothing that could spin a motor ships without a dedicated hardware-risk review whose first question is always unexpected prop spin, and whose verdict has blocked a shipment before (see above).
+
+---
+
 ## Projects this config runs
+
+Most of these started the same way: I wanted to do the thing and hit a wall of setup first. Hand-editing PID values out of a table before a quad flies right. Fighting slicer settings before a first print finishes. Learning a game engine's project structure before my kid and I have built anything. Health and retirement decisions have a duller version of the same wall — weeks of gathering and cross-checking numbers before anyone can decide. The tooling below exists to take that part off a person.
 
 Everything below is private except where linked. The two family-facing systems are built around my own household's needs; a general version of either is possible and not started.
 
 **Agentic Roblox game development** ([public repo](https://github.com/FJ-Oekstrahay/agentic-roblox-gamedev)). A live, monetized Roblox game built with an AI coding agent as the primary implementer, published with about 40,000 lines of the actual Luau source, a permalinked code tour, and a candid account of what the agent structurally cannot do on a closed engine. This is the most complete public evidence of how I work.
 
-**Droneteleo.** A command-line tool that holds a live USB connection to a Betaflight flight controller and lets a pilot tune it by describing the problem instead of hand-editing firmware parameters. Every change stages to RAM and nothing touches flash without an explicit save. A dedicated safety-review agent audits any feature that could spin a motor. The design direction I care most about: blackbox chirp detection, the signal processing behind it, and the parameter recommendations it produces are deterministic Python, and the session write-back records what changed from the command log instead of asking a model to infer it. A model narrates results and interprets logs; it does not produce the recommendations. Users pay for fewer tokens and get recommendations that don't vary run to run.
+**Droneteleo.** A command-line tool that holds a live USB connection to a Betaflight flight controller and lets a pilot tune it by describing the problem instead of hand-editing firmware parameters. Every change stages to RAM and nothing touches flash without an explicit save. A dedicated safety-review agent audits any feature that could spin a motor. The design direction I care most about: blackbox chirp detection, the signal processing behind it, and the parameter recommendations it produces are deterministic Python, and the session write-back records what changed from the command log instead of asking a model to infer it. A model narrates results and interprets logs; it does not produce the recommendations. Users pay for fewer tokens and get recommendations that don't vary run to run. It's also the project behind the cross-machine and hardware-in-the-loop workflows described above.
 
 **Retirement planning engine.** A projection engine with a certified Monte Carlo core, a versioned decision registry, and a claims gate that checks every number in every report against its source before the report ships. Built and used for my own household. An interactive design study with synthetic numbers exists for showing how a spending dial interacts with a guaranteed floor.
 
