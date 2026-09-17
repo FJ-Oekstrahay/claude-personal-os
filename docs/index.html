@@ -489,9 +489,9 @@
     color: var(--muted-light);
   }
 
-  .agent-tier.tier-sonnet .agent-tier-header { color: var(--accent); }
-  .agent-tier.tier-opus .agent-tier-header { color: #d2a8ff; }
-  .agent-tier.tier-haiku .agent-tier-header { color: var(--green); }
+  .agent-tier.tier-impl .agent-tier-header { color: var(--accent); }
+  .agent-tier.tier-review .agent-tier-header { color: #d2a8ff; }
+  .agent-tier.tier-general .agent-tier-header { color: var(--green); }
 
   .agent-card {
     padding: 9px 12px;
@@ -617,7 +617,7 @@
 <div class="hero-text">
 <span class="section-tag">Geoff Hoekstra · AI systems</span>
 <h1>AI systems that run <span class="accent">unattended</span>.</h1>
-<p class="lede">I build agent systems with the governance, verification, and pacing that let them run without someone watching. This page is the working setup behind that claim: a Claude Code operating layer in daily use since March 2026, and the projects it runs.</p>
+<p class="lede">I build agent systems with the governance, verification, and pacing that let them run without someone watching. This page is the working setup behind that claim: a Claude Code operating layer in daily use, and the projects it runs.</p>
 <div class="hero-badges">
 <span class="badge"><span class="dot"></span>7 hook events wired</span>
 <span class="badge"><span class="dot"></span>7 named subagents</span>
@@ -684,25 +684,25 @@ style TEL fill:#1a2a3a,stroke:#2a4a6a
 </div>
 <h3>Review agents, in a fixed order</h3>
 <p>Named subagents are Markdown files with a model, a persona, and a job. The four reviewers are the ones that change outcomes, and the order they run in is a rule, not a preference: the product skeptic runs before the technical planner, because once a planner has produced a plan, every later critique anchors on it.</p>
-<div class="agent-tiers" role="img" aria-label="Agent roster by model tier">
-<div class="agent-tier tier-sonnet">
-<div class="agent-tier-header">Sonnet</div>
+<div class="agent-tiers" role="img" aria-label="Agent roster by role">
+<div class="agent-tier tier-review">
+<div class="agent-tier-header">Review</div>
 <div class="agent-card"><div class="agent-name">Gadfly</div><div class="agent-role">Hostile product skeptic. Runs first.</div></div>
 <div class="agent-card"><div class="agent-name">CTO</div><div class="agent-role">Sequencing, coherence, what to defer. Runs after Gadfly.</div></div>
-<div class="agent-card"><div class="agent-name">Cob</div><div class="agent-role">Implementation, full capability</div></div>
-<div class="agent-card"><div class="agent-name">Claudio</div><div class="agent-role">Writing, analysis, isolated context</div></div>
-</div>
-<div class="agent-tier tier-opus">
-<div class="agent-tier-header">Opus</div>
 <div class="agent-card"><div class="agent-name">The Architect</div><div class="agent-role">Structural code and design review</div></div>
 <div class="agent-card"><div class="agent-name">Safety Officer</div><div class="agent-role">Hardware risk. First question: unexpected prop spin</div></div>
 </div>
-<div class="agent-tier tier-haiku">
-<div class="agent-tier-header">Haiku</div>
-<div class="agent-card"><div class="agent-name">Seymour</div><div class="agent-role">Enumerated, single-file work</div></div>
+<div class="agent-tier tier-impl">
+<div class="agent-tier-header">Implementation</div>
+<div class="agent-card"><div class="agent-name">Cob</div><div class="agent-role">Full capability, for work that needs real reasoning</div></div>
+<div class="agent-card"><div class="agent-name">Seymour</div><div class="agent-role">Enumerated, single-file work on the smallest model</div></div>
+</div>
+<div class="agent-tier tier-general">
+<div class="agent-tier-header">General</div>
+<div class="agent-card"><div class="agent-name">Claudio</div><div class="agent-role">Writing, analysis, isolated context</div></div>
 </div>
 </div>
-<p class="diagram-caption">Seven named subagents, grouped by the model each one runs on. The roster is generated from the files in <code>agents/</code>.</p>
+<p class="diagram-caption">Seven named subagents, grouped by job. Each file sets a default model, and the dispatcher overrides it when a task calls for more; a CTO review of a hard plan often runs on Opus.</p>
 <h3>Paced parallel work</h3>
 <p>The batch protocol (<code>batchc</code>) splits independent work into waves, dispatches each wave in parallel, and merges before the next. Wave size is not a constant. It reads the two measurements above: it caps at two tasks when the window is half full, one at three quarters, and pauses when the burst rate signals a throttle coming. When more than one file changed, a separate context has to run an independent review before the batch counts as done, and the Stop hook enforces that.</p>
 <p>For fan-out that has to be deterministic, I use Claude Code's Workflow tool with scripts where the control flow is code. My research workflow caps itself at under thirty agents (the uncapped version spawns up to 97) so a deep run stays inside subscription rate limits; the two constants that set the cap are documented with their exact agent cost per increment.</p>
@@ -735,9 +735,8 @@ style TEL fill:#1a2a3a,stroke:#2a4a6a
 <div class="section-rule"></div>
 <section id="native">
 <span class="section-tag">04</span>
-<h2>Where this sits next to native Claude Code</h2>
-<p>Anthropic ships fast. Hooks, custom subagents, auto memory, Remote Control, the Workflow tool, and cross-machine session messaging all arrived while this setup was in use, and I moved to the native version wherever it covered the need. I don't claim to have built any of those first; the changelog is public and the dates mostly precede my earliest verifiable commit.</p>
-<p>The claim I do make is narrower and checkable. When I built the pieces below, the native equivalent was absent, a research preview behind an experimental flag, or changing weekly. Agent teams entered research preview behind an experimental flag in February 2026. More than half of Remote Control's changelog entries fall in August and September 2026. Several native features only became dependable in the last two months.</p>
+<h2>What's still not native</h2>
+<p>Anthropic ships fast, and I use the native version of a feature wherever it covers the need. A look back through the changelog says building each of these made sense at the time. As of September 2026 these still have no native equivalent.</p>
 <table>
 <thead>
 <tr><th>Capability</th><th>Native status, September 2026</th></tr>
@@ -752,14 +751,14 @@ style TEL fill:#1a2a3a,stroke:#2a4a6a
 </tbody>
 </table>
 <h3>Knowing when to retire your own</h3>
-<p>In early 2026 I built a mobile command center on Discord: hooks that stream the model's narrative and every tool call to a channel, approvals that page me, and a keyword-dispatch hook so a dictated word triggers a slash command. Anthropic was building the same shape at the same time. Remote Control existed by February, channels shipped in March, push notifications in April. That is convergence, and I say so because anyone can check. Remote Control now handles the monitoring case and I use it. The streaming hooks are still published because sending every tool call to a channel is still not native, and because the judgment call of when to switch is the part worth showing.</p>
+<p>Claude Code had no way to run sessions from my phone, so I built a mobile command center on Discord: hooks that stream the model's narrative and every tool call to a channel, approvals that page me, and a keyword-dispatch hook so a dictated word triggers a slash command. Anthropic has since shipped Remote Control, channels, and push notifications. Remote Control now handles the monitoring case and I use it. The streaming hooks are still published because sending every tool call to a channel is still not native, and keyword dispatch by dictation is a pattern worth copying.</p>
 </section>
 <div class="section-rule"></div>
 <section id="hardware">
 <span class="section-tag">05</span>
 <h2>Hardware on one machine, reasoning on another</h2>
 <p>Cross-machine session messaging (above) turns out to solve a problem that's specific to hardware: firmware tuning needs a live USB connection to a flight controller, but deciding what to do with what that connection reports doesn't need to happen on the same machine the drone is plugged into. Droneteleo now splits along that line — a small daemon on whichever machine has drones connected serves flight-controller access over Tailscale, while the Claude session doing the reasoning runs wherever I am, talking to that daemon's machine over one channel and to me over another.</p>
-<p>Hand a session the day's blackbox logs, point it at a flight controller on a different machine, and have it analyze the logs, confirm the rate profile and parameters are set the way I want, and stage a fix that's ready the moment I reconnect — then close the laptop. The actual save still happens when I'm there to press it myself; that's a workflow choice, not something the daemon enforces. The same session is reachable from my phone with the laptop closed, to check what it found or redirect it, through the same dictated-keyword relay already built for Discord.</p>
+<p>Point a session at a flight controller on a different machine, hand it the day's blackbox logs (or have Droneteleo pull them directly from the controller's flash), and have it analyze the logs, confirm the rate profile and parameters are set the way I want, and stage a fix that's ready the moment I reconnect — then close the laptop. The actual save still happens when I'm there to press it myself; that's a workflow choice, not something the daemon enforces. The same session is reachable from my phone with the laptop closed, to check what it found or redirect it, through the same dictated-keyword relay already built for Discord.</p>
 <p>Letting a model hold write access to a flight controller only works if the review discipline above survives contact with real hardware. It did, on the fourth try: the Safety Officer's first pass on this daemon was DO NOT SHIP — motor commands weren't blocked, and nothing stopped the motors on an unexpected disconnect. The next two rounds each found the prior fix incomplete: a command-injection bypass through an embedded carriage return, then a second through the byte (0x7F, DEL) Betaflight's own CLI reads as backspace. It closed for good only once the check became a whitelist read out of Betaflight's own firmware source, verified against two real flight controllers including an actual flash write and reboot.</p>
 <p>The same loop is also how Droneteleo gets <em>built</em> with more than one flight controller or radio connected, not just how it gets operated afterward:</p>
 <ul>
@@ -793,23 +792,23 @@ style TEL fill:#1a2a3a,stroke:#2a4a6a
 </div>
 <div class="project-card">
 <div class="project-name">Retirement planning engine <span class="project-status">private · in daily use</span></div>
-<p>A projection engine with a certified Monte Carlo core, a versioned decision registry, and a claims gate that checks every number in every report against its source before it ships. A synthetic-data design study shows how a spending dial interacts with a guaranteed floor.</p>
+<p>Most retirement tools aim for the largest possible balance at the end. This one optimizes for quality of life in the early, active years of retirement while keeping financial security intact for the full duration. Underneath is a projection engine with a certified Monte Carlo core, a versioned decision registry, and a claims gate that checks every number in every report against its source before it ships. A synthetic-data design study shows how a spending dial interacts with a guaranteed floor.</p>
 </div>
 <div class="project-card">
 <div class="project-name">Health reasoning system <span class="project-status">private · architecture publishable</span></div>
-<p>A structured personal medical corpus reasoned over by specialty personas built to disagree with each other, under a three-question ordering gate and the anti-ratchet mechanism described above. Built for my own situation; the architecture generalizes and a public version is possible.</p>
+<p>A structured personal medical corpus reasoned over by a set of clinical personas, each reading the same data through a different lens and built to disagree with the others, under a three-question ordering gate and the anti-ratchet mechanism described above. Built for my own situation; the architecture generalizes and a public version is possible.</p>
 </div>
 <div class="project-card">
 <div class="project-name">Family infrastructure <span class="project-status">private · in daily use</span></div>
-<p>A Cloudflare Worker serving a shared family board, email and SMS intake workers feeding a structured wiki, event registration with a one-time-passcode gate, and a macOS screen-time daemon that had to work around the OS's own notification suppression. Built so a school signup or a shared calendar doesn't need a parent manually reconciling five different inboxes; a general version is possible, not yet built.</p>
+<p>A Cloudflare Worker serving a shared family board, email and SMS intake workers feeding a structured wiki, event registration with a one-time-passcode gate, and a macOS screen-time daemon that had to work around the OS's own notification suppression. Built so a school signup or a shared calendar doesn't depend on a parent reconciling five different inboxes by hand; a general version is possible, not yet built.</p>
 </div>
 <div class="project-card">
 <div class="project-name">AI phone agent for prior authorization <span class="project-status status-paused">proof of concept · paused</span></div>
-<p>Calls an insurer's line, navigates the IVR by tone injection, and conducts the authorization conversation. Before any live call it was red-teamed against a second model playing the insurer, which caught real domain gaps. Paused since April 2026; no Business Associate Agreement is in place, so no real patient data has flowed through it.</p>
+<p>Prototyped in collaboration with a physician. Calls an insurer's line, navigates the IVR by tone injection, and conducts the authorization conversation. Before any live call it was red-teamed against a second model playing the insurer, which caught real domain gaps. Currently paused; no Business Associate Agreement is in place, so no real patient data has flowed through it.</p>
 </div>
 <div class="project-card">
 <div class="project-name">Bambu 3D-print settings tool <span class="project-status status-public">public</span></div>
-<p>Two Python scripts that turn an STL plus a plain-language part description into a ready-to-print <code>.3mf</code>, by treating the project file as what it is, a zip of JSON and XML, and patching it directly.</p>
+<p>Two Python scripts that turn an STL plus a plain-language part description into a ready-to-print <code>.3mf</code>, by treating the project file as what it is, a zip of JSON and XML, and patching it directly. These days I ask Claude for thicker walls, a different infill, or a solid panel turned into a mesh screen, and get a file back. The published scripts cover the settings side; the geometry edits are newer and not in the public repo yet.</p>
 <a href="https://github.com/FJ-Oekstrahay/bambu-3mf-maker-with-settings" target="_blank" rel="noopener">github.com/FJ-Oekstrahay/bambu-3mf-maker-with-settings</a>
 </div>
 </div>
@@ -818,8 +817,8 @@ style TEL fill:#1a2a3a,stroke:#2a4a6a
 <section id="about">
 <span class="section-tag">08</span>
 <h2>About</h2>
-<p>I'm Geoff Hoekstra. MSEE from the University of Virginia, then thirty years in technical sales and marketing, which means a career spent translating between the people who build systems and the people who buy them. Since early 2026 I have been building AI systems: agent orchestration, governance and verification, and the tooling that turns a model demo into something that runs on its own.</p>
-<p>If you're trying to get from a working demo to a system you'd leave running, that is the problem I work on. The repo is the evidence: nearly every claim about the setup on this page traces to a file in it or to Anthropic's public changelog — the few that don't (like the SessionStart health check) are personal plumbing I've said isn't published. The project descriptions are mine to stand behind.</p>
+<p>I'm Geoff Hoekstra, an engineer by training. BSEE and MSEE from the University of Virginia: control systems and RF/satellite communications as an undergraduate, machine vision and pattern recognition for the master's degree. Thirty years of selling and supporting engineering platforms followed: National Instruments, a stint in autonomous-vehicle safety testing at Perrone Robotics, then ANSYS and Synopsys. The AI systems I build involve agent orchestration, governance, and verification — the tooling that turns a model demo into something that runs unattended.</p>
+<p>Outside of work I sing and play guitar, and build and fly FPV drones.</p>
 <h4>Start here</h4>
 <ul>
 <li><a href="https://github.com/FJ-Oekstrahay/claude-personal-os" target="_blank" rel="noopener">The repo</a>: <code>LESSONS.md</code> first, then <code>hooks/batchc-stop-gate.py</code> and <code>commands/review-sequence.md</code>.</li>
