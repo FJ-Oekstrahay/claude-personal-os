@@ -759,7 +759,7 @@ style TEL fill:#1a2a3a,stroke:#2a4a6a
 <span class="section-tag">05</span>
 <h2>Hardware on one machine, reasoning on another</h2>
 <p>Cross-machine session messaging (above) turns out to solve a problem that's specific to hardware: firmware tuning needs a live USB connection to a flight controller, but deciding what to do with what that connection reports doesn't need to happen on the same machine the drone is plugged into. Droneteleo now splits along that line — a small daemon on whichever machine has drones connected serves flight-controller access over Tailscale, while the Claude session doing the reasoning runs wherever I am, talking to that daemon's machine over one channel and to me over another.</p>
-<p>In practice: hand a session the day's blackbox logs and a flight controller on a different machine, have it analyze and stage a fix, then close the laptop while it waits at the bench. The actual save still happens when I'm there to press it myself, because of how I've set the workflow up, not because the daemon enforces it. Or drive that same session from my phone with the laptop closed, through the same dictated-keyword relay already built for Discord.</p>
+<p>Hand a session the day's blackbox logs, point it at a flight controller on a different machine, and have it analyze the logs, confirm the rate profile and parameters are set the way I want, and stage a fix that's ready the moment I reconnect — then close the laptop. The actual save still happens when I'm there to press it myself; that's a workflow choice, not something the daemon enforces. The same session is reachable from my phone with the laptop closed, to check what it found or redirect it, through the same dictated-keyword relay already built for Discord.</p>
 <p>Letting a model hold write access to a flight controller only works if the review discipline above survives contact with real hardware. It did, on the fourth try: the Safety Officer's first pass on this daemon was DO NOT SHIP — motor commands weren't blocked, and nothing stopped the motors on an unexpected disconnect. The next two rounds each found the prior fix incomplete: a command-injection bypass through an embedded carriage return, then a second through the byte (0x7F, DEL) Betaflight's own CLI reads as backspace. It closed for good only once the check became a whitelist read out of Betaflight's own firmware source, verified against two real flight controllers including an actual flash write and reboot.</p>
 <p>The same loop is also how Droneteleo gets <em>built</em> with more than one flight controller or radio connected, not just how it gets operated afterward:</p>
 <ul>
@@ -772,15 +772,15 @@ style TEL fill:#1a2a3a,stroke:#2a4a6a
 <section id="providers">
 <span class="section-tag">06</span>
 <h2>One harness, several model providers</h2>
-<p>Claude Code is the only agent harness I use, including for work that isn't running on an Anthropic model. Provider is fixed per process, not per subagent: a workflow script routes a task to <code>ccx &lt;target&gt;</code>, which launches a separate Claude Code process against GLM, Kimi, or DeepSeek's backend rather than switching providers inside a running session. It's opt-in per turn — nothing routes off Claude's own models unless I ask for it in that turn — and most of those targets are metered per token rather than flat-rate.</p>
-<p>In my experience, this only became worth doing recently: OpenRouter has added sticky routing and prompt caching in the past several months, which is what keeps a metered call from re-paying full context cost every turn. That's true for the targets I reach through OpenRouter; the one flat-rate plan I pay for doesn't go through it.</p>
+<p>Claude Code is the only agent harness I use, even for work that isn't running on an Anthropic model. The provider is fixed per process rather than switchable mid-session: a workflow script routes a task to <code>ccx &lt;target&gt;</code>, which launches a separate Claude Code process against GLM, Kimi, or DeepSeek's backend. I opt into this per turn, and only for that turn — most of those targets are metered per token, so it's a cost decision made on purpose each time, not a default.</p>
+<p>This only got worth doing recently. OpenRouter has added sticky routing and prompt caching over the past several months, in my experience, and that's what keeps a metered call from re-paying full context cost on every turn — for the targets reached through OpenRouter; the one flat-rate plan doesn't go through it.</p>
 </section>
 <div class="section-rule"></div>
 <section id="projects">
 <span class="section-tag">07</span>
 <h2>Projects this runs</h2>
-<p>Most of these exist because the setup between a person and the thing they actually wanted to do is where they quit — and that part was never supposed to be the hard part.</p>
-<p>Seven systems — six in real use, one a paused proof of concept — two of them public. The family-facing ones are built around my own household; a general version of either is possible and not started.</p>
+<p>Most of these exist because getting ready to do a thing is where people quit, long before the thing itself gets hard. A quad's PID table, a slicer's settings, a family's signup logistics: the failure point is the setup, not the fun part waiting on the other side of it.</p>
+<p>Seven systems here: six in daily use, one paused proof of concept, two of them public. The family-facing ones are built around my own household. A general version of either is possible; neither is built.</p>
 <div class="projects">
 <div class="project-card">
 <div class="project-name">Agentic Roblox game development <span class="project-status status-public">public</span></div>
@@ -801,7 +801,7 @@ style TEL fill:#1a2a3a,stroke:#2a4a6a
 </div>
 <div class="project-card">
 <div class="project-name">Family infrastructure <span class="project-status">private · in daily use</span></div>
-<p>A Cloudflare Worker serving a shared family board, email and SMS intake workers feeding a structured wiki, event registration with a one-time-passcode gate, and a macOS screen-time daemon that had to work around the OS's own notification suppression. Built for my household; a general version is possible.</p>
+<p>A Cloudflare Worker serving a shared family board, email and SMS intake workers feeding a structured wiki, event registration with a one-time-passcode gate, and a macOS screen-time daemon that had to work around the OS's own notification suppression. Built so a signup or a schedule doesn't get to be the thing that ruins the fun; a general version is possible, not yet built.</p>
 </div>
 <div class="project-card">
 <div class="project-name">AI phone agent for prior authorization <span class="project-status status-paused">proof of concept · paused</span></div>
