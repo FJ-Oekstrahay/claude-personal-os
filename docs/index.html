@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Geoff Hoekstra · AI systems that run unattended</title>
+<meta name="description" content="Geoff Hoekstra builds AI agent systems with the governance, verification, and pacing that let them run unattended. The Claude Code operating layer behind that work, and the projects it runs.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#9881;&#65039;</text></svg>">
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-elev: #161b22;
+    --bg-elev2: #1c2128;
+    --border: #30363d;
+    --border-subtle: #21262d;
+    --fg: #e6edf3;
+    --muted: #8b949e;
+    --muted-light: #6e7681;
+    --accent: #58a6ff;
+    --accent-dim: rgba(88, 166, 255, 0.10);
+    --accent-hover: #79b8ff;
+    --green: #3fb950;
+    --green-dim: rgba(63, 185, 80, 0.10);
+    --orange: #d29922;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --radius: 6px;
+    --radius-sm: 4px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body { overflow-x: hidden; }
+
+  /* ── Nav ── */
+  nav.topnav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(13, 17, 23, 0.93);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  nav.topnav .nav-inner {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 12px 24px;
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  nav.topnav .nav-inner::-webkit-scrollbar { display: none; }
+
+  nav.topnav .brand {
+    font-family: var(--mono);
+    font-size: 0.875rem;
+    color: var(--fg);
+    font-weight: 600;
+    white-space: nowrap;
+    margin-right: 8px;
+  }
+
+  nav.topnav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+    transition: color 0.15s;
+    position: relative;
+    padding-bottom: 2px;
+  }
+  nav.topnav a::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  nav.topnav a:hover { color: var(--accent); }
+  nav.topnav a:hover::after { opacity: 0.6; }
+
+  /* ── Layout ── */
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+  }
+
+  section {
+    padding: 64px 0 0;
+    margin-bottom: 0;
+  }
+
+  .section-rule {
+    height: 1px;
+    background: linear-gradient(to right, var(--border) 20%, transparent 100%);
+    margin: 52px 0 0;
+  }
+
+  section.hero {
+    padding-top: 72px;
+  }
+
+  /* ── Hero image accent ── */
+  .hero-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 28px;
+    margin-bottom: 0;
+  }
+
+  .hero-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .hero-mark {
+    flex-shrink: 0;
+    width: 160px;
+    height: 160px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    opacity: 0.72;
+    transition: opacity 0.25s;
+    margin-top: 4px;
+    position: relative;
+  }
+  .hero-mark::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+  }
+  .hero-mark:hover { opacity: 0.9; }
+  .hero-mark img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    filter: saturate(0.8) brightness(0.9);
+  }
+
+  @media (max-width: 640px) {
+    .hero-top { flex-direction: row; gap: 16px; }
+    .hero-mark { width: 80px; height: 80px; border-radius: 8px; margin-top: 6px; }
+  }
+  @media (max-width: 420px) {
+    .hero-mark { display: none; }
+  }
+
+  /* ── Typography ── */
+  h1 {
+    font-size: 2.125rem;
+    line-height: 1.2;
+    margin: 0 0 12px;
+    letter-spacing: -0.025em;
+    font-weight: 700;
+  }
+  h1 .accent { color: var(--accent); }
+
+  h2 {
+    font-size: 1.25rem;
+    margin: 0 0 18px;
+    letter-spacing: -0.01em;
+    font-weight: 600;
+    color: var(--fg);
+  }
+
+  /* h2 gets a subtle left mark */
+  section:not(.hero) h2 {
+    padding-left: 12px;
+    border-left: 2px solid var(--accent);
+    margin-left: -14px;
+  }
+
+  h3 {
+    font-size: 1rem;
+    margin: 36px 0 10px;
+    font-weight: 600;
+    color: var(--fg);
+  }
+
+  h4 {
+    font-size: 0.875rem;
+    margin: 24px 0 8px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  p { margin: 0 0 14px; color: var(--fg); }
+
+  .lede {
+    font-size: 1.0625rem;
+    color: var(--muted);
+    margin: 0 0 24px;
+    line-height: 1.65;
+    max-width: 580px;
+  }
+
+  a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  a:hover {
+    color: var(--accent-hover);
+    border-bottom-color: rgba(88,166,255,0.35);
+  }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.8em;
+    background: var(--bg-elev);
+    color: #a5d6ff;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--border-subtle);
+  }
+
+  pre {
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    background: var(--bg-elev);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    padding: 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    line-height: 1.55;
+    margin: 16px 0;
+  }
+  pre code {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    border: none;
+    font-size: inherit;
+  }
+
+  /* ── Tables ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 20px;
+    font-size: 0.875rem;
+    display: block;
+    overflow-x: auto;
+  }
+
+  @media (min-width: 600px) {
+    table { display: table; }
+  }
+
+  th, td {
+    border: 1px solid var(--border);
+    padding: 9px 14px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--bg-elev);
+    font-weight: 600;
+    font-size: 0.75rem;
+    color: var(--muted-light);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  tr:hover td { background: rgba(255,255,255,0.015); }
+
+  ul, ol { margin: 0 0 16px; padding-left: 22px; }
+  li { margin-bottom: 5px; }
+
+  strong { color: var(--fg); font-weight: 600; }
+  em { color: var(--muted); font-style: italic; }
+
+  /* ── Section tag ── */
+  .section-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .section-tag::after {
+    content: '';
+    display: inline-block;
+    width: 24px;
+    height: 1px;
+    background: var(--accent);
+    opacity: 0.5;
+  }
+
+  /* ── Callout boxes ── */
+  .callout {
+    background: var(--accent-dim);
+    border: 1px solid rgba(88,166,255,0.2);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+    padding: 14px 18px;
+    margin: 20px 0;
+    font-size: 0.8875rem;
+    line-height: 1.6;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout code { background: rgba(88,166,255,0.08); border-color: rgba(88,166,255,0.2); }
+
+  /* ── Diagrams ── */
+  .mermaid {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 16px 16px;
+    margin: 24px auto 8px;
+    overflow-x: auto;
+    text-align: center;
+    max-width: 620px;
+  }
+
+  /* hero diagram sits full-width relative to its flex column */
+  .hero .mermaid {
+    max-width: 100%;
+  }
+
+  .diagram-caption {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted-light);
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 28px;
+    letter-spacing: 0.01em;
+  }
+
+  /* ── Memory layer panels ── */
+  .mem-layers {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 24px 0 8px;
+  }
+
+  .mem-layer {
+    display: grid;
+    grid-template-columns: 140px 1fr auto;
+    align-items: start;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    font-size: 0.875rem;
+    background: var(--bg-elev);
+  }
+
+  .mem-layer-num {
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted-light);
+    background: var(--bg-elev2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .mem-layer-num strong {
+    font-size: 0.8125rem;
+    color: var(--fg);
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 600;
+  }
+
+  .mem-layer-body {
+    padding: 14px 16px;
+    line-height: 1.5;
+    color: var(--fg);
+  }
+
+  .mem-layer-body p {
+    margin: 0 0 4px;
+    font-size: 0.875rem;
+  }
+
+  .mem-layer-body p:last-child { margin: 0; }
+
+  .mem-layer-trigger {
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted-light);
+    white-space: nowrap;
+    border-left: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .mem-layer-trigger .trigger-pill {
+    display: inline-block;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 0.6875rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .mem-layer.layer-1 { border-left: 3px solid var(--green); }
+  .mem-layer.layer-2 { border-left: 3px solid var(--accent); }
+  .mem-layer.layer-3 { border-left: 3px solid var(--muted-light); }
+
+  .mem-layer.layer-1 .mem-layer-num { color: var(--green); }
+  .mem-layer.layer-2 .mem-layer-num { color: var(--accent); }
+
+  @media (max-width: 640px) {
+    .mem-layer {
+      grid-template-columns: 1fr;
+    }
+    .mem-layer-num {
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+    }
+    .mem-layer-trigger {
+      border-left: none;
+      border-top: 1px solid var(--border);
+    }
+  }
+
+  /* ── Agent cards ── */
+  .agent-tiers {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 20px 0 8px;
+  }
+
+  .agent-tier {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .agent-tier-header {
+    padding: 8px 12px;
+    background: var(--bg-elev2);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted-light);
+  }
+
+  .agent-tier.tier-sonnet .agent-tier-header { color: var(--accent); }
+  .agent-tier.tier-opus .agent-tier-header { color: #d2a8ff; }
+  .agent-tier.tier-haiku .agent-tier-header { color: var(--green); }
+
+  .agent-card {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .agent-card:last-child { border-bottom: none; }
+
+  .agent-name {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--fg);
+    margin-bottom: 1px;
+  }
+
+  .agent-role {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  @media (max-width: 640px) {
+    .agent-tiers { grid-template-columns: 1fr; }
+  }
+
+  /* ── Hero pill badges ── */
+  .hero-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin: 20px 0 28px;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 11px 3px 9px;
+    color: var(--muted);
+    letter-spacing: 0.01em;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .badge:hover {
+    border-color: var(--accent);
+    color: var(--fg);
+  }
+  .badge .dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--green);
+    flex-shrink: 0;
+    box-shadow: 0 0 4px var(--green);
+  }
+
+  /* ── Footer ── */
+  footer {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 28px 24px 56px;
+    color: var(--muted-light);
+    font-size: 0.75rem;
+    font-family: var(--mono);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  footer a {
+    color: var(--muted);
+    border-bottom: none;
+  }
+  footer a:hover {
+    color: var(--accent);
+    border-bottom: none;
+  }
+
+  @media (max-width: 640px) {
+    h1 { font-size: 1.625rem; }
+    h2 { font-size: 1.125rem; }
+    section:not(.hero) h2 { margin-left: -10px; }
+    main { padding: 0 16px 64px; }
+    nav.topnav .nav-inner { padding: 10px 16px; gap: 14px; }
+    footer { flex-direction: column; align-items: flex-start; gap: 6px; }
+  }
+
+  /* ── Project cards + fourth agent tier (added 2026-09) ── */
+  .projects { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin: 20px 0; }
+  .project-card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; display: flex; flex-direction: column; }
+  .project-card p { margin: 8px 0 10px; font-size: 0.9375rem; flex: 1; }
+  .project-card a { font-family: var(--mono); font-size: 0.8125rem; color: var(--accent); text-decoration: none; word-break: break-all; }
+  .project-card a:hover { color: var(--accent-hover); }
+  .project-name { font-weight: 600; font-size: 1rem; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .project-status { font-family: var(--mono); font-size: 0.6875rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-weight: 400; white-space: nowrap; }
+  .status-public { color: var(--green); border-color: rgba(63, 185, 80, 0.4); }
+  .status-paused { color: var(--orange); border-color: rgba(210, 153, 34, 0.4); }
+  .agent-tier.tier-other .agent-tier-header { color: var(--muted); border-color: var(--border); }
+</style>
+</head>
+<body>
+<nav class="topnav" aria-label="Primary">
+<div class="nav-inner">
+<span class="brand">Geoff Hoekstra</span>
+<a href="#what">What I build</a>
+<a href="#system">The system</a>
+<a href="#memory">Memory</a>
+<a href="#native">Beyond native</a>
+<a href="#projects">Projects</a>
+<a href="#about">About</a>
+</div>
+</nav>
+<main>
+<section class="hero" id="top">
+<div class="hero-top">
+<div class="hero-text">
+<span class="section-tag">Geoff Hoekstra · AI systems</span>
+<h1>AI systems that run <span class="accent">unattended</span>.</h1>
+<p class="lede">I build agent systems with the governance, verification, and pacing that let them run without someone watching. This page is the working setup behind that claim: a Claude Code operating layer in daily use since March 2026, and the projects it runs.</p>
+<div class="hero-badges">
+<span class="badge"><span class="dot"></span>7 hook events wired</span>
+<span class="badge"><span class="dot"></span>8 named subagents</span>
+<span class="badge"><span class="dot"></span>450+ playbooks</span>
+<span class="badge"><span class="dot"></span>2 machines, 1 config</span>
+<span class="badge"><span class="dot"></span>rules enforced by hooks</span>
+</div>
+</div>
+<div class="hero-mark">
+<img src="hero.jpeg" alt="" role="presentation">
+</div>
+</div>
+<div class="mermaid">
+flowchart LR
+U(["Prompt"]) --> PRE["PreToolUse\nhook"]
+PRE -->|"exit 2"| BLK(["Blocked\nreason → model"])
+PRE -->|"exit 0"| TOOL["Tool runs"]
+TOOL --> POST["PostToolUse\nhooks"]
+POST --> TEL["Context fill +\nburst rate"]
+TEL --> NEXT(["Next turn"])
+NEXT -.-> STOP["Stop hook"]
+STOP -->|"no handoff\nwritten"| HOLD(["Session held\nuntil one exists"])
+style BLK fill:#2d1a1a,stroke:#8b3a3a
+style HOLD fill:#2d1a1a,stroke:#8b3a3a
+style TEL fill:#1a2a3a,stroke:#2a4a6a
+</div>
+<p class="diagram-caption">One turn. Hooks decide before a tool runs, measure after it runs, and can refuse to let the session end.</p>
+</section>
+<div class="section-rule"></div>
+<section id="what">
+<span class="section-tag">01</span>
+<h2>What I build</h2>
+<p>Most AI demos stop at the point where a person is still in the loop for every step. The work I care about starts there: making a system trustworthy enough to run a long task on its own and hand back a result you can check. That takes three things that don't come in the box.</p>
+<div class="callout">
+<p><strong>Enforcement instead of instruction.</strong> A rule in a prompt is a request the model can drop under context pressure. The rules that matter live in hooks that block. My Stop hook will not let a session end after substantial work until a handoff document exists. A PreToolUse hook rejects any handoff filename with a hand-typed date, because the model kept confabulating tomorrow's date from a UTC clock. Neither rule depends on the model remembering it.</p>
+<p><strong>Pacing by measurement.</strong> Two hooks read how full the context window is (from the session log, against the model's real window size) and how many tool calls fired in the last sixty seconds. Parallel agent dispatch sizes each wave from those numbers and backs off before a rate limit, not after.</p>
+<p><strong>Less model, on purpose.</strong> A mature product moves work off the LLM and into deterministic code, so users spend fewer tokens and get the same answer twice. Every hook on this page is shell or Python with no model call. In my drone-tuning product, blackbox chirp detection and the parameter recommendations built on it are plain Python; a model narrates and interprets, it does not produce the recommendations.</p>
+</div>
+<p>I use Claude Code as the platform, and I use Anthropic's native features wherever they cover the need. What's on this page is the layer above them: the parts that make a capable model into a system I would leave running overnight.</p>
+</section>
+<div class="section-rule"></div>
+<section id="system">
+<span class="section-tag">02</span>
+<h2>The system</h2>
+<h3>Hook lifecycle</h3>
+<p>Claude Code fires shell scripts at lifecycle points with structured JSON on stdin. This config wires seven. The wiring is published as <code>settings.example.json</code> in the repo.</p>
+<table>
+<thead>
+<tr><th>Event</th><th>When</th><th>What runs here</th></tr>
+</thead>
+<tbody>
+<tr><td><code>SessionStart</code></td><td>Session begins</td><td>Reset pressure tracking; check for a stray API key in the environment that would silently start metered billing; health-check the memory index</td></tr>
+<tr><td><code>UserPromptSubmit</code></td><td>Prompt submitted</td><td>Score the prompt for multi-step work and nudge toward the batch protocol; map dictated keywords from Discord to slash commands</td></tr>
+<tr><td><code>PreToolUse</code></td><td>Before a tool call</td><td>Block writes to protected paths; block hand-typed handoff timestamps; flush narrative text to Discord</td></tr>
+<tr><td><code>PostToolUse</code></td><td>After a tool call</td><td>Record context fill and burst rate; append an audit line; post a one-line tool summary to Discord</td></tr>
+<tr><td><code>Stop</code></td><td>Response ends</td><td>Refuse the stop if substantial work shipped without a handoff; Discord turn-end safety net</td></tr>
+<tr><td><code>SubagentStop</code></td><td>A subagent ends</td><td>Flush that subagent's trailing text so its output is attributed to it, not to the parent</td></tr>
+<tr><td><code>Notification</code></td><td>Approval needed</td><td>Desktop ping and a Discord alert</td></tr>
+</tbody>
+</table>
+<div class="callout">
+<p><strong>Exit codes are asymmetric.</strong> <code>exit 2</code> blocks and surfaces stderr to the model. <code>exit 1</code> does not block. A hook meant to enforce a constraint must exit 2, and the failure direction has to be chosen per hook: a file-protection hook fails closed, a Stop hook fails open, because a Stop hook that fails closed wedges every session.</p>
+<p><strong>Matchers cover tool names, not file operations.</strong> <code>Write|Edit</code> misses every <code>Bash</code> write. Path protection has to include <code>Bash</code> and inspect the command string.</p>
+</div>
+<h3>Review agents, in a fixed order</h3>
+<p>Named subagents are Markdown files with a model, a persona, and a job. The four reviewers are the ones that change outcomes, and the order they run in is a rule, not a preference: the product skeptic runs before the technical planner, because once a planner has produced a plan, every later critique anchors on it.</p>
+<div class="agent-tiers" role="img" aria-label="Agent roster by model tier">
+<div class="agent-tier tier-sonnet">
+<div class="agent-tier-header">Sonnet</div>
+<div class="agent-card"><div class="agent-name">Gadfly</div><div class="agent-role">Hostile product skeptic. Runs first.</div></div>
+<div class="agent-card"><div class="agent-name">CTO</div><div class="agent-role">Sequencing, coherence, what to defer. Runs after Gadfly.</div></div>
+<div class="agent-card"><div class="agent-name">Cob</div><div class="agent-role">Implementation, full capability</div></div>
+<div class="agent-card"><div class="agent-name">Claudio</div><div class="agent-role">Writing, analysis, isolated context</div></div>
+</div>
+<div class="agent-tier tier-opus">
+<div class="agent-tier-header">Opus</div>
+<div class="agent-card"><div class="agent-name">The Architect</div><div class="agent-role">Structural code and design review</div></div>
+<div class="agent-card"><div class="agent-name">Safety Officer</div><div class="agent-role">Hardware risk. First question: unexpected prop spin</div></div>
+</div>
+<div class="agent-tier tier-haiku">
+<div class="agent-tier-header">Haiku</div>
+<div class="agent-card"><div class="agent-name">Seymour</div><div class="agent-role">Enumerated, single-file work</div></div>
+</div>
+</div>
+<p class="diagram-caption">Seven named subagents, grouped by the model each one runs on. The roster is generated from the files in <code>agents/</code>.</p>
+<h3>Paced parallel work</h3>
+<p>The batch protocol (<code>batchc</code>) splits independent work into waves, dispatches each wave in parallel, and merges before the next. Wave size is not a constant. It reads the two measurements above: it caps at two tasks when the window is half full, one at three quarters, and pauses when the burst rate signals a throttle coming. When more than one file changed, a separate context has to run an independent review before the batch counts as done, and the Stop hook enforces that.</p>
+<p>For fan-out that has to be deterministic, I use Claude Code's Workflow tool with scripts where the control flow is code. My research workflow caps itself at under thirty agents (the uncapped version spawns up to 97) so a deep run stays inside subscription rate limits; the two constants that set the cap are documented with their exact agent cost per increment.</p>
+</section>
+<div class="section-rule"></div>
+<section id="memory">
+<span class="section-tag">03</span>
+<h2>Memory that survives the session</h2>
+<div class="mem-layers" role="img" aria-label="Three-layer memory architecture">
+<div class="mem-layer layer-1">
+<div class="mem-layer-num">L1<strong>Rules</strong></div>
+<div class="mem-layer-body"><p><code>CLAUDE.md</code>, loaded every session. Standing orders, the code-quality gate, verification disciplines, lessons that must be true every time.</p></div>
+<div class="mem-layer-trigger"><span class="trigger-pill">always loaded</span></div>
+</div>
+<div class="mem-layer layer-2">
+<div class="mem-layer-num">L2<strong>Playbooks</strong></div>
+<div class="mem-layer-body"><p>More than 450 curated entries in a private repo cloned on both machines. Each records what broke, why, and how to apply it. Indexed for semantic search across every project.</p></div>
+<div class="mem-layer-trigger"><span class="trigger-pill">semantic recall</span></div>
+</div>
+<div class="mem-layer layer-3">
+<div class="mem-layer-num">L3<strong>Auto memory</strong></div>
+<div class="mem-layer-body"><p>Claude Code's native per-project memory, plus an anti-ratchet hook: each recorded belief carries when it was last challenged and by whom, and a stale one gets flagged for independent review at session start.</p></div>
+<div class="mem-layer-trigger"><span class="trigger-pill">session start</span></div>
+</div>
+</div>
+<p class="diagram-caption">Three tiers on three timescales. The middle one is the differentiator: curated, cross-project, and searchable.</p>
+<p>Between sessions sits the handoff document: what was done, what is in flight, what the next session starts with. Two hooks guard it. One makes the filename timestamp impossible to hand-type; the other refuses to let a working session end without one. The next session reads the handoff, not the transcript.</p>
+<p>The anti-ratchet hook came out of a clinical-reasoning project, where a working hypothesis had entrenched across sessions until an outside model caught it. The fix was metadata plus a hook, not a better prompt: the system now knows how long a belief has gone unchallenged and forces the challenge.</p>
+</section>
+<div class="section-rule"></div>
+<section id="native">
+<span class="section-tag">04</span>
+<h2>Where this sits next to native Claude Code</h2>
+<p>Anthropic ships fast. Hooks, custom subagents, auto memory, Remote Control, the Workflow tool, and cross-machine session messaging all arrived while this setup was in use, and I moved to the native version wherever it covered the need. I don't claim to have built any of those first; the changelog is public and the dates mostly precede my earliest verifiable commit.</p>
+<p>The claim I do make is narrower and checkable. When I built the pieces below, the native equivalent was absent, a research preview behind an experimental flag, or changing weekly. Agent teams entered research preview behind an experimental flag in February 2026. More than half of Remote Control's changelog entries fall in August and September 2026. Several native features only became dependable in the last two months.</p>
+<table>
+<thead>
+<tr><th>Capability</th><th>Native status, September 2026</th></tr>
+</thead>
+<tbody>
+<tr><td>Structured session handoff, enforced by a Stop hook</td><td><code>--resume</code> restores a transcript; nothing writes or requires a handoff</td></tr>
+<tr><td>Parallel dispatch paced by live context fill and burst rate</td><td>Workflow tool has a concurrency cap and no pressure signal</td></tr>
+<tr><td>Adversarial review in a fixed order (skeptic before planner)</td><td><code>/code-review</code> finds bugs in a diff; a different job</td></tr>
+<tr><td>Curated cross-project playbook library with semantic search, synced across machines</td><td>Auto memory is per-project, flat, and does not sync</td></tr>
+<tr><td>Hooks that make specific past failures impossible</td><td>Sandbox and deny rules cover different ground</td></tr>
+<tr><td>One config repo correct on two machines with different usernames</td><td>No native equivalent</td></tr>
+</tbody>
+</table>
+<h3>Knowing when to retire your own</h3>
+<p>In early 2026 I built a mobile command center on Discord: hooks that stream the model's narrative and every tool call to a channel, approvals that page me, and a keyword-dispatch hook so a dictated word triggers a slash command. Anthropic was building the same shape at the same time. Remote Control existed by February, channels shipped in March, push notifications in April. That is convergence, and I say so because anyone can check. Remote Control now handles the monitoring case and I use it. The streaming hooks are still published because sending every tool call to a channel is still not native, and because the judgment call of when to switch is the part worth showing.</p>
+</section>
+<div class="section-rule"></div>
+<section id="projects">
+<span class="section-tag">05</span>
+<h2>Projects this runs</h2>
+<p>Seven systems — six in real use, one a paused proof of concept — two of them public. The family-facing ones are built around my own household; a general version of either is possible and not started.</p>
+<div class="projects">
+<div class="project-card">
+<div class="project-name">Agentic Roblox game development <span class="project-status status-public">public</span></div>
+<p>A live, monetized Roblox game built with an AI coding agent as the primary implementer. Published with about 40,000 lines of the actual Luau source, a permalinked code tour, and a candid account of what the agent structurally cannot do on a closed engine.</p>
+<a href="https://github.com/FJ-Oekstrahay/agentic-roblox-gamedev" target="_blank" rel="noopener">github.com/FJ-Oekstrahay/agentic-roblox-gamedev</a>
+</div>
+<div class="project-card">
+<div class="project-name">Droneteleo <span class="project-status">private · in daily use</span></div>
+<p>A command-line tool that holds a live USB connection to a Betaflight flight controller and lets a pilot tune it by describing the problem. Changes stage to RAM; nothing touches flash without an explicit save. A dedicated safety-review agent audits anything that could spin a motor, because on this project that risk was never theoretical. Chirp detection, its signal processing, and the parameter recommendations are deterministic Python; a model narrates and interprets, it doesn't produce the recommendations, and users pay for fewer tokens.</p>
+</div>
+<div class="project-card">
+<div class="project-name">Retirement planning engine <span class="project-status">private · in daily use</span></div>
+<p>A projection engine with a certified Monte Carlo core, a versioned decision registry, and a claims gate that checks every number in every report against its source before it ships. A synthetic-data design study shows how a spending dial interacts with a guaranteed floor.</p>
+</div>
+<div class="project-card">
+<div class="project-name">Health reasoning system <span class="project-status">private · architecture publishable</span></div>
+<p>A structured personal medical corpus reasoned over by specialty personas built to disagree with each other, under a three-question ordering gate and the anti-ratchet mechanism described above. Built for my own situation; the architecture generalizes and a public version is possible.</p>
+</div>
+<div class="project-card">
+<div class="project-name">Family infrastructure <span class="project-status">private · in daily use</span></div>
+<p>A Cloudflare Worker serving a shared family board, email and SMS intake workers feeding a structured wiki, event registration with a one-time-passcode gate, and a macOS screen-time daemon that had to work around the OS's own notification suppression. Built for my household; a general version is possible.</p>
+</div>
+<div class="project-card">
+<div class="project-name">AI phone agent for prior authorization <span class="project-status status-paused">proof of concept · paused</span></div>
+<p>Calls an insurer's line, navigates the IVR by tone injection, and conducts the authorization conversation. Before any live call it was red-teamed against a second model playing the insurer, which caught real domain gaps. Paused since April 2026; no Business Associate Agreement is in place, so no real patient data has flowed through it.</p>
+</div>
+<div class="project-card">
+<div class="project-name">Bambu 3D-print settings tool <span class="project-status status-public">public</span></div>
+<p>Two Python scripts that turn an STL plus a plain-language part description into a ready-to-print <code>.3mf</code>, by treating the project file as what it is, a zip of JSON and XML, and patching it directly.</p>
+<a href="https://github.com/FJ-Oekstrahay/bambu-3mf-maker-with-settings" target="_blank" rel="noopener">github.com/FJ-Oekstrahay/bambu-3mf-maker-with-settings</a>
+</div>
+</div>
+</section>
+<div class="section-rule"></div>
+<section id="about">
+<span class="section-tag">06</span>
+<h2>About</h2>
+<p>I'm Geoff Hoekstra. MSEE from the University of Virginia, then thirty years in technical sales and marketing, which means a career spent translating between the people who build systems and the people who buy them. Since early 2026 I have been building AI systems: agent orchestration, governance and verification, and the tooling that turns a model demo into something that runs on its own.</p>
+<p>If you're trying to get from a working demo to a system you'd leave running, that is the problem I work on. The repo is the evidence: nearly every claim about the setup on this page traces to a file in it or to Anthropic's public changelog — the few that don't (like the SessionStart health check) are personal plumbing I've said isn't published. The project descriptions are mine to stand behind.</p>
+<h4>Start here</h4>
+<ul>
+<li><a href="https://github.com/FJ-Oekstrahay/claude-personal-os" target="_blank" rel="noopener">The repo</a>: <code>LESSONS.md</code> first, then <code>hooks/batchc-stop-gate.py</code> and <code>commands/review-sequence.md</code>.</li>
+<li><a href="https://github.com/FJ-Oekstrahay/agentic-roblox-gamedev" target="_blank" rel="noopener">The game-dev field report</a>: the most complete public account of how I work with an agent.</li>
+<li><a href="https://github.com/FJ-Oekstrahay" target="_blank" rel="noopener">GitHub profile</a> for everything else.</li>
+</ul>
+</section>
+</main>
+<footer>
+<div>Geoff Hoekstra &mdash; a reviewed export of a private config, published by hand</div>
+<a href="https://github.com/FJ-Oekstrahay/claude-personal-os" target="_blank" rel="noopener">github.com/FJ-Oekstrahay/claude-personal-os</a>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@12/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({
+startOnLoad: true,
+theme: 'dark',
+themeVariables: {
+darkMode: true,
+background: '#161b22',
+primaryColor: '#1f2933',
+primaryTextColor: '#e6edf3',
+primaryBorderColor: '#30363d',
+lineColor: '#58a6ff',
+secondaryColor: '#21262d',
+tertiaryColor: '#0d1117',
+fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace'
+}
+});
+</script>
+</body>
+</html>
