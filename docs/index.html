@@ -605,6 +605,8 @@
 <a href="#system">The system</a>
 <a href="#memory">Memory</a>
 <a href="#native">Beyond native</a>
+<a href="#hardware">Hardware</a>
+<a href="#providers">Providers</a>
 <a href="#projects">Projects</a>
 <a href="#about">About</a>
 </div>
@@ -767,8 +769,15 @@ style TEL fill:#1a2a3a,stroke:#2a4a6a
 </ul>
 </section>
 <div class="section-rule"></div>
-<section id="projects">
+<section id="providers">
 <span class="section-tag">06</span>
+<h2>One harness, several model providers</h2>
+<p>Claude Code is the only agent harness I use, including for work that isn't running on an Anthropic model. Provider is fixed per process, not per subagent: a workflow script routes a task to <code>ccx &lt;target&gt;</code>, which launches a separate Claude Code process against GLM, Kimi, or DeepSeek's backend rather than switching providers inside a running session. It's opt-in per turn — nothing routes off Claude's own models unless I ask for it in that turn — and most of those targets are metered per token rather than flat-rate.</p>
+<p>In my experience, this only became worth doing recently: OpenRouter has added sticky routing and prompt caching in the past several months, which is what keeps a metered call from re-paying full context cost every turn. That's true for the targets I reach through OpenRouter; the one flat-rate plan I pay for doesn't go through it.</p>
+</section>
+<div class="section-rule"></div>
+<section id="projects">
+<span class="section-tag">07</span>
 <h2>Projects this runs</h2>
 <p>Most of these exist because the setup between a person and the thing they actually wanted to do is where they quit — and that part was never supposed to be the hard part.</p>
 <p>Seven systems — six in real use, one a paused proof of concept — two of them public. The family-facing ones are built around my own household; a general version of either is possible and not started.</p>
@@ -807,7 +816,7 @@ style TEL fill:#1a2a3a,stroke:#2a4a6a
 </section>
 <div class="section-rule"></div>
 <section id="about">
-<span class="section-tag">07</span>
+<span class="section-tag">08</span>
 <h2>About</h2>
 <p>I'm Geoff Hoekstra. MSEE from the University of Virginia, then thirty years in technical sales and marketing, which means a career spent translating between the people who build systems and the people who buy them. Since early 2026 I have been building AI systems: agent orchestration, governance and verification, and the tooling that turns a model demo into something that runs on its own.</p>
 <p>If you're trying to get from a working demo to a system you'd leave running, that is the problem I work on. The repo is the evidence: nearly every claim about the setup on this page traces to a file in it or to Anthropic's public changelog — the few that don't (like the SessionStart health check) are personal plumbing I've said isn't published. The project descriptions are mine to stand behind.</p>

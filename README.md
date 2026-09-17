@@ -117,6 +117,14 @@ That same review-and-hardware loop is also how Droneteleo itself gets built with
 
 ---
 
+## One harness, several model providers
+
+Claude Code is the only agent harness I use, including for work that isn't running on an Anthropic model. Provider is fixed per process, not per subagent: my workflow scripts route a task to `ccx <target>`, which launches a separate Claude Code process against GLM, Kimi, or DeepSeek's backend instead of switching providers inside a running session (`ccx`-spawned workers don't even get their own worktree, the way Claude-tier ones do, because they're a different process entirely). It's opt-in per turn, not per session — nothing routes off Claude's own models unless I ask for it in that specific turn — and most of those targets are metered per token rather than flat-rate, which is a cost decision I make on purpose each time.
+
+The reason this is worth doing at all is recent: in my experience, OpenRouter has added sticky routing and prompt caching over the past several months, which is what keeps a metered call from re-paying full context cost every turn. That applies to the targets I reach through OpenRouter; the one flat-rate plan I pay for doesn't go through it. Before this, routing off Anthropic's models was a rate-limit release valve that cost more than it saved for most tasks; now, for the metered targets, it doesn't.
+
+---
+
 ## Projects this config runs
 
 Most of these started the same way: I wanted to do the thing and hit a wall of setup first. Hand-editing PID values out of a table before a quad flies right. Fighting slicer settings before a first print finishes. Learning a game engine's project structure before my kid and I have built anything. Health and retirement decisions have a duller version of the same wall — weeks of gathering and cross-checking numbers before anyone can decide. The tooling below exists to take that part off a person.
