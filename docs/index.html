@@ -606,7 +606,6 @@
 <a href="#memory">Memory</a>
 <a href="#native">Beyond native</a>
 <a href="#hardware">Hardware</a>
-<a href="#providers">Providers</a>
 <a href="#projects">Projects</a>
 <a href="#about">About</a>
 </div>
@@ -706,6 +705,8 @@ style TEL fill:#1a2a3a,stroke:#2a4a6a
 <h3>Paced parallel work</h3>
 <p>The batch protocol (<code>batchc</code>) splits independent work into waves, dispatches each wave in parallel, and merges before the next. Wave size is not a constant. It reads the two measurements above: it caps at two tasks when the window is half full, one at three quarters, and pauses when the burst rate signals a throttle coming. When more than one file changed, a separate context has to run an independent review before the batch counts as done, and the Stop hook enforces that.</p>
 <p>For fan-out that has to be deterministic, I use Claude Code's Workflow tool with scripts where the control flow is code. My research workflow caps itself at under thirty agents (the uncapped version spawns up to 97) so a deep run stays inside subscription rate limits; the two constants that set the cap are documented with their exact agent cost per increment.</p>
+<h3>Other providers, same harness</h3>
+<p>Some work runs on GLM, Kimi, or DeepSeek rather than an Anthropic model, and Claude Code is still the only harness. The provider is fixed per process, so a workflow script routes such a task to <code>ccx &lt;target&gt;</code>, a separate Claude Code process against that backend. Those workers don't get a worktree of their own the way Claude-tier ones do, because they really are a different process. Except for one flat-rate plan that skips OpenRouter, the targets are metered per token, so the routing is something I opt into per turn. A metered call is only affordable because OpenRouter caches the prompt and pins a session to one node; without that, every turn re-pays the full context.</p>
 </section>
 <div class="section-rule"></div>
 <section id="memory">
@@ -757,38 +758,36 @@ style TEL fill:#1a2a3a,stroke:#2a4a6a
 <section id="hardware">
 <span class="section-tag">05</span>
 <h2>Hardware on one machine, reasoning on another</h2>
-<p>Cross-machine session messaging (above) turns out to solve a problem that's specific to hardware: firmware tuning needs a live USB connection to a flight controller, but deciding what to do with what that connection reports doesn't need to happen on the same machine the drone is plugged into. Droneteleo now splits along that line — a small daemon on whichever machine has drones connected serves flight-controller access over Tailscale, while the Claude session doing the reasoning runs wherever I am, talking to that daemon's machine over one channel and to me over another.</p>
-<p>Point a session at a flight controller on a different machine, hand it the day's blackbox logs (or have Droneteleo pull them directly from the controller's flash), and have it analyze the logs, confirm the rate profile and parameters are set the way I want, and stage a fix that's ready the moment I reconnect — then close the laptop. The actual save still happens when I'm there to press it myself; that's a workflow choice, not something the daemon enforces. The same session is reachable from my phone with the laptop closed, to check what it found or redirect it, through the same dictated-keyword relay already built for Discord.</p>
-<p>Letting a model hold write access to a flight controller only works if the review discipline above survives contact with real hardware. It did, on the fourth try: the Safety Officer's first pass on this daemon was DO NOT SHIP — motor commands weren't blocked, and nothing stopped the motors on an unexpected disconnect. The next two rounds each found the prior fix incomplete: a command-injection bypass through an embedded carriage return, then a second through the byte (0x7F, DEL) Betaflight's own CLI reads as backspace. It closed for good only once the check became a whitelist read out of Betaflight's own firmware source, verified against two real flight controllers including an actual flash write and reboot.</p>
-<p>The same loop is also how Droneteleo gets <em>built</em> with more than one flight controller or radio connected, not just how it gets operated afterward:</p>
+<p>Claude Code can now message a session on another machine natively, which turns out to solve a problem that's specific to hardware: firmware tuning needs a live USB connection to a flight controller, but deciding what to do with what that connection reports doesn't need to happen on the same machine the drone is plugged into. Droneteleo splits along that line. A small daemon on whichever machine has drones connected serves flight-controller access over Tailscale, while the Claude session doing the reasoning runs wherever I am, talking to that daemon's machine over one channel and to me over another.</p>
+<h3>Connected, disconnected, reconnected</h3>
+<ol>
+<li><strong>Connected.</strong> The drone is plugged into the bench machine; the session runs on another. It takes the day's blackbox logs, either handed over by me or read straight from the controller's flash, and confirms the rate profile and parameters are set the way I want.</li>
+<li><strong>Disconnected.</strong> Drone unplugged, laptop closed. The session analyzes the logs and stages a fix. It is reachable from my phone in this state, through the same dictated-keyword relay already built for Discord, so I can check what it found or redirect it.</li>
+<li><strong>Reconnected.</strong> I review what it staged. The actual save still happens when I'm there to press it myself; that's a workflow choice, not something the daemon enforces.</li>
+</ol>
+<h3>Building it with hardware attached</h3>
+<p>Claude also does Droneteleo's own development with real flight controllers and radios connected, more than one at a time. What makes that workable is already on this page.</p>
 <ul>
 <li>New command logic is exercised against a simulated flight controller first (<code>mock_daemon_virtual_testing</code>), so most iteration needs no hardware plugged in at all.</li>
 <li>When two flight controllers or radios really are connected together, access to a shared serial port is explicitly serialized (<code>serial_port_contention</code>), not left to chance.</li>
-<li>Nothing that could spin a motor ships without the Safety Officer's review, whose first question is always unexpected prop spin, and whose verdict has stopped a shipment before.</li>
+<li>Nothing that could spin a motor ships without the Safety Officer's review, whose first question is always unexpected prop spin. Letting a model hold write access to a flight controller only works if that review survives contact with real hardware. It did, on the fourth try: the first pass on this daemon was DO NOT SHIP, because motor commands weren't blocked and nothing stopped the motors on an unexpected disconnect. The next two rounds each found the prior fix incomplete: a command-injection bypass through an embedded carriage return, then a second through the byte (0x7F, DEL) Betaflight's own CLI reads as backspace. It closed for good only once the check became a whitelist read out of Betaflight's own firmware source, verified against two real flight controllers including an actual flash write and power-cycle reboot.</li>
 </ul>
 </section>
 <div class="section-rule"></div>
-<section id="providers">
-<span class="section-tag">06</span>
-<h2>One harness, several model providers</h2>
-<p>Claude Code is the only agent harness I use, even for work that isn't running on an Anthropic model. The provider is fixed per process rather than switchable mid-session: a workflow script routes a task to <code>ccx &lt;target&gt;</code>, which launches a separate Claude Code process against GLM, Kimi, or DeepSeek's backend. I opt into this per turn, and only for that turn — most of those targets are metered per token, so it's a cost decision made on purpose each time, not a default.</p>
-<p>This only got worth doing recently. OpenRouter has added sticky routing and prompt caching over the past several months, in my experience, and that's what keeps a metered call from re-paying full context cost on every turn — for the targets reached through OpenRouter; the one flat-rate plan doesn't go through it.</p>
-</section>
-<div class="section-rule"></div>
 <section id="projects">
-<span class="section-tag">07</span>
+<span class="section-tag">06</span>
 <h2>Projects this runs</h2>
-<p>Most of these exist because getting ready to do a thing is where people quit, long before the thing itself gets hard. A quad's PID table, a slicer's settings, a family's signup logistics: the failure point is the setup, not the fun part waiting on the other side of it.</p>
+<p>Most of these exist to take the setup off the front of something, so a person who isn't an expert yet gets to the part they came for.</p>
 <p>Seven systems here: six in daily use, one paused proof of concept, two of them public. The family-facing ones are built around my own household. A general version of either is possible; neither is built.</p>
 <div class="projects">
 <div class="project-card">
 <div class="project-name">Agentic Roblox game development <span class="project-status status-public">public</span></div>
-<p>A live, monetized Roblox game built with an AI coding agent as the primary implementer. Published with about 40,000 lines of the actual Luau source, a permalinked code tour, and a candid account of what the agent structurally cannot do on a closed engine.</p>
+<p>A live, monetized Roblox game built with an AI coding agent as the primary implementer. Published with about 40,000 lines of the actual Luau source, a permalinked code tour, and a candid account of what the agent structurally cannot do on a closed engine. It started as a way to build a game with my kid without either of us learning an engine's project structure first.</p>
 <a href="https://github.com/FJ-Oekstrahay/agentic-roblox-gamedev" target="_blank" rel="noopener">github.com/FJ-Oekstrahay/agentic-roblox-gamedev</a>
 </div>
 <div class="project-card">
 <div class="project-name">Droneteleo <span class="project-status">private · in daily use</span></div>
-<p>A command-line tool that holds a live USB connection to a Betaflight flight controller and lets a pilot tune it by describing the problem. Changes stage to RAM; nothing touches flash without an explicit save. A dedicated safety-review agent audits anything that could spin a motor, because on this project that risk was never theoretical. Chirp detection, its signal processing, and the parameter recommendations are deterministic Python; a model narrates and interprets, it doesn't produce the recommendations, and users pay for fewer tokens. Also the subject of the cross-machine and hardware-in-the-loop workflow above.</p>
+<p>A command-line tool that holds a live USB connection to a Betaflight flight controller and lets a pilot tune it by describing the problem, so a new pilot doesn't have to learn a PID table before the quad flies well. Changes stage to RAM; nothing touches flash without an explicit save. A dedicated safety-review agent audits anything that could spin a motor, because on this project that risk was never theoretical. Chirp detection, its signal processing, and the parameter recommendations are deterministic Python; a model narrates and interprets, it doesn't produce the recommendations, and users pay for fewer tokens. Also the subject of the cross-machine and hardware-in-the-loop workflow above.</p>
 </div>
 <div class="project-card">
 <div class="project-name">Retirement planning engine <span class="project-status">private · in daily use</span></div>
@@ -796,7 +795,7 @@ style TEL fill:#1a2a3a,stroke:#2a4a6a
 </div>
 <div class="project-card">
 <div class="project-name">Health reasoning system <span class="project-status">private · architecture publishable</span></div>
-<p>A structured personal medical corpus reasoned over by a set of clinical personas, each reading the same data through a different lens and built to disagree with the others, under a three-question ordering gate and the anti-ratchet mechanism described above. Built for my own situation; the architecture generalizes and a public version is possible.</p>
+<p>A structured personal medical corpus reasoned over by clinical personas built to disagree with each other, among them a longevity-first physician, a pragmatic practicing clinician, and an endocrinologist. They work under a three-question ordering gate and the anti-ratchet mechanism described above, and do the gathering and cross-checking up front, before anyone has to decide anything. Built for my own situation; the architecture generalizes and a public version is possible.</p>
 </div>
 <div class="project-card">
 <div class="project-name">Family infrastructure <span class="project-status">private · in daily use</span></div>
@@ -808,14 +807,14 @@ style TEL fill:#1a2a3a,stroke:#2a4a6a
 </div>
 <div class="project-card">
 <div class="project-name">Bambu 3D-print settings tool <span class="project-status status-public">public</span></div>
-<p>Two Python scripts that turn an STL plus a plain-language part description into a ready-to-print <code>.3mf</code>, by treating the project file as what it is, a zip of JSON and XML, and patching it directly. These days I ask Claude for thicker walls, a different infill, or a solid panel turned into a mesh screen, and get a file back. The published scripts cover the settings side; the geometry edits are newer and not in the public repo yet.</p>
+<p>Two Python scripts that turn an STL plus a plain-language part description into a ready-to-print <code>.3mf</code>, by treating the project file as what it is, a zip of JSON and XML, and patching it directly. A first print used to cost an hour in slicer settings before anything came off the bed. These days I ask Claude for thicker walls, a different infill, or a solid panel turned into a mesh screen, and get a file back. The published scripts cover the settings side; the geometry edits are newer and not in the public repo yet.</p>
 <a href="https://github.com/FJ-Oekstrahay/bambu-3mf-maker-with-settings" target="_blank" rel="noopener">github.com/FJ-Oekstrahay/bambu-3mf-maker-with-settings</a>
 </div>
 </div>
 </section>
 <div class="section-rule"></div>
 <section id="about">
-<span class="section-tag">08</span>
+<span class="section-tag">07</span>
 <h2>About</h2>
 <p>I'm Geoff Hoekstra, an engineer by training. BSEE and MSEE from the University of Virginia: control systems and RF/satellite communications as an undergraduate, machine vision and pattern recognition for the master's degree. Thirty years of selling and supporting engineering platforms followed: National Instruments, a stint in autonomous-vehicle safety testing at Perrone Robotics, then ANSYS and Synopsys. The AI systems I build involve agent orchestration, governance, and verification — the tooling that turns a model demo into something that runs unattended.</p>
 <p>Outside of work I sing and play guitar, and build and fly FPV drones.</p>
